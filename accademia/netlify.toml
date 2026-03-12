@@ -1,4 +1,5 @@
 [build]
+  base = "."
   command = "echo build"
   publish = "."
   functions = "netlify/functions"
@@ -7,3 +8,4 @@
   from = "/api/claude"
   to = "/.netlify/functions/claude-proxy"
   status = 200
+  
