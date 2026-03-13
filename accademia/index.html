@@ -242,7 +242,7 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
-    <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
+    <button class="api-key-btn" id="apiKeyBtn" >
       <span class="dot" id="statusDot"></span>
       <span id="statusLabel">Inserisci API Key</span>
     </button>
@@ -497,19 +497,6 @@
   </div>
 </main>
 
-<div class="modal-overlay" id="apiModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('apiModal')">✕</button>
-    <h2>API Key Claude</h2>
-    <p>Inserisci la tua chiave API Anthropic. Viene usata solo in questa sessione del browser, non viene mai salvata.</p>
-    <div class="form-group"><label>Chiave API</label><input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."></div>
-    <div class="modal-actions">
-      <button class="btn-modal-save" onclick="saveApiKey()">Salva</button>
-      <button class="btn-modal-cancel" onclick="closeModal('apiModal')">Annulla</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay" id="versionModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('versionModal')">✕</button>
@@ -525,10 +512,10 @@
   <div class="modal modal-wide">
     <button class="modal-close" onclick="closeModal('unlockModal')">✕</button>
     <h2>🔓 Revisioni esaurite</h2>
-    <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Acquista un codice di sblocco oppure inserisci un codice già acquistato.</p>
+    <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Acquista un pacchetto extra associato al tuo account.</p>
     <div class="unlock-tabs">
-      <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Acquista codice</button>
-      <button class="unlock-tab" onclick="setUnlockTab('enter')">🔑 Inserisci codice</button>
+      <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Acquista extra</button>
+      <button class="unlock-tab" onclick="setUnlockTab('enter')">ℹ Stato account</button>
     </div>
 
     <div class="unlock-panel active" id="unlockPanelBuy">
@@ -542,15 +529,15 @@
           <div class="desc"><strong>Codice Premium</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
         </div>
       </div>
-      <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Acquista su Gumroad →</button>
-      <div class="unlock-note">Dopo il pagamento ricevi il codice via email entro pochi minuti. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni.</div>
+      <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Acquista su Payhip →</button>
+      <div class="unlock-note">Dopo il pagamento su Payhip, il tuo account viene aggiornato automaticamente.</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
-      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Inserisci il codice ricevuto via email dopo l'acquisto.</p>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Gli extra acquistati vengono associati automaticamente al tuo account.</p>
       <div class="unlock-code-row">
-        <input type="text" id="unlockCodeInput" placeholder="TESIA-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px;">
-        <button class="btn-unlock" onclick="applyUnlockCode()">Applica</button>
+        <input type="text" id="unlockCodeInput" placeholder="Aggiornamento automatico account" disabled>
+        <button class="btn-unlock" onclick="applyUnlockCode()" disabled>Verifica</button>
       </div>
       <div class="unlock-note" id="unlockCodeMsg"></div>
     </div>
@@ -601,7 +588,7 @@
         <h3>5. Trattamento dei Dati Personali (GDPR — Reg. UE 2016/679)</h3>
         <p><strong>Titolare del trattamento:</strong> RobPac Publishing (Roberto Pacetti), Roma, Italia.</p>
         <p><strong>Dati trattati:</strong> Il Servizio non raccoglie né archivia dati personali su server propri. I dati immessi dall'Utente (argomento tesi, facoltà, corso) sono conservati esclusivamente in memoria volatile del browser (sessionStorage) per la durata della sessione e vengono eliminati automaticamente alla sua chiusura.</p>
-        <p><strong>API Key Anthropic:</strong> La chiave API inserita dall'Utente è conservata in memoria volatile e trasmessa direttamente alle API Anthropic senza transito su infrastrutture di RobPac Publishing. Il trattamento dati da parte di Anthropic è regolato dalla propria Privacy Policy.</p>
+        <p><strong>Motore AI del servizio:</strong> AccademIA utilizza integrazioni server-side gestite dal servizio. L'Utente non deve inserire chiavi API personali. Il trattamento dati tecnico necessario all'erogazione del servizio avviene tramite provider esterni secondo le rispettive policy.</p>
         <p><strong>Diritti dell'Utente:</strong> Ai sensi degli artt. 15-22 GDPR, l'Utente ha diritto di accesso, rettifica, cancellazione, limitazione del trattamento, portabilità e opposizione. Dato che nessun dato personale è conservato da RobPac Publishing, tali diritti sono de facto garantiti dalla natura stessa del Servizio.</p>
         <p><strong>Cookie:</strong> Il Servizio non utilizza cookie di tracciamento, profilazione o analytics di alcun tipo.</p>
       </div>
@@ -653,7 +640,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let apiKey='', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -668,7 +655,7 @@ const SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_30WGAbZRVjNR8vujs0kQnQ_fZtoHpZr';
 
 async function verifyAndConsumeCode(code) {
-  // 1. Cerca il codice
+  // 1. Cerca l'extra associato
   const res = await fetch(`${SUPABASE_URL}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id,type,used`, {
     headers: {
       'apikey': SUPABASE_KEY,
@@ -830,7 +817,8 @@ async function applyUnlockCode(){
 
   let result;
   try{
-    result = await verifyAndConsumeCode(raw);
+    showToast('Gli extra vengono accreditati automaticamente sull'account. Aggiorna la pagina tra pochi istanti.');
+    return;
   }catch(e){
     msgEl.style.color='var(--red)';
     msgEl.textContent='❌ Errore di connessione. Riprova.';
@@ -883,20 +871,6 @@ function ensureGlobalCounter(){
   wrap.innerHTML='<span id="globalRevCounter"></span>';
   document.getElementById('chaptersArea').prepend(wrap);
   renderGlobalCounter();
-}
-
-// ══════════════════════════════════════════════
-// API KEY
-// ══════════════════════════════════════════════
-function openApiModal(){document.getElementById('apiKeyInput').value=apiKey;openModal('apiModal');}
-function saveApiKey(){
-  const v=document.getElementById('apiKeyInput').value.trim();
-  if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
-  apiKey=v;
-  document.getElementById('statusDot').style.background='var(--green)';
-  document.getElementById('statusLabel').textContent='API Key attiva';
-  document.getElementById('apiKeyBtn').classList.add('connected');
-  closeModal('apiModal');showToast('API Key salvata ✓');
 }
 
 // ══════════════════════════════════════════════
@@ -980,7 +954,6 @@ REGOLE ASSOLUTE — VIOLAZIONE NON TOLLERATA:
 // PHASE 1 — INDICE
 // ══════════════════════════════════════════════
 async function startPhase1(){
-  if(!apiKey){openApiModal();showToast('Inserisci prima la tua API Key',true);return;}
   if(!validateForm())return;
   thesis.argomento=document.getElementById('argomento').value.trim();
   thesis.facolta=document.getElementById('facolta').value;
@@ -1526,43 +1499,29 @@ function formatChapterHtml(text){
 }
 
 // ══════════════════════════════════════════════
-// CLAUDE API — no search
+// TASK API
 // ══════════════════════════════════════════════
 async function callClaude(userPrompt,withSearch=false){
-  const body={model:'claude-sonnet-4-6',max_tokens:4096,system:buildSystemPrompt(),messages:[{role:'user',content:userPrompt}]};
-  if(withSearch)body.tools=[{type:'web_search_20250305',name:'web_search'}];
-  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
-  const d=await r.json();
-  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('')||'';
+  const task = withSearch ? 'chapter_draft' : 'outline_draft';
+  const r = await fetch('/api/task',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ task, input:{ content:userPrompt } })
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d.text||'';
 }
 
-// ══════════════════════════════════════════════
-// CLAUDE API — agentic web search loop
-// ══════════════════════════════════════════════
 async function callClaudeWithSearch(userPrompt){
-  const messages=[{role:'user',content:userPrompt}];
-  const sources=[];let finalText='';let iter=0;const MAX=6;
-  while(iter<MAX){
-    iter++;
-    const body={model:'claude-sonnet-4-6',max_tokens:5000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages};
-    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
-    const data=await r.json();
-    const texts=data.content.filter(b=>b.type==='text');
-    if(texts.length>0)finalText=texts.map(b=>b.text).join('');
-    if(data.stop_reason==='end_turn')break;
-    if(data.stop_reason==='tool_use'){
-      const toolUses=data.content.filter(b=>b.type==='tool_use');
-      messages.push({role:'assistant',content:data.content});
-      const results=toolUses.map(tu=>{
-        if(tu.name==='web_search'&&tu.input?.query)sources.push(tu.input.query);
-        return{type:'tool_result',tool_use_id:tu.id,content:'Ricerca completata.'};
-      });
-      messages.push({role:'user',content:results});
-    }else break;
-  }
-  return{text:finalText,sources};
+  const r = await fetch('/api/task',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ task:'chapter_draft', input:{ content:userPrompt } })
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return { text:d.text||'', sources:[] };
 }
 
 // ══════════════════════════════════════════════
