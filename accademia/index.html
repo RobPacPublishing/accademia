@@ -242,10 +242,6 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
-    <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusLabel">Inserisci API Key</span>
-    </button>
   </div>
 </header>
 
@@ -278,7 +274,7 @@
       <p>Il Servizio è concesso in licenza d'uso personale, non esclusiva e non trasferibile. È espressamente vietato: (i) cedere, rivendere o sublicenziare l'accesso al Servizio a terzi; (ii) utilizzare i contenuti generati per conto di terzi a fini commerciali; (iii) tentare di aggirare i meccanismi di controllo del numero di revisioni incluse nel piano acquistato.</p>
 
       <h3>Art. 5 — Trattamento dei Dati Personali (GDPR)</h3>
-      <p>Il Servizio <strong>non raccoglie, non archivia e non trasmette</strong> dati personali dell'Utente a server propri. Le informazioni inserite (argomento, facoltà, corso) sono elaborate esclusivamente in memoria locale del browser durante la sessione attiva e vengono eliminate alla chiusura della sessione. La chiave API Anthropic inserita dall'Utente è conservata esclusivamente in memoria volatile (sessionStorage) e non è accessibile a RobPac Publishing. Il trasferimento dati verso le API Anthropic è regolato dall'<em>Anthropic Privacy Policy</em> e dai relativi <em>Terms of Service</em>, di cui l'Utente è tenuto a prendere visione autonomamente.</p>
+      <p>Il Servizio <strong>non raccoglie, non archivia e non trasmette</strong> dati personali dell'Utente a server propri. Le informazioni inserite (argomento, facoltà, corso) sono elaborate esclusivamente in memoria locale del browser durante la sessione attiva e vengono eliminate alla chiusura della sessione. Le richieste ai provider A.I. eventualmente utilizzati dal Servizio sono inoltrate dal backend applicativo con configurazione tecnica lato server. L'Utente non è tenuto a inserire alcuna chiave API nel frontend. Il trattamento dei dati da parte dei provider esterni resta disciplinato dalle rispettive privacy policy e condizioni d'uso.</p>
 
       <h3>Art. 6 — Limitazione di Garanzia</h3>
       <p>Il Servizio è fornito "<strong>as is</strong>", senza garanzie di alcun tipo, esplicite o implicite, ivi incluse garanzie di commerciabilità, idoneità a uno scopo specifico o non violazione di diritti di terzi. RobPac Publishing non garantisce che il Servizio sia privo di errori, interruzioni o che i risultati ottenuti soddisfino le aspettative dell'Utente o i requisiti dell'istituto accademico di riferimento.</p>
@@ -497,19 +493,6 @@
   </div>
 </main>
 
-<div class="modal-overlay" id="apiModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('apiModal')">✕</button>
-    <h2>API Key Claude</h2>
-    <p>Inserisci la tua chiave API Anthropic. Viene usata solo in questa sessione del browser, non viene mai salvata.</p>
-    <div class="form-group"><label>Chiave API</label><input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."></div>
-    <div class="modal-actions">
-      <button class="btn-modal-save" onclick="saveApiKey()">Salva</button>
-      <button class="btn-modal-cancel" onclick="closeModal('apiModal')">Annulla</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay" id="versionModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('versionModal')">✕</button>
@@ -653,7 +636,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let apiKey='', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -910,20 +893,6 @@ function ensureGlobalCounter(){
   wrap.innerHTML='<span id="globalRevCounter"></span>';
   document.getElementById('chaptersArea').prepend(wrap);
   renderGlobalCounter();
-}
-
-// ══════════════════════════════════════════════
-// API KEY
-// ══════════════════════════════════════════════
-function openApiModal(){document.getElementById('apiKeyInput').value=apiKey;openModal('apiModal');}
-function saveApiKey(){
-  const v=document.getElementById('apiKeyInput').value.trim();
-  if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
-  apiKey=v;
-  document.getElementById('statusDot').style.background='var(--green)';
-  document.getElementById('statusLabel').textContent='API Key attiva';
-  document.getElementById('apiKeyBtn').classList.add('connected');
-  closeModal('apiModal');showToast('API Key salvata ✓');
 }
 
 // ══════════════════════════════════════════════
@@ -1400,8 +1369,6 @@ function approveLastChapter(){
 }
 
 async function reviseChapter(idx){
-  if(!apiKey){openApiModal();return;}
-
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
     const perCh=revState.perChapter[idx]||0;
