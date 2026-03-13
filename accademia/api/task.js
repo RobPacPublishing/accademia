@@ -2,6 +2,17 @@ const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
 
 export default async function handler(req, res) {
+  if (req.method === 'GET' && req.query?.config === 'supabase') {
+    const url = process.env.SUPABASE_URL;
+    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+    if (!url || !publishableKey) {
+      return res.status(500).json({ error: 'Configurazione Supabase mancante' });
+    }
+
+    return res.status(200).json({ url, publishableKey });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
