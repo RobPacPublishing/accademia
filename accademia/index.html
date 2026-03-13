@@ -758,17 +758,19 @@ function checkDisclaimer(){
   const c2 = document.getElementById('check2');
   const c3 = document.getElementById('check3');
   const btn = document.getElementById('btnAcceptDisclaimer');
-
   const allChecked = !!(c1 && c1.checked && c2 && c2.checked && c3 && c3.checked);
-
-  btn.disabled = !allChecked;
-
-  if (allChecked) {
+  if(allChecked){
     btn.classList.add('enabled');
+    btn.disabled = false;
     btn.removeAttribute('disabled');
+    btn.style.pointerEvents = 'auto';
+    btn.style.opacity = '1';
   } else {
     btn.classList.remove('enabled');
-    btn.setAttribute('disabled', 'disabled');
+    btn.disabled = true;
+    btn.setAttribute('disabled','disabled');
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '.4';
   }
 }
 function acceptDisclaimer(){
@@ -777,16 +779,14 @@ function acceptDisclaimer(){
 }
 // Mostra disclaimer se non già accettato
 window.addEventListener('DOMContentLoaded',()=>{
-  if(!sessionStorage.getItem('_td_accepted')){
-    document.getElementById('disclaimerOverlay').style.display='flex';
-  }
-
   ['check1','check2','check3'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', checkDisclaimer);
   });
-
   checkDisclaimer();
+  if(!sessionStorage.getItem('_td_accepted')){
+    document.getElementById('disclaimerOverlay').style.display='flex';
+  }
 });
 
 // ── GUIDA COLLASSABILE ──
