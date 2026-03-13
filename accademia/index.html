@@ -181,6 +181,19 @@
   .auth-email{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .auth-grid{display:grid;grid-template-columns:1fr;gap:12px;}
   .auth-note{font-size:12px;color:var(--text3);margin-top:12px;line-height:1.6;}
+  .app-shell.hidden{display:none;}
+  .auth-gate{max-width:860px;margin:34px auto 80px;padding:0 32px;}
+  .auth-gate.hidden{display:none;}
+  .auth-gate-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:34px;position:relative;overflow:hidden;text-align:center;}
+  .auth-gate-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+  .auth-gate-kicker{display:inline-block;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,168,76,.3);padding:4px 14px;border-radius:20px;margin-bottom:18px;}
+  .auth-gate h2{font-family:'Playfair Display',serif;font-size:30px;line-height:1.15;margin-bottom:12px;color:var(--text);}
+  .auth-gate p{color:var(--text3);font-size:15px;max-width:520px;margin:0 auto 20px;line-height:1.7;}
+  .auth-gate-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}
+  .auth-gate-btn{padding:12px 18px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--bg4);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+  .auth-gate-btn.primary{background:linear-gradient(135deg,#b8922a,var(--gold),#d4b05a);border:none;color:#0a0800;}
+  .auth-gate-btn:hover{transform:translateY(-1px);}
+  @media(max-width:640px){.auth-gate{padding:0 18px;margin:24px auto 60px;}.auth-gate-card{padding:24px;}.auth-gate h2{font-size:24px;}}
 
   /* ── GUIDA UTENTE COLLASSABILE ── */
   .guide-bar{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:24px;overflow:hidden;}
@@ -316,7 +329,18 @@
   </div>
 </div>
 
-<main class="container">
+<div class="auth-gate hidden" id="authGate">
+  <div class="auth-gate-card">
+    <div class="auth-gate-kicker">Accesso richiesto</div>
+    <h2>Accedi per iniziare o riprendere la tua tesi</h2>
+    <p>AccademIA ora richiede un account per salvare il lavoro in modo stabile, riprenderlo in futuro e usarlo anche da altri dispositivi.</p>
+    <div class="auth-gate-actions">
+      <button class="auth-gate-btn primary" type="button" onclick="openAuthModal()">Accedi / Registrati</button>
+    </div>
+  </div>
+</div>
+
+<main class="container app-shell hidden" id="appShell">
   <div class="hero">
     <div class="hero-label">✦ Powered by Claude AI + Web Search accademico</div>
     <h1>La tua laurea,<br>con I.A.</h1>
@@ -859,6 +883,8 @@ function acceptDisclaimer(){
     overlay.style.display='none';
     overlay.classList.remove('open');
   }
+  updateAppAccessUi();
+  if(!authUser) openAuthModal();
 }
 // Mostra disclaimer se non già accettato + collega gli eventi in modo robusto
 window.addEventListener('DOMContentLoaded',()=>{
@@ -883,7 +909,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(overlay) overlay.style.display='none';
   }
   bindDraftPersistence();
-  restoreSessionState();
+  updateAppAccessUi();
   window.addEventListener('beforeunload',saveSessionState);
   initSupabaseAuth();
 });
@@ -897,6 +923,7 @@ async function initSupabaseAuth(){
       client.auth.onAuthStateChange((_event,sessionData)=>{handleAuthSession(sessionData,true);});
       authListenerBound=true;
     }
+    if(!session?.user && storageGet(DISCLAIMER_ACCEPT_KEY)) openAuthModal();
   }catch(err){
     console.warn('initSupabaseAuth failed',err);
     updateAuthUi();
@@ -922,6 +949,44 @@ function updateAuthUi(){
     authBtn.classList.remove('hidden');
     logoutBtn.classList.add('hidden');
   }
+  updateAppAccessUi();
+}
+
+function updateAppAccessUi(){
+  const appShell=document.getElementById('appShell');
+  const authGate=document.getElementById('authGate');
+  if(!appShell||!authGate) return;
+  const disclaimerAccepted=!!storageGet(DISCLAIMER_ACCEPT_KEY);
+  const canUseApp=disclaimerAccepted && !!authUser;
+  appShell.classList.toggle('hidden',!canUseApp);
+  authGate.classList.toggle('hidden',canUseApp||!disclaimerAccepted);
+}
+
+function getUserScopedSessionKey(userId){
+  return `${PERSISTED_STATE_KEY}_${userId}`;
+}
+
+function readPersistedPayloadFromKey(key){
+  const raw=storageGet(key);
+  if(!raw) return null;
+  try{return JSON.parse(raw);}catch{return null;}
+}
+
+function restoreSessionStateForAuthenticatedUser(){
+  if(!authUser||!authUser.id) return null;
+  const scopedKey=getUserScopedSessionKey(authUser.id);
+  let payload=readPersistedPayloadFromKey(scopedKey);
+  if(!payload){
+    payload=readPersistedPayloadFromKey(PERSISTED_STATE_KEY);
+    if(payload){
+      storageSet(scopedKey,JSON.stringify(payload));
+    }
+  }
+  if(!payload) return null;
+  isApplyingRemoteState=true;
+  applyPersistedPayload(payload);
+  isApplyingRemoteState=false;
+  return payload;
 }
 
 function openAuthModal(){
@@ -970,6 +1035,7 @@ async function logoutSupabase(){
     currentCloudThesisId=null;
     updateAuthUi();
     showToast('Disconnessione effettuata');
+    openAuthModal();
   }catch(err){
     showToast(err.message||'Errore di disconnessione',true);
   }
@@ -983,6 +1049,7 @@ async function handleAuthSession(session,notify){
     return;
   }
   await loadLatestCloudThesis();
+  updateAppAccessUi();
   if(notify) showToast('Cloud attivo ✓');
 }
 
@@ -1035,7 +1102,11 @@ async function loadLatestCloudThesis(){
   if(error) throw error;
   if(!Array.isArray(data)||!data.length){
     currentCloudThesisId=null;
-    if(hasMeaningfulState()) scheduleCloudSave();
+    const localPayload=restoreSessionStateForAuthenticatedUser();
+    if(localPayload&&hasMeaningfulState(localPayload)){
+      scheduleCloudSave(localPayload);
+      showToast("Bozza locale associata all'account ✓");
+    }
     return;
   }
   const row=data[0];
@@ -1153,8 +1224,10 @@ function deriveCurrentStepValue(payload){
 function saveSessionState(){
   try{
     const payload=getPersistedPayload();
-    storageSet(PERSISTED_STATE_KEY,JSON.stringify(payload));
-    scheduleCloudSave(payload);
+    if(authUser&&authUser.id){
+      storageSet(getUserScopedSessionKey(authUser.id),JSON.stringify(payload));
+      scheduleCloudSave(payload);
+    }
   }catch(err){
     console.warn('saveSessionState failed',err);
   }
@@ -1220,19 +1293,7 @@ function applyPersistedPayload(payload){
 }
 
 function restoreSessionState(){
-  isRestoringSession=true;
-  const raw=storageGet(PERSISTED_STATE_KEY);
-  if(!raw){isRestoringSession=false;return;}
-  let payload;
-  try{
-    payload=JSON.parse(raw);
-  }catch{
-    storageRemove(PERSISTED_STATE_KEY);
-    isRestoringSession=false;
-    return;
-  }
-  applyPersistedPayload(payload);
-  isRestoringSession=false;
+  return restoreSessionStateForAuthenticatedUser();
 }
 
 function ensureContextPacket(){
