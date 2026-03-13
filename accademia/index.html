@@ -1284,6 +1284,7 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
       document.getElementById('indiceApproval').style.display='flex';
       document.getElementById('indiceRevision').classList.remove('open');
       document.getElementById('indiceRevInput').value='';
+      persistProject();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1328,6 +1329,7 @@ function approveAbstract(){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo 1 — ${escHtml(thesis.chapterTitles[0]||'')}</button>`;
   nc.classList.add('visible');setStep(3);
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  persistProject();
 }
 
 async function reviseAbstract(){
