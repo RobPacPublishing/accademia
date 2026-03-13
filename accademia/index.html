@@ -244,7 +244,7 @@
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
     <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
       <span class="dot" id="statusDot"></span>
-      <span id="statusLabel">Connessione AI</span>
+      <span id="statusLabel">Account attivo</span>
     </button>
   </div>
 </header>
@@ -502,7 +502,7 @@
     <button class="modal-close" onclick="closeModal('apiModal')">✕</button>
     <h2>API Key Claude</h2>
     <p>Inserisci la tua chiave API Anthropic. Viene usata solo in questa sessione del browser, non viene mai salvata.</p>
-    <div class="form-group"><label>Chiave API</label><input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."></div>
+    <div class="form-group"><label>Account</label><input type="password" id="apiKeyInput" placeholder="Accesso gestito automaticamente"></div>
     <div class="modal-actions">
       <button class="btn-modal-save" onclick="saveApiKey()">Salva</button>
       <button class="btn-modal-cancel" onclick="closeModal('apiModal')">Annulla</button>
@@ -653,7 +653,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let apiKey='server-managed', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let apiKey='', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -888,8 +888,16 @@ function ensureGlobalCounter(){
 // ══════════════════════════════════════════════
 // API KEY
 // ══════════════════════════════════════════════
-function openApiModal(){showToast('Le chiavi API sono gestite dal server.');}
-function saveApiKey(){showToast('Le chiavi API sono gestite dal server.');}
+function openApiModal(){document.getElementById('apiKeyInput').value=apiKey;openModal('apiModal');}
+function saveApiKey(){
+  const v=document.getElementById('apiKeyInput').value.trim();
+  if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
+  apiKey=v;
+  document.getElementById('statusDot').style.background='var(--green)';
+  document.getElementById('statusLabel').textContent='API Key attiva';
+  document.getElementById('apiKeyBtn').classList.add('connected');
+  closeModal('apiModal');showToast('API Key salvata ✓');
+}
 
 // ══════════════════════════════════════════════
 // FORM CONTROLS
@@ -1011,32 +1019,18 @@ async function startPhase1(){
     ?`Struttura con ESATTAMENTE ${document.getElementById('numChapters').value} capitoli.`
     :`Determina il numero ottimale di capitoli (3-6) in base alla complessità dell'argomento.`;
 
-  const prompt=`Crea l'indice per una tesi di laurea ${cp.tipoLabel}.
-
-DATI:
-- Facoltà: ${thesis.facolta} | Corso: ${thesis.corso}
-- Argomento: "${thesis.argomento}"
-- Metodologia: ${thesis.metodologia}
-- Stile disciplinare: ${cp.dp.stile}
-
-REQUISITI:
-${numHint}
-Ogni capitolo: 3-4 sottocapitoli coerenti con l'approccio ${thesis.metodologia}.
-${cp.isMagistrale
-  ?'MAGISTRALE: prevedi capitolo dedicato alla metodologia e uno allo stato dell\'arte con gap identificato. Ultimo capitolo: contributo analitico originale.'
-  :'TRIENNALE: struttura descrittivo-argomentativa con progressione logica dall\'inquadramento teorico alle conclusioni.'}
-Includi: Introduzione, capitoli numerati con sottocapitoli, Conclusioni, Bibliografia${cp.isMagistrale?', eventuale Appendice':''}
-
-FORMATO OBBLIGATORIO (solo questo, nessun testo aggiuntivo):
-Introduzione
-1. Titolo Capitolo
-   1.1 Sottocapitolo
-   1.2 Sottocapitolo
-   1.3 Sottocapitolo
-2. Titolo Capitolo
-   ...
-Conclusioni
-Bibliografia`;
+  const outlineInput={
+    topic: thesis.argomento,
+    faculty: thesis.facolta,
+    degree_course: thesis.corso,
+    degree_type: cp.tipoLabel,
+    methodology: thesis.metodologia,
+    style_profile: cp.dp.stile,
+    chapter_hint: chapterOverrideActive ? String(document.getElementById('numChapters').value) : 'auto',
+    constraints: cp.isMagistrale
+      ? 'Tesi magistrale: includi anche stato dell'arte, metodologia e contributo originale.'
+      : 'Tesi triennale: struttura descrittivo-argomentativa chiara e progressiva.'
+  };
 
   document.getElementById('indiceBlock').style.display='block';
   document.getElementById('indiceOutput').classList.add('typing');
@@ -1044,7 +1038,7 @@ Bibliografia`;
   document.getElementById('indiceApproval').style.display='none';
   setStep(1);
   try{
-    const t=await callClaude(prompt,'outline_draft');
+    const t=await callTask('outline_draft',outlineInput);
     thesis.indice=t;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
@@ -1073,15 +1067,19 @@ async function reviseIndice(){
   document.getElementById('indiceChip').className='status-chip generating';
   document.getElementById('indiceChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('indiceApproval').style.display='none';
-  const prompt=`Revisiona l'indice di tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
-Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
-INDICE ATTUALE:\n${thesis.indice}
-MODIFICHE: "${fb}"
-${numHint}
-${cp.isMagistrale?'Mantieni capitolo metodologia e gap nella letteratura.':''}
-Riscrivi indice completo. Stesso formato. Solo l'indice.`;
+  const reviewInput={
+    topic: thesis.argomento,
+    faculty: thesis.facolta,
+    degree_course: thesis.corso,
+    degree_type: cp.tipoLabel,
+    methodology: thesis.metodologia,
+    current_outline: thesis.indice,
+    feedback: fb,
+    constraints: chapterOverrideActive ? `Mantieni esattamente ${document.getElementById('numChapters').value} capitoli.` : 'Mantieni numero ottimale di capitoli.',
+    extra_constraints: cp.isMagistrale ? 'Mantieni capitolo metodologia e gap nella letteratura.' : ''
+  };
   try{
-    const t=await callClaude(prompt,'outline_review');
+    const t=await callTask('outline_review',reviewInput);
     thesis.indice=t;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
@@ -1104,19 +1102,18 @@ async function generateAbstract(){
   document.getElementById('abstractText').textContent='';
   document.getElementById('abstractApproval').style.display='none';
   const cp=thesis.contextPacket;
-  const prompt=`Scrivi l'abstract per tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
-Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
-Indice: ${thesis.indice}
-
-REQUISITI:
-- Lunghezza: ${cp.isMagistrale?'250-300':'180-220'} parole. Terza persona. Prosa continua (no sottotitoli).
-- Struttura in sequenza: (1) inquadramento problema e rilevanza, (2) obiettivo specifico, (3) metodologia adottata, (4) argomenti sviluppati per capitolo, ${cp.isMagistrale?'(5) contributo originale al dibattito, (6) conclusioni e implicazioni':'(5) conclusioni principali'}.
-- Stile: ${cp.dp.stile}
-- NON citare fonti nell'abstract
-- Chiudi con: "Parole chiave: [5-7 termini rilevanti separati da virgola]"
-Inizia direttamente. Solo il testo dell'abstract.`;
+  const abstractInput={
+    topic: thesis.argomento,
+    faculty: thesis.facolta,
+    degree_course: thesis.corso,
+    degree_type: cp.tipoLabel,
+    methodology: thesis.metodologia,
+    outline: thesis.indice,
+    style_profile: cp.dp.stile,
+    target_length: cp.isMagistrale ? '250-300 parole' : '180-220 parole'
+  };
   try{
-    const t=await callClaude(prompt,'abstract_draft');
+    const t=await callTask('abstract_draft',abstractInput);
     thesis.abstract=t;thesis.abstractVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
@@ -1143,13 +1140,17 @@ async function reviseAbstract(){
   document.getElementById('abstractChip').className='status-chip generating';
   document.getElementById('abstractChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('abstractApproval').style.display='none';
-  const prompt=`Revisiona abstract tesi ${cp.tipoLabel} in ${thesis.facolta}.
-Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
-ABSTRACT ATTUALE:\n${thesis.abstract}
-MODIFICHE: "${fb}"
-Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
+  const abstractReviewInput={
+    topic: thesis.argomento,
+    faculty: thesis.facolta,
+    degree_course: thesis.corso,
+    degree_type: cp.tipoLabel,
+    methodology: thesis.metodologia,
+    current_abstract: thesis.abstract,
+    feedback: fb
+  };
   try{
-    const t=await callClaude(prompt,'abstract_review');
+    const t=await callTask('abstract_review',abstractReviewInput);
     thesis.abstract=t;thesis.abstractVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
@@ -1316,7 +1317,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
 
   try{
-    const result=await callClaudeWithSearch(prompt,'chapter_draft');
+    const result=await callClaudeWithSearch(prompt);
     const text=result.text;
     if(result.sources.length>0){
       const bar=document.getElementById(`chapSources-${idx}`);
@@ -1365,6 +1366,7 @@ function approveLastChapter(){
 }
 
 async function reviseChapter(idx){
+  if(!apiKey){openApiModal();return;}
 
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
@@ -1400,7 +1402,7 @@ ISTRUZIONI:
 - Lunghezza: ${lung.min}-${lung.max} parole
 - NON inventare fonti. Solo testo del capitolo revisionato.`;
   try{
-    const result=await callClaudeWithSearch(prompt,'tutor_revision');
+    const result=await callClaudeWithSearch(prompt);
     const text=result.text;
     ch.versions.push({content:text,timestamp:now(),label:`Rev: "${fb.substring(0,35)}"`});
     ch.currentVersion=ch.versions.length-1;ch.content=text;
@@ -1518,29 +1520,53 @@ function formatChapterHtml(text){
 // ══════════════════════════════════════════════
 // CLAUDE API — no search
 // ══════════════════════════════════════════════
-async function callClaude(userPrompt,taskName='outline_draft'){
+
+async function callTask(task,input){
   const r=await fetch('/api/task',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:userPrompt})
+    body:JSON.stringify({task,input})
   });
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);
-  return d.text||'';
+  const data=await r.json();
+  if(!r.ok||!data.ok) throw new Error(data.error||data.message||'Errore backend');
+  return data.text||'';
+}
+
+async function callClaude(userPrompt,withSearch=false){
+  const body={model:'claude-sonnet-4-6',max_tokens:4096,system:buildSystemPrompt(),messages:[{role:'user',content:userPrompt}]};
+  if(withSearch)body.tools=[{type:'web_search_20250305',name:'web_search'}];
+  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
+  const d=await r.json();
+  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('')||'';
 }
 
 // ══════════════════════════════════════════════
 // CLAUDE API — agentic web search loop
 // ══════════════════════════════════════════════
-async function callClaudeWithSearch(userPrompt,taskName='chapter_draft'){
-  const r=await fetch('/api/task',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:userPrompt})
-  });
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);
-  return{text:d.text||'',sources:[]};
+async function callClaudeWithSearch(userPrompt){
+  const messages=[{role:'user',content:userPrompt}];
+  const sources=[];let finalText='';let iter=0;const MAX=6;
+  while(iter<MAX){
+    iter++;
+    const body={model:'claude-sonnet-4-6',max_tokens:5000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages};
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
+    const data=await r.json();
+    const texts=data.content.filter(b=>b.type==='text');
+    if(texts.length>0)finalText=texts.map(b=>b.text).join('');
+    if(data.stop_reason==='end_turn')break;
+    if(data.stop_reason==='tool_use'){
+      const toolUses=data.content.filter(b=>b.type==='tool_use');
+      messages.push({role:'assistant',content:data.content});
+      const results=toolUses.map(tu=>{
+        if(tu.name==='web_search'&&tu.input?.query)sources.push(tu.input.query);
+        return{type:'tool_result',tool_use_id:tu.id,content:'Ricerca completata.'};
+      });
+      messages.push({role:'user',content:results});
+    }else break;
+  }
+  return{text:finalText,sources};
 }
 
 // ══════════════════════════════════════════════
@@ -1556,15 +1582,6 @@ function showToast(msg,error=false){const t=document.getElementById('toast');t.t
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
-
-document.addEventListener('DOMContentLoaded',()=>{
-  const btn=document.getElementById('apiKeyBtn');
-  const dot=document.getElementById('statusDot');
-  const label=document.getElementById('statusLabel');
-  if(btn)btn.classList.add('connected');
-  if(dot)dot.style.background='var(--green)';
-  if(label)label.textContent='AI server attiva';
-});
 </script>
 </body>
 </html>
