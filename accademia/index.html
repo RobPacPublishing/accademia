@@ -193,6 +193,19 @@
   .guide-note{background:var(--bg4);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius-sm);padding:12px 14px;margin-top:16px;font-size:12px;color:var(--text3);line-height:1.6;}
   .guide-note strong{color:var(--gold);}
 
+
+  /* ── SESSION RESUME BANNER ── */
+  .resume-banner{display:none;background:linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.06));border:1px solid rgba(201,168,76,.28);border-radius:16px;padding:18px 22px;margin-bottom:22px;}
+  .resume-banner.visible{display:block;}
+  .resume-banner-title{font-size:15px;color:var(--text2);margin-bottom:6px;}
+  .resume-banner-sub{font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:14px;}
+  .resume-banner-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .resume-btn-primary,.resume-btn-secondary{padding:11px 18px;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+  .resume-btn-primary{background:linear-gradient(135deg,#b8922a,var(--gold));border:none;color:#0a0800;}
+  .resume-btn-primary:hover{opacity:.92;}
+  .resume-btn-secondary{background:transparent;border:1px solid var(--border2);color:var(--text2);}
+  .resume-btn-secondary:hover{border-color:var(--gold);color:var(--gold);}
+
   /* ── REVISION COUNTER ── */
   .rev-counter-bar{background:var(--bg3);border-top:1px solid var(--border);padding:10px 26px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
   .rev-counter-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);}
@@ -347,6 +360,17 @@
         <strong>⚠ Revisioni aggiuntive:</strong> Se esaurisci le revisioni incluse, puoi acquistare un <strong>Codice Base</strong> (+3 revisioni su un capitolo, ~€2) o un <strong>Codice Premium</strong> (revisioni illimitate su tutta la tesi). Il codice viene consegnato via email dopo l'acquisto su Payhip.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
+    </div>
+  </div>
+
+
+
+  <div class="resume-banner" id="resumeBanner">
+    <div class="resume-banner-title" id="resumeBannerTitle">Sessione trovata</div>
+    <div class="resume-banner-sub" id="resumeBannerSub"></div>
+    <div class="resume-banner-actions">
+      <button class="resume-btn-primary" onclick="resumeDraft()">Riprendi lavoro</button>
+      <button class="resume-btn-secondary" onclick="startNewProject()">Nuovo progetto</button>
     </div>
   </div>
 
@@ -662,6 +686,246 @@ let thesis={
   contextPacket:null
 };
 
+
+const DRAFT_KEY='ACCADEMIA_DRAFT_V2';
+const API_KEY_SESSION='ACCADEMIA_API_KEY';
+
+function safeJsonParse(v, fallback=null){
+  try{return JSON.parse(v);}catch(e){return fallback;}
+}
+
+function getCurrentStepFromState(){
+  if(thesis.chapters && thesis.chapters.length===thesis.chapterTitles.length && thesis.chapterTitles.length>0) return 4;
+  if(thesis.abstract) return 3;
+  if(thesis.indice) return 2;
+  return 0;
+}
+
+function buildDraftPayload(){
+  return {
+    apiKeyPresent: !!apiKey,
+    chapterOverrideActive,
+    indiceMode,
+    metodologia,
+    thesis,
+    revState,
+    form:{
+      argomento: document.getElementById('argomento')?.value || '',
+      facolta: document.getElementById('facolta')?.value || '',
+      corso: document.getElementById('corso')?.value || '',
+      tipoLaurea: document.getElementById('tipoLaurea')?.value || 'triennale',
+      indiceManuale: document.getElementById('indiceManuale')?.value || '',
+      numChapters: document.getElementById('numChapters')?.value || '4'
+    },
+    ui:{step:getCurrentStepFromState()},
+    savedAt:new Date().toISOString()
+  };
+}
+
+function persistDraft(){
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(buildDraftPayload())); }catch(e){}
+}
+
+function loadDraft(){
+  return safeJsonParse(localStorage.getItem(DRAFT_KEY), null);
+}
+
+function hasMeaningfulDraft(d){
+  if(!d) return false;
+  if(d?.thesis?.indice || d?.thesis?.abstract) return true;
+  if(Array.isArray(d?.thesis?.chapters) && d.thesis.chapters.length>0) return true;
+  const f=d.form||{};
+  return !!(f.argomento||f.facolta||f.corso||f.indiceManuale);
+}
+
+function clearDraft(){
+  try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+}
+
+function updateResumeBanner(){
+  const banner=document.getElementById('resumeBanner');
+  const title=document.getElementById('resumeBannerTitle');
+  const sub=document.getElementById('resumeBannerSub');
+  if(!banner||!title||!sub) return;
+  const draft=loadDraft();
+  if(!hasMeaningfulDraft(draft)){
+    banner.classList.remove('visible');
+    return;
+  }
+  const stepMap={0:'dati inseriti',1:'indice in lavorazione',2:'indice',3:'indice, abstract',4:'indice, abstract, capitoli'};
+  const saved = draft.savedAt ? new Date(draft.savedAt).toLocaleString('it-IT') : 'salvataggio recente';
+  const topic = draft?.thesis?.argomento || draft?.form?.argomento || 'progetto senza titolo';
+  let parts=[];
+  if(draft?.thesis?.indice) parts.push('indice');
+  if(draft?.thesis?.abstract) parts.push('abstract');
+  const chapterCount = Array.isArray(draft?.thesis?.chapters) ? draft.thesis.chapters.length : 0;
+  if(chapterCount>0) parts.push(chapterCount===1 ? '1 capitolo' : `${chapterCount} capitoli`);
+  if(parts.length===0) parts.push(stepMap[draft?.ui?.step||0]||'bozza');
+  title.textContent=`Sessione trovata: ${topic}`;
+  sub.textContent=`Ultimo salvataggio ${saved} — contiene ${parts.join(', ')}.`;
+  banner.classList.add('visible');
+}
+
+function attachDraftAutosave(){
+  ['argomento','facolta','corso','tipoLaurea','indiceManuale','numChapters'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('input', persistDraft);
+    if(el && el.tagName==='SELECT') el.addEventListener('change', persistDraft);
+  });
+}
+
+function restoreFormState(form={}){
+  document.getElementById('argomento').value=form.argomento||'';
+  document.getElementById('facolta').value=form.facolta||'';
+  document.getElementById('corso').value=form.corso||'';
+  document.getElementById('tipoLaurea').value=form.tipoLaurea||'triennale';
+  document.getElementById('indiceManuale').value=form.indiceManuale||'';
+  document.getElementById('numChapters').value=form.numChapters||'4';
+}
+
+function restoreUiControls(draft){
+  metodologia = draft?.metodologia || 'teorica';
+  document.querySelectorAll('.metod-chip').forEach(c=>{
+    const txt=c.textContent.trim().toLowerCase().replace(/\s+/g,'_');
+    c.classList.toggle('active', txt===metodologia || c.getAttribute('onclick')?.includes(`'${metodologia}'`));
+  });
+  document.getElementById('empiricaWarning').style.display=metodologia==='empirica'?'flex':'none';
+  indiceMode = draft?.indiceMode || 'ai';
+  setIndiceMode(indiceMode);
+  chapterOverrideActive = !!draft?.chapterOverrideActive;
+  document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
+  const btn=document.getElementById('toggleOverride');
+  btn.classList.toggle('active',chapterOverrideActive);
+  btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
+}
+
+function renderStoredChapterBlock(ch, idx, total){
+  const area=document.getElementById('chaptersArea');
+  const block=document.createElement('div');
+  block.id=`chap-${idx}`;
+  block.innerHTML=`
+    <div class="output-block" id="chapOutput-${idx}">
+      <div class="output-block-header">
+        <div class="output-block-title">
+          📖 Capitolo ${idx+1}
+          <span class="status-chip done" id="chapChip-${idx}">✓ Completato</span>
+          <span class="version-badge" id="chapVerBadge-${idx}" onclick="openVersionModal('chapter',${idx})">↺ v${((ch.currentVersion??0)+1)}</span>
+        </div>
+        <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(ch.title||thesis.chapterTitles[idx]||'')}</span>
+      </div>
+      <div class="output-block-body"><div class="content-text" id="chapText-${idx}">${escHtml(ch.content||'')}</div></div>
+      <div class="sources-bar" id="chapSources-${idx}"><span class="sources-label">🔍 Query ricercate</span></div>
+      <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica le citazioni prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (Google Scholar, JSTOR, ResearchGate).</div>
+      <div class="rev-counter-bar" id="revCounterBar-${idx}">
+        <div class="rev-counter-info">
+          <span>Revisioni capitolo:</span>
+          <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
+          <span>3 revisioni disponibili</span>
+        </div>
+        <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
+      </div>
+      <div class="revision-inline" id="chapRevision-${idx}">
+        <div class="revision-inline-row">
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
+          <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
+        </div>
+      </div>
+      <div class="approval-row" id="chapApproval-${idx}" style="display:none">
+        <span class="hint">Capitolo ${idx+1} approvato?</span>
+        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
+        ${idx<total-1
+          ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>`
+          :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
+      </div>
+    </div>`;
+  area.appendChild(block);
+  renderRevCounter(idx);
+  if(!canRevise(idx)){
+    const revBtn=document.getElementById(`chapRevBtn-${idx}`);
+    if(revBtn){revBtn.textContent='🔓 Sblocca revisioni';revBtn.onclick=()=>openUnlockModal(idx);}    
+  }
+}
+
+function renderDraftState(){
+  document.getElementById('indiceBlock').style.display='none';
+  document.getElementById('abstractBlock').style.display='none';
+  document.getElementById('nextAbstract').classList.remove('visible');
+  document.getElementById('nextChapters').classList.remove('visible');
+  document.getElementById('chaptersArea').innerHTML='';
+  document.getElementById('downloadBar').style.display='none';
+
+  if(thesis.indice){
+    document.getElementById('indiceBlock').style.display='block';
+    document.getElementById('indiceChip').className='status-chip done';
+    document.getElementById('indiceChip').innerHTML='✓ Completato';
+    document.getElementById('indiceText').textContent=thesis.indice;
+    document.getElementById('indiceApproval').style.display='none';
+    document.getElementById('indiceRevision').classList.remove('open');
+  }
+
+  if(thesis.abstract){
+    document.getElementById('abstractBlock').style.display='block';
+    document.getElementById('abstractChip').className='status-chip done';
+    document.getElementById('abstractChip').innerHTML='✓ Completato';
+    document.getElementById('abstractText').textContent=thesis.abstract;
+    document.getElementById('abstractApproval').style.display='none';
+    document.getElementById('abstractRevision').classList.remove('open');
+  }
+
+  const total=thesis.chapterTitles.length||0;
+  if(total>0) ensureGlobalCounter();
+  if(total>0) updateChapterProgressBar(thesis.chapters.length?Math.min(thesis.chapters.length-1,total-1):0,total,thesis.chapters.length===total && total>0);
+  (thesis.chapters||[]).forEach((ch,idx)=>renderStoredChapterBlock(ch,idx,total));
+
+  if(thesis.indice && !thesis.abstract){
+    setStep(2);
+    document.getElementById('nextAbstract').classList.add('visible');
+  }else if(thesis.abstract && (thesis.chapters||[]).length<total){
+    setStep(3);
+    thesis.currentChapterIdx=(thesis.chapters||[]).length;
+    const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
+    document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
+    document.getElementById('nextChapters').classList.add('visible');
+  }else if(total>0 && (thesis.chapters||[]).length===total){
+    setStep(4);
+    document.getElementById('downloadBar').style.display='flex';
+  }else if(thesis.indice){
+    setStep(2);
+  }else{
+    setStep(0);
+  }
+
+  updateWordCount();
+}
+
+function resumeDraft(){
+  const draft=loadDraft();
+  if(!hasMeaningfulDraft(draft)){
+    showToast('Nessuna sessione recuperabile trovata', true);
+    updateResumeBanner();
+    return;
+  }
+  restoreFormState(draft.form||{});
+  thesis = draft.thesis || thesis;
+  revState = draft.revState || revState;
+  restoreUiControls(draft);
+  apiKey = sessionStorage.getItem(API_KEY_SESSION) || apiKey || '';
+  if(apiKey){
+    document.getElementById('statusDot').style.background='var(--green)';
+    document.getElementById('statusLabel').textContent='API Key attiva';
+    document.getElementById('apiKeyBtn').classList.add('connected');
+  }
+  renderDraftState();
+  document.getElementById('resumeBanner').classList.remove('visible');
+  showToast('Sessione recuperata ✓');
+}
+
+function startNewProject(){
+  if(!confirm('Vuoi davvero iniziare un nuovo progetto? La sessione salvata verrà eliminata.')) return;
+  clearDraft();
+  location.reload();
+}
+
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
@@ -708,7 +972,9 @@ function initRevState(nChapters){
   revState.perChapter = {};
   revState.totalUsed = 0;
   revState.premiumUnlocked = false;
+  persistDraft();
 }
+
 
 const MAX_REV_PER_CHAPTER = 3;
 
@@ -724,7 +990,9 @@ function consumeRevision(idx){
   revState.totalUsed++;
   renderRevCounter(idx);
   renderGlobalCounter();
+  persistDraft();
 }
+
 
 function renderRevCounter(idx){
   const el = document.getElementById(`revCounterBar-${idx}`);
@@ -765,6 +1033,14 @@ function acceptDisclaimer(){
 }
 // Mostra disclaimer se non già accettato
 window.addEventListener('DOMContentLoaded',()=>{
+  apiKey=sessionStorage.getItem(API_KEY_SESSION)||'';
+  if(apiKey){
+    document.getElementById('statusDot').style.background='var(--green)';
+    document.getElementById('statusLabel').textContent='API Key attiva';
+    document.getElementById('apiKeyBtn').classList.add('connected');
+  }
+  attachDraftAutosave();
+  updateResumeBanner();
   if(!sessionStorage.getItem('_td_accepted')){
     document.getElementById('disclaimerOverlay').style.display='flex';
   }
@@ -849,7 +1125,9 @@ async function applyUnlockCode(){
     revState.totalBudget = revState.totalBudget + 10;
     thesis.chapters.forEach((_,i)=>renderRevCounter(i));
     renderGlobalCounter();
+    persistDraft();
     closeModal('unlockModal');
+    updateResumeBanner();
     showToast('✦ Extra Progetto attivato sul tuo account!');
     return;
   }
@@ -861,7 +1139,9 @@ async function applyUnlockCode(){
       renderRevCounter(targetIdx);
     }
     renderGlobalCounter();
+    persistDraft();
     closeModal('unlockModal');
+    updateResumeBanner();
     showToast(`✦ Extra Capitolo attivato sul Capitolo ${(targetIdx??0)+1}`);
     return;
   }
@@ -893,16 +1173,18 @@ function saveApiKey(){
   const v=document.getElementById('apiKeyInput').value.trim();
   if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
   apiKey=v;
+  sessionStorage.setItem(API_KEY_SESSION,v);
   document.getElementById('statusDot').style.background='var(--green)';
   document.getElementById('statusLabel').textContent='API Key attiva';
   document.getElementById('apiKeyBtn').classList.add('connected');
+  persistDraft();
   closeModal('apiModal');showToast('API Key salvata ✓');
 }
 
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');metodologia=val;document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';}
+function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');metodologia=val;document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';persistDraft();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -910,6 +1192,7 @@ function setIndiceMode(mode){
   document.getElementById('indiceManualWrap').style.display=mode==='manual'?'block':'none';
   document.getElementById('indiceAIWrap').style.display=mode==='ai'?'block':'none';
   document.getElementById('btnStep1').textContent=mode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
+  persistDraft();
 }
 function toggleChapterOverride(){
   chapterOverrideActive=!chapterOverrideActive;
@@ -917,7 +1200,9 @@ function toggleChapterOverride(){
   btn.classList.toggle('active',chapterOverrideActive);
   btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
   document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
+  persistDraft();
 }
+
 function setStep(n){
   for(let i=0;i<=4;i++){
     const el=document.getElementById('step-'+i);if(!el)continue;
@@ -1011,6 +1296,8 @@ async function startPhase1(){
     setStep(2);
     document.getElementById('nextAbstract').classList.add('visible');
     document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
+    persistDraft();
+    updateResumeBanner();
     showToast('Indice del relatore acquisito ✓');
     return;
   }
@@ -1060,6 +1347,8 @@ Bibliografia`;
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Completato';
       document.getElementById('indiceApproval').style.display='flex';
+      persistDraft();
+      updateResumeBanner();
     });
   }catch(e){showToast('Errore: '+e.message,true);document.getElementById('btnStep1').disabled=false;}
 }
@@ -1071,6 +1360,8 @@ function approveIndice(){
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
+  persistDraft();
+  updateResumeBanner();
 }
 
 async function reviseIndice(){
@@ -1099,6 +1390,8 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
       document.getElementById('indiceApproval').style.display='flex';
       document.getElementById('indiceRevision').classList.remove('open');
       document.getElementById('indiceRevInput').value='';
+      persistDraft();
+      updateResumeBanner();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1132,6 +1425,8 @@ Inizia direttamente. Solo il testo dell'abstract.`;
       document.getElementById('abstractChip').className='status-chip done';
       document.getElementById('abstractChip').innerHTML='✓ Completato';
       document.getElementById('abstractApproval').style.display='flex';
+      persistDraft();
+      updateResumeBanner();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1142,7 +1437,10 @@ function approveAbstract(){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo 1 — ${escHtml(thesis.chapterTitles[0]||'')}</button>`;
   nc.classList.add('visible');setStep(3);
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  persistDraft();
+  updateResumeBanner();
 }
+
 
 async function reviseAbstract(){
   const fb=document.getElementById('abstractRevInput').value.trim();
@@ -1167,6 +1465,8 @@ Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
       document.getElementById('abstractApproval').style.display='flex';
       document.getElementById('abstractRevision').classList.remove('open');
       document.getElementById('abstractRevInput').value='';
+      persistDraft();
+      updateResumeBanner();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1347,6 +1647,8 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       document.getElementById(`chapApproval-${idx}`).style.display='flex';
       updateChapterProgressBar(idx,total,true);
       renderRevCounter(idx);
+      persistDraft();
+      updateResumeBanner();
     });
   }catch(e){showToast('Errore cap.'+(idx+1)+': '+e.message,true);}
 }
@@ -1359,7 +1661,10 @@ function approveChapter(idx){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
   nc.classList.add('visible');
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  persistDraft();
+  updateResumeBanner();
 }
+
 
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
@@ -1370,6 +1675,8 @@ function approveLastChapter(){
   document.getElementById('downloadBar').style.display='flex';
   updateWordCount();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
+  persistDraft();
+  updateResumeBanner();
   showToast('🎓 Tesi completata!');
 }
 
@@ -1432,6 +1739,8 @@ ISTRUZIONI:
       updateWordCount();
       renderRevCounter(idx);
       // Se limit raggiunto, cambia il bottone revisione in "Sblocca"
+      persistDraft();
+      updateResumeBanner();
       if(!canRevise(idx)){
         const revBtn=document.getElementById(`chapRevBtn-${idx}`);
         if(revBtn){revBtn.textContent='🔓 Sblocca revisioni';revBtn.onclick=()=>openUnlockModal(idx);}
