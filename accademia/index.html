@@ -16,7 +16,7 @@
     --radius:12px;--radius-sm:8px;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{background:var(--bg);color:avar(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden;}
   body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9998;opacity:.4;}
   header{border-bottom:1px solid var(--border);padding:18px 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(5,5,5,.94);backdrop-filter:blur(14px);z-index:100;}
   .logo{display:flex;align-items:center;gap:11px;text-decoration:none;}
@@ -231,6 +231,14 @@
   .tos-section strong{color:var(--text2);}
   .tos-section em{color:var(--text3);font-style:italic;}
   .tos-date{font-size:11px;color:var(--text3);margin-bottom:20px;}
+
+  .recovery-bar{display:none;align-items:center;justify-content:space-between;gap:14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);border-left:4px solid var(--gold);border-radius:var(--radius);padding:14px 16px;margin:18px auto 0;max-width:1100px;}
+  .recovery-bar.visible{display:flex;flex-wrap:wrap;}
+  .recovery-text{font-size:13px;color:var(--text2);line-height:1.6;}
+  .recovery-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .btn-recovery{background:var(--gold);color:#111;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;}
+  .btn-recovery.secondary{background:transparent;color:var(--text2);border:1px solid var(--border2);}
+
 </style>
 </head>
 <body>
@@ -244,7 +252,7 @@
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
     <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
       <span class="dot" id="statusDot"></span>
-      <span id="statusLabel">Inserisci API Key</span>
+      <span id="statusLabel">Connessione AI</span>
     </button>
   </div>
 </header>
@@ -336,7 +344,7 @@
         </div>
         <div class="guide-step">
           <div class="guide-step-num">4</div>
-          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale. Prima dell'approvazione puoi rigenerare liberamente la bozza iniziale. Dopo l'approvazione hai <strong>3 revisioni incluse per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong>.</span></div>
+          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni incluse per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong> (dove N = numero capitoli).</span></div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">5</div>
@@ -360,6 +368,14 @@
     <div class="step-item" id="step-3"><div class="step-num">4</div><div class="step-label">Capitoli</div></div>
     <div class="step-connector"></div>
     <div class="step-item" id="step-4"><div class="step-num">5</div><div class="step-label">Download</div></div>
+  </div>
+
+  <div class="recovery-bar" id="recoveryBar">
+    <div class="recovery-text" id="recoveryText"></div>
+    <div class="recovery-actions">
+      <button class="btn-recovery" onclick="restoreSavedProject()">Riprendi lavoro</button>
+      <button class="btn-recovery secondary" onclick="discardSavedProject()">Nuovo progetto</button>
+    </div>
   </div>
 
   <div class="form-card" id="formCard">
@@ -636,7 +652,7 @@
     <div class="guide-steps" style="margin-top:4px">
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Inserisci argomento, facoltà, corso, tipo laurea e approccio metodologico. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Prima dell'approvazione puoi rigenerare liberamente la bozza iniziale; dopo l'approvazione il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Revisioni aggiuntive</strong><span>Esauriti i crediti, acquista un <strong>Codice Base</strong> (+3 rev. su 1 capitolo, €2,90) o <strong>Codice Premium</strong> (+10 rev. totali, €7,90) su Gumroad. Inserisci il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
@@ -653,7 +669,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let apiKey='', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let apiKey='server-managed', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -661,6 +677,174 @@ let thesis={
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   contextPacket:null
 };
+
+const AUTOSAVE_KEY='accademia_autosave_v1';
+
+function buildAutosavePayload(){
+  return {
+    savedAt: Date.now(),
+    chapterOverrideActive,
+    indiceMode,
+    metodologia,
+    thesis,
+    revState,
+    form: {
+      argomento: document.getElementById('argomento')?.value || '',
+      facolta: document.getElementById('facolta')?.value || '',
+      corso: document.getElementById('corso')?.value || '',
+      tipoLaurea: document.getElementById('tipoLaurea')?.value || 'triennale',
+      indiceManuale: document.getElementById('indiceManuale')?.value || '',
+      numChapters: document.getElementById('numChapters')?.value || '4'
+    }
+  };
+}
+
+function persistProject(){
+  try{ localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(buildAutosavePayload())); }catch(e){}
+}
+
+function getSavedProject(){
+  try{ return JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || 'null'); }catch(e){ return null; }
+}
+
+function summarizeSavedProject(saved){
+  const dt = saved?.savedAt ? new Date(saved.savedAt) : null;
+  const when = dt ? dt.toLocaleString('it-IT') : 'data non disponibile';
+  const title = saved?.form?.argomento || saved?.thesis?.argomento || 'Progetto senza titolo';
+  const parts = [];
+  if(saved?.thesis?.indice) parts.push('indice');
+  if(saved?.thesis?.abstract) parts.push('abstract');
+  if(Array.isArray(saved?.thesis?.chapters) && saved.thesis.chapters.length) parts.push(`${saved.thesis.chapters.length} capitoli`);
+  return `Sessione trovata: <strong>${escHtml(title)}</strong> — ultimo salvataggio ${when}${parts.length ? ` — contiene ${parts.join(', ')}` : ''}.`;
+}
+
+function checkRecoverableProject(){
+  const saved = getSavedProject();
+  const bar = document.getElementById('recoveryBar');
+  if(!saved || !(saved?.form?.argomento || saved?.thesis?.indice || saved?.thesis?.abstract || (saved?.thesis?.chapters||[]).length)){
+    bar.classList.remove('visible');
+    return;
+  }
+  document.getElementById('recoveryText').innerHTML = summarizeSavedProject(saved);
+  bar.classList.add('visible');
+}
+
+function discardSavedProject(){
+  localStorage.removeItem(AUTOSAVE_KEY);
+  document.getElementById('recoveryBar').classList.remove('visible');
+  showToast('Salvataggio locale eliminato');
+}
+
+function fillRecoveredChapter(idx,total,title,ch){
+  const area=document.getElementById('chaptersArea');
+  const wrap=document.createElement('div');
+  wrap.id=`chap-${idx}`;
+  const currentVersion=(typeof ch.currentVersion==='number'?ch.currentVersion:((ch.versions?.length||1)-1));
+  wrap.innerHTML=`
+    <div class="output-block" id="chapOutput-${idx}">
+      <div class="output-block-header">
+        <div class="output-block-title">
+          📖 Capitolo ${idx+1}
+          <span class="status-chip done" id="chapChip-${idx}">✓ Recuperato</span>
+          <span class="version-badge" id="chapVerBadge-${idx}" style="display:inline-flex" onclick="openVersionModal('chapter',${idx})">↺ v${currentVersion+1}</span>
+        </div>
+        <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
+      </div>
+      <div class="output-block-body"><div class="content-text" id="chapText-${idx}">${escHtml(ch.content||'')}</div></div>
+      <div class="rev-counter-bar" id="revCounterBar-${idx}">
+        <div class="rev-counter-info">
+          <span>Revisioni capitolo:</span>
+          <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
+          <span>${ch.approved ? 'Capitolo approvato' : 'Bozza iniziale: rigenerazioni libere fino ad approvazione'}</span>
+        </div>
+        <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
+      </div>
+      <div class="revision-inline" id="chapRevision-${idx}">
+        <div class="revision-inline-row">
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
+          <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
+        </div>
+      </div>
+      <div class="approval-row" id="chapApproval-${idx}" style="display:${ch.approved?'none':'flex'}">
+        <span class="hint">Capitolo ${idx+1} approvato?</span>
+        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Modifica / rigenera bozza</button>
+        ${idx<total-1 ? `<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>` : `<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
+      </div>
+    </div>`;
+  area.appendChild(wrap);
+  renderRevCounter(idx);
+}
+
+function restoreSavedProject(){
+  const saved = getSavedProject();
+  if(!saved) return;
+  chapterOverrideActive = !!saved.chapterOverrideActive;
+  indiceMode = saved.indiceMode || 'ai';
+  metodologia = saved.metodologia || 'teorica';
+  thesis = saved.thesis || thesis;
+  revState = saved.revState || revState;
+
+  if(saved.form){
+    const f=saved.form;
+    if(document.getElementById('argomento')) document.getElementById('argomento').value=f.argomento||'';
+    if(document.getElementById('facolta')) document.getElementById('facolta').value=f.facolta||'';
+    if(document.getElementById('corso')) document.getElementById('corso').value=f.corso||'';
+    if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=f.tipoLaurea||'triennale';
+    if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=f.indiceManuale||'';
+    if(document.getElementById('numChapters')) document.getElementById('numChapters').value=f.numChapters||'4';
+  }
+
+  setMetod(document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector('.metod-chip.active'), metodologia);
+  setIndiceMode(indiceMode);
+  if(chapterOverrideActive){
+    document.getElementById('chapterOverride').style.display='flex';
+    document.getElementById('toggleOverride').classList.add('active');
+    document.getElementById('toggleOverride').textContent='Usa AI';
+  }
+
+  if(thesis.indice){
+    document.getElementById('indiceBlock').style.display='block';
+    document.getElementById('indiceText').textContent=thesis.indice;
+    document.getElementById('indiceChip').className='status-chip done';
+    document.getElementById('indiceChip').innerHTML='✓ Recuperato';
+    document.getElementById('indiceApproval').style.display = thesis.abstract ? 'none' : 'flex';
+    setStep(1);
+  }
+
+  if(thesis.abstract){
+    document.getElementById('abstractBlock').style.display='block';
+    document.getElementById('abstractText').textContent=thesis.abstract;
+    document.getElementById('abstractChip').className='status-chip done';
+    document.getElementById('abstractChip').innerHTML='✓ Recuperato';
+    document.getElementById('abstractApproval').style.display = (thesis.chapters||[]).length ? 'none' : 'flex';
+    setStep(2);
+  }
+
+  document.getElementById('chaptersArea').innerHTML='';
+  const total=(thesis.chapterTitles||[]).length;
+  if((thesis.chapters||[]).length){
+    updateChapterProgressBar(Math.max(0,thesis.currentChapterIdx||0), total || thesis.chapters.length, true);
+    thesis.chapters.forEach((ch,i)=>{ if(ch) fillRecoveredChapter(i, total || thesis.chapters.length, ch.title || thesis.chapterTitles?.[i] || `Capitolo ${i+1}`, ch); });
+    setStep(3);
+    updateWordCount();
+  }
+
+  const next=document.getElementById('nextChapters');
+  const nextIdx=thesis.currentChapterIdx||0;
+  if((thesis.chapterTitles||[]).length && nextIdx < thesis.chapterTitles.length){
+    next.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${nextIdx+1} — ${escHtml(thesis.chapterTitles[nextIdx]||'')}</button>`;
+    next.classList.add('visible');
+  }
+
+  if((thesis.chapters||[]).length === (thesis.chapterTitles||[]).length && (thesis.chapterTitles||[]).length){
+    document.getElementById('downloadBar').style.display='flex';
+    setStep(4);
+  }
+
+  renderGlobalCounter();
+  document.getElementById('recoveryBar').classList.remove('visible');
+  showToast('Sessione recuperata ✓');
+}
 
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
@@ -712,12 +896,7 @@ function initRevState(nChapters){
 
 const MAX_REV_PER_CHAPTER = 3;
 
-function isChapterApproved(idx){
-  return !!(thesis.chapters[idx] && thesis.chapters[idx].approved);
-}
-
 function canRevise(idx){
-  if(!isChapterApproved(idx)) return true;
   const perCh = revState.perChapter[idx]||0;
   if(perCh >= MAX_REV_PER_CHAPTER) return false;
   if(revState.totalUsed >= revState.totalBudget) return false;
@@ -734,26 +913,19 @@ function consumeRevision(idx){
 function renderRevCounter(idx){
   const el = document.getElementById(`revCounterBar-${idx}`);
   if(!el) return;
-  const approved = isChapterApproved(idx);
   const used = revState.perChapter[idx]||0;
   const max = MAX_REV_PER_CHAPTER;
   const dotsHtml = Array.from({length:max},(_,i)=>{
     let cls='rev-dot';
-    if(!approved) return `<span class="${cls}"></span>`;
     if(revState.premiumUnlocked) cls+=' used';
     else if(i<used) cls+= used>=max?' locked':' used';
     return`<span class="${cls}"></span>`;
   }).join('');
   el.querySelector('.rev-counter-dots').innerHTML=dotsHtml;
-  const labelEl = el.querySelector('.rev-counter-info span:last-child');
-  if(!approved){
-    labelEl.textContent = 'Bozza iniziale: rigenerazioni libere fino ad approvazione';
-  } else {
-    const remCh = revState.premiumUnlocked ? '∞' : Math.max(0,max-used);
-    labelEl.textContent = revState.premiumUnlocked
-      ? '+10 revisioni aggiunte (Premium)'
-      : `${remCh} revisioni rimanenti su questo capitolo`;
-  }
+  const remCh = revState.premiumUnlocked ? '∞' : Math.max(0,max-used);
+  el.querySelector('.rev-counter-info span:last-child').textContent = revState.premiumUnlocked
+    ? '+10 revisioni aggiunte (Premium)'
+    : `${remCh} revisioni rimanenti su questo capitolo`;
   renderGlobalCounter();
 }
 
@@ -774,12 +946,20 @@ function checkDisclaimer(){
 function acceptDisclaimer(){
   sessionStorage.setItem('_td_accepted','1');
   document.getElementById('disclaimerOverlay').style.display='none';
+  persistProject();
 }
 // Mostra disclaimer se non già accettato
 window.addEventListener('DOMContentLoaded',()=>{
   if(!sessionStorage.getItem('_td_accepted')){
     document.getElementById('disclaimerOverlay').style.display='flex';
   }
+  ['argomento','facolta','corso','tipoLaurea','indiceManuale','numChapters'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.addEventListener('input', persistProject); el.addEventListener('change', persistProject); }
+  });
+  checkRecoverableProject();
+  setInterval(persistProject, 4000);
+  window.addEventListener('beforeunload', persistProject);
 });
 
 // ── GUIDA COLLASSABILE ──
@@ -900,16 +1080,8 @@ function ensureGlobalCounter(){
 // ══════════════════════════════════════════════
 // API KEY
 // ══════════════════════════════════════════════
-function openApiModal(){document.getElementById('apiKeyInput').value=apiKey;openModal('apiModal');}
-function saveApiKey(){
-  const v=document.getElementById('apiKeyInput').value.trim();
-  if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
-  apiKey=v;
-  document.getElementById('statusDot').style.background='var(--green)';
-  document.getElementById('statusLabel').textContent='API Key attiva';
-  document.getElementById('apiKeyBtn').classList.add('connected');
-  closeModal('apiModal');showToast('API Key salvata ✓');
-}
+function openApiModal(){showToast('Le chiavi API sono gestite dal server.');}
+function saveApiKey(){showToast('Le chiavi API sono gestite dal server.');}
 
 // ══════════════════════════════════════════════
 // FORM CONTROLS
@@ -992,7 +1164,6 @@ REGOLE ASSOLUTE — VIOLAZIONE NON TOLLERATA:
 // PHASE 1 — INDICE
 // ══════════════════════════════════════════════
 async function startPhase1(){
-  if(!apiKey){openApiModal();showToast('Inserisci prima la tua API Key',true);return;}
   if(!validateForm())return;
   thesis.argomento=document.getElementById('argomento').value.trim();
   thesis.facolta=document.getElementById('facolta').value;
@@ -1065,13 +1236,14 @@ Bibliografia`;
   document.getElementById('indiceApproval').style.display='none';
   setStep(1);
   try{
-    const t=await callClaude(prompt,false);
+    const t=await callClaude(prompt,'outline_draft');
     thesis.indice=t;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Completato';
       document.getElementById('indiceApproval').style.display='flex';
+      persistProject();
     });
   }catch(e){showToast('Errore: '+e.message,true);document.getElementById('btnStep1').disabled=false;}
 }
@@ -1081,6 +1253,7 @@ function approveIndice(){
   initRevState(thesis.chapterTitles.length);
   document.getElementById('indiceApproval').style.display='none';
   document.getElementById('nextAbstract').classList.add('visible');
+  persistProject();
   setStep(2);
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -1102,7 +1275,7 @@ ${numHint}
 ${cp.isMagistrale?'Mantieni capitolo metodologia e gap nella letteratura.':''}
 Riscrivi indice completo. Stesso formato. Solo l'indice.`;
   try{
-    const t=await callClaude(prompt,false);
+    const t=await callClaude(prompt,'outline_review');
     thesis.indice=t;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
@@ -1137,13 +1310,14 @@ REQUISITI:
 - Chiudi con: "Parole chiave: [5-7 termini rilevanti separati da virgola]"
 Inizia direttamente. Solo il testo dell'abstract.`;
   try{
-    const t=await callClaude(prompt,false);
+    const t=await callClaude(prompt,'abstract_draft');
     thesis.abstract=t;thesis.abstractVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
       document.getElementById('abstractChip').className='status-chip done';
       document.getElementById('abstractChip').innerHTML='✓ Completato';
       document.getElementById('abstractApproval').style.display='flex';
+      persistProject();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1170,7 +1344,7 @@ ABSTRACT ATTUALE:\n${thesis.abstract}
 MODIFICHE: "${fb}"
 Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
   try{
-    const t=await callClaude(prompt,false);
+    const t=await callClaude(prompt,'abstract_review');
     thesis.abstract=t;thesis.abstractVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
@@ -1211,27 +1385,22 @@ async function generateNextChapter(){
 
   const cp=thesis.contextPacket;
   const title=thesis.chapterTitles[idx];
-  const lung={'triennale':{min:1300,max:1700},'magistrale_2':{min:1800,max:2400},'magistrale_5':{min:1600,max:2200}}[thesis.tipo]||{min:1300,max:1700};
+  const lung={'triennale':{min:900,max:1100},'magistrale_2':{min:1400,max:1800},'magistrale_5':{min:1200,max:1600}}[thesis.tipo]||{min:900,max:1100};
   const chRole=getChapterRole(idx,total,title,thesis.metodologia);
-  const subTitles = extractSubchapterTitles(thesis.indice, idx);
 
+  // Previous chapters summary for coherence
   let prevSummary='';
   for(let i=0;i<idx;i++){
     const ch=thesis.chapters[i];
-    if(ch) prevSummary+=`\nCap.${i+1} "${ch.title}": ${ch.content.substring(0,220).replace(/\n/g,' ')}...`;
+    if(ch) prevSummary+=`\nCap.${i+1} "${ch.title}": ${ch.content.substring(0,180).replace(/\n/g,' ')}...`;
   }
-
-  const subTitlesBlock = subTitles.length
-    ? subTitles.map((s,i)=>`${idx+1}.${i+1} ${s}`).join('\n')
-    : `${idx+1}.1 Inquadramento del tema\n${idx+1}.2 Sviluppo critico\n${idx+1}.3 Implicazioni teoriche`;
 
   const prompt=`
 ════════════════════════════════════════
 IDENTITÀ ACCADEMICA
 ════════════════════════════════════════
 Tipo: ${cp.tipoLabel} | Facoltà: ${thesis.facolta} | Corso: ${thesis.corso}
-Argomento generale della tesi: "${thesis.argomento}"
-Titolo del capitolo da sviluppare: "${title}"
+Argomento: "${thesis.argomento}"
 ${cp.mp}
 
 ════════════════════════════════════════
@@ -1243,85 +1412,58 @@ Vocabolario tecnico: ${cp.dp.vocabolario}
 Logica: ${cp.dp.logica}
 
 ════════════════════════════════════════
-STRUTTURA DELLA TESI
+STRUTTURA COMPLETA DELLA TESI
 ════════════════════════════════════════
 ${thesis.indice}
 
 ════════════════════════════════════════
-FOCUS DEL CAPITOLO
+BRIEFING COERENZA INTER-CAPITOLARE
 ════════════════════════════════════════
-Capitolo ${idx+1} di ${total}
-Ruolo del capitolo: ${chRole.role}
-
-Sottosezioni da sviluppare in modo ESPLICITO e nell'ordine indicato:
-${subTitlesBlock}
-
-${prevSummary?`Contenuti già sviluppati nei capitoli precedenti (non ripetere, solo richiamare se necessario):\n${prevSummary}`:'Primo capitolo: costruisci le basi teoriche che reggeranno l’intera tesi.'}
-${idx<total-1?`Argomenti da NON anticipare, riservati ai capitoli successivi: ${thesis.chapterTitles.slice(idx+1).join(' | ')}`:'Ultimo capitolo: integra e fai convergere l’argomentazione verso la chiusura complessiva.'}
+Capitolo da scrivere: Capitolo ${idx+1} di ${total} — "${title}"
+Ruolo: ${chRole.role}
+${prevSummary?`Argomenti già sviluppati (NON ripetere, solo richiamare se necessario):\n${prevSummary}`:'Primo capitolo: introduci i concetti fondamentali della tesi.'}
+${idx<total-1?`Argomenti da NON anticipare (riservati ai capitoli successivi): ${thesis.chapterTitles.slice(idx+1).join(' | ')}`:'Ultimo capitolo: convergi verso le conclusioni generali.'}
 
 ════════════════════════════════════════
-RICERCA E VERIFICA FONTI — OBBLIGATORIO
+ISTRUZIONI FONTI — WEB SEARCH OBBLIGATORIO
 ════════════════════════════════════════
-Prima di scrivere, esegui ricerche web mirate per individuare:
-1. autori classici realmente pertinenti al tema di questo capitolo;
-2. studi peer-reviewed recenti e autorevoli sul tema;
-3. review, meta-analisi o handbook accademici quando utili;
-4. eventuali dati ufficiali solo se davvero necessari.
+PRIMA di scrivere, esegui OBBLIGATORIAMENTE ricerche web per trovare:
+1. Autori e opere FONDAMENTALI specifici per l'argomento di QUESTO capitolo
+2. Studi e articoli RECENTI (ultimi 5-10 anni) rilevanti — cerca su Google Scholar, PubMed, JSTOR
+3. Dati statistici UFFICIALI se pertinenti (ISTAT, Eurostat, WHO, Banca d'Italia, ecc.)
+4. Cerca per: "${thesis.argomento} ${title} academic research"
 
-Cerca per combinazioni come:
-- "${thesis.argomento} ${title} peer reviewed"
-- "${title} psychology review"
-- "${title} journal article"
-
-Regole non negoziabili:
-✓ usa citazioni nel testo solo se plausibili e fondate su fonti reali o su classici certamente attribuibili;
-✓ preferisci formule prudenti se la fonte specifica non è pienamente verificabile;
-✓ integra riferimenti nel testo in forma accademica sobria, es. "Secondo McCrae e Costa..." oppure "(Costa & McCrae, 1992)";
-✗ non inventare mai titoli, DOI, anni, risultati empirici o dati;
-✗ non riempire il capitolo con nomi casuali di studiosi;
-✗ non scrivere frasi vaghe del tipo "molti studiosi pensano" senza precisazione.
-
-════════════════════════════════════════
-OBIETTIVO DI QUALITÀ
-════════════════════════════════════════
-Questo capitolo deve sembrare scritto per una tesi universitaria seria, non per una scheda riassuntiva.
-Deve risultare:
-- denso ma leggibile;
-- formalmente accademico;
-- argomentativo, non compilativo;
-- scandito in vere sottosezioni;
-- privo di ripetizioni inutili;
-- coerente con l’impostazione dell’indice.
+REGOLE CITAZIONI (NON NEGOZIABILI):
+✓ Cita SOLO fonti trovate nel web search o classici di cui sei CERTO (es: Bourdieu, Foucault, Habermas, Porter)
+✓ Formato: (Cognome, Anno) in testo — es: Secondo Castells (2000) / (Bagnasco, 2003)
+✓ Se non trovi fonte specifica → "la letteratura evidenzia che..." / "studi nel settore indicano..." / "secondo l'orientamento prevalente..."
+✗ MAI inventare titoli, anni, DOI, dati statistici
+✗ MAI citare fonti non verificate
 
 ════════════════════════════════════════
 STRUTTURA OBBLIGATORIA DEL CAPITOLO
 ════════════════════════════════════════
-1. Apertura introduttiva del capitolo: 2 paragrafi iniziali senza titolo, per spiegare funzione del capitolo e sua collocazione nella tesi.
-2. Sviluppo in sottosezioni REALI, usando ESATTAMENTE i titoli indicati sopra, uno per uno, in grassetto.
-3. Ogni sottosezione deve contenere:
-   - definizione o inquadramento del punto;
-   - sviluppo teorico con riferimenti a letteratura pertinente;
-   - passaggio critico o interpretativo, non solo descrittivo.
-4. Dopo le sottosezioni, inserisci una breve chiusura di raccordo:
-${idx<total-1?`collega chiaramente il capitolo al successivo "${thesis.chapterTitles[idx+1]}".`:'riconduci il discorso verso le conclusioni generali della tesi.'}
+[APERTURA CONTESTUALE] — 2-3 paragrafi
+Inquadra il capitolo nel framework teorico della tesi. Annuncia cosa svilupperà questo capitolo.
+
+[SVILUPPO ARGOMENTATIVO] — corpo centrale con sottosezioni in **grassetto**
+${chRole.body}
+
+[ANALISI CRITICA] — ${cp.isMagistrale?'2-3 paragrafi obbligatori':'1-2 paragrafi'}
+${cp.isMagistrale?'Confronta posizioni teoriche diverse. Identifica punti di forza, limiti e gap. Esprimi posizione argomentata con supporto bibliografico.':'Sintetizza punti chiave. Valuta criticamente le posizioni principali emerse.'}
+
+[CHIUSURA DI RACCORDO] — 1 paragrafo
+${idx<total-1?`Crea ponte argomentativo verso il capitolo successivo "${thesis.chapterTitles[idx+1]}".`:'Convergi le argomentazioni verso le conclusioni generali della tesi.'}
 
 ════════════════════════════════════════
-VINCOLI FORMALI
+PARAMETRI TECNICI
 ════════════════════════════════════════
-Lunghezza richiesta: ${lung.min}-${lung.max} parole
-Sottosezioni obbligatorie in **grassetto**
-Nessun altro markdown
-Nessuna intestazione "Capitolo ${idx+1}"
-Nessun elenco puntato
-Nessuna formula metatestuale tipo "in questo capitolo parleremo di..."
-Scrivi paragrafi compatti ma ben distinti
-
-════════════════════════════════════════
-CRITERIO FINALE
-════════════════════════════════════════
-Meglio un capitolo più rigoroso, articolato e cauto che un testo più veloce ma generico.
-Inizia direttamente dal testo del capitolo.
+Lunghezza: ${lung.min}-${lung.max} parole
+Titoli sottosezioni: **in grassetto**
+Zero altro markdown
+Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
 `;
+
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,total);
   ensureGlobalCounter();
@@ -1346,7 +1488,7 @@ Inizia direttamente dal testo del capitolo.
         <div class="rev-counter-info">
           <span>Revisioni capitolo:</span>
           <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
-          <span>Bozza libera fino ad approvazione</span>
+          <span>3 revisioni disponibili</span>
         </div>
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
@@ -1358,7 +1500,7 @@ Inizia direttamente dal testo del capitolo.
       </div>
       <div class="approval-row" id="chapApproval-${idx}" style="display:none">
         <span class="hint">Capitolo ${idx+1} approvato?</span>
-        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Modifica / rigenera bozza</button>
+        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
         ${idx<total-1
           ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>`
           :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
@@ -1369,7 +1511,7 @@ Inizia direttamente dal testo del capitolo.
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
 
   try{
-    const result=await callClaudeWithSearch(prompt);
+    const result=await callClaudeWithSearch(prompt,'chapter_draft');
     const text=result.text;
     if(result.sources.length>0){
       const bar=document.getElementById(`chapSources-${idx}`);
@@ -1382,7 +1524,7 @@ Inizia direttamente dal testo del capitolo.
       });
       document.getElementById(`chapSourcesWarn-${idx}`).style.display='block';
     }
-    thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0,approved:false};
+    thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0};
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
@@ -1391,13 +1533,12 @@ Inizia direttamente dal testo del capitolo.
       document.getElementById(`chapApproval-${idx}`).style.display='flex';
       updateChapterProgressBar(idx,total,true);
       renderRevCounter(idx);
+      persistProject();
     });
   }catch(e){showToast('Errore cap.'+(idx+1)+': '+e.message,true);}
 }
 
 function approveChapter(idx){
-  if(thesis.chapters[idx]) thesis.chapters[idx].approved = true;
-  renderRevCounter(idx);
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   thesis.currentChapterIdx=idx+1;
   const nc=document.getElementById('nextChapters');
@@ -1405,12 +1546,11 @@ function approveChapter(idx){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
   nc.classList.add('visible');
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  persistProject();
 }
 
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
-  if(thesis.chapters[idx]) thesis.chapters[idx].approved = true;
-  renderRevCounter(idx);
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
@@ -1419,12 +1559,10 @@ function approveLastChapter(){
   updateWordCount();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
   showToast('🎓 Tesi completata!');
+  persistProject();
 }
 
 async function reviseChapter(idx){
-  if(!apiKey){openApiModal();return;}
-
-  const isFreeDraftRegeneration = !isChapterApproved(idx);
 
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
@@ -1435,7 +1573,7 @@ async function reviseChapter(idx){
   }
   const fb=document.getElementById(`chapRevInput-${idx}`).value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
-  if(!isFreeDraftRegeneration) consumeRevision(idx);
+  consumeRevision(idx);
   const ch=thesis.chapters[idx];const cp=thesis.contextPacket;
   const btn=document.getElementById(`chapRevBtn-${idx}`);btn.disabled=true;
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
@@ -1460,7 +1598,7 @@ ISTRUZIONI:
 - Lunghezza: ${lung.min}-${lung.max} parole
 - NON inventare fonti. Solo testo del capitolo revisionato.`;
   try{
-    const result=await callClaudeWithSearch(prompt);
+    const result=await callClaudeWithSearch(prompt,'tutor_revision');
     const text=result.text;
     ch.versions.push({content:text,timestamp:now(),label:`Rev: "${fb.substring(0,35)}"`});
     ch.currentVersion=ch.versions.length-1;ch.content=text;
@@ -1475,12 +1613,13 @@ ISTRUZIONI:
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
-      document.getElementById(`chapChip-${idx}`).innerHTML=isFreeDraftRegeneration?'✓ Bozza rigenerata':'✓ Revisionato';
+      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisionato';
       document.getElementById(`chapApproval-${idx}`).style.display='flex';
       document.getElementById(`chapRevision-${idx}`).classList.remove('open');
       document.getElementById(`chapRevInput-${idx}`).value='';
       updateWordCount();
       renderRevCounter(idx);
+      persistProject();
       // Se limit raggiunto, cambia il bottone revisione in "Sblocca"
       if(!canRevise(idx)){
         const revBtn=document.getElementById(`chapRevBtn-${idx}`);
@@ -1489,7 +1628,7 @@ ISTRUZIONI:
         if(redoBtn){redoBtn.textContent='🔓 Sblocca revisioni';redoBtn.onclick=()=>openUnlockModal(idx);}
       }
     });
-    showToast(isFreeDraftRegeneration ? 'Bozza iniziale rigenerata ✓' : 'Capitolo revisionato ✓');
+    showToast('Capitolo revisionato ✓');
   }catch(e){showToast('Errore: '+e.message,true);}
   btn.disabled=false;
 }
@@ -1564,7 +1703,15 @@ function buildWordHTML(){
   thesis.chapters.forEach((ch,i)=>{
     b+=`<div style="page-break-before:always"><h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title)}</h2><div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(ch.content)}</div></div><br>`;
   });
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}@page{margin:3cm 2.5cm}</style></head><body>${b}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}@page{margin:3cm 2.5cm}
+  .recovery-bar{display:none;align-items:center;justify-content:space-between;gap:14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);border-left:4px solid var(--gold);border-radius:var(--radius);padding:14px 16px;margin:18px auto 0;max-width:1100px;}
+  .recovery-bar.visible{display:flex;flex-wrap:wrap;}
+  .recovery-text{font-size:13px;color:var(--text2);line-height:1.6;}
+  .recovery-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .btn-recovery{background:var(--gold);color:#111;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;}
+  .btn-recovery.secondary{background:transparent;color:var(--text2);border:1px solid var(--border2);}
+
+</style></head><body>${b}</body></html>`;
 }
 function formatChapterHtml(text){
   return text.split('\n').map(line=>{
@@ -1578,41 +1725,29 @@ function formatChapterHtml(text){
 // ══════════════════════════════════════════════
 // CLAUDE API — no search
 // ══════════════════════════════════════════════
-async function callClaude(userPrompt,withSearch=false){
-  const body={model:'claude-sonnet-4-6',max_tokens:4096,system:buildSystemPrompt(),messages:[{role:'user',content:userPrompt}]};
-  if(withSearch)body.tools=[{type:'web_search_20250305',name:'web_search'}];
-  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
-  const d=await r.json();
-  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('')||'';
+async function callClaude(userPrompt,taskName='outline_draft'){
+  const r=await fetch('/api/task',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({task:taskName,input:userPrompt})
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);
+  return d.text||'';
 }
 
 // ══════════════════════════════════════════════
 // CLAUDE API — agentic web search loop
 // ══════════════════════════════════════════════
-async function callClaudeWithSearch(userPrompt){
-  const messages=[{role:'user',content:userPrompt}];
-  const sources=[];let finalText='';let iter=0;const MAX=6;
-  while(iter<MAX){
-    iter++;
-    const body={model:'claude-sonnet-4-6',max_tokens:5000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages};
-    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
-    const data=await r.json();
-    const texts=data.content.filter(b=>b.type==='text');
-    if(texts.length>0)finalText=texts.map(b=>b.text).join('');
-    if(data.stop_reason==='end_turn')break;
-    if(data.stop_reason==='tool_use'){
-      const toolUses=data.content.filter(b=>b.type==='tool_use');
-      messages.push({role:'assistant',content:data.content});
-      const results=toolUses.map(tu=>{
-        if(tu.name==='web_search'&&tu.input?.query)sources.push(tu.input.query);
-        return{type:'tool_result',tool_use_id:tu.id,content:'Ricerca completata.'};
-      });
-      messages.push({role:'user',content:results});
-    }else break;
-  }
-  return{text:finalText,sources};
+async function callClaudeWithSearch(userPrompt,taskName='chapter_draft'){
+  const r=await fetch('/api/task',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({task:taskName,input:userPrompt})
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);
+  return{text:d.text||'',sources:[]};
 }
 
 // ══════════════════════════════════════════════
@@ -1628,7 +1763,15 @@ function showToast(msg,error=false){const t=document.getElementById('toast');t.t
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn=document.getElementById('apiKeyBtn');
+  const dot=document.getElementById('statusDot');
+  const label=document.getElementById('statusLabel');
+  if(btn)btn.classList.add('connected');
+  if(dot)dot.style.background='var(--green)';
+  if(label)label.textContent='AI server attiva';
+});
 </script>
 </body>
 </html>
-
