@@ -16,7 +16,7 @@
     --radius:12px;--radius-sm:8px;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden;}
+  body{background:var(--bg);color:avar(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden;}
   body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9998;opacity:.4;}
   header{border-bottom:1px solid var(--border);padding:18px 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(5,5,5,.94);backdrop-filter:blur(14px);z-index:100;}
   .logo{display:flex;align-items:center;gap:11px;text-decoration:none;}
@@ -336,7 +336,7 @@
         </div>
         <div class="guide-step">
           <div class="guide-step-num">4</div>
-          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni incluse per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong> (dove N = numero capitoli).</span></div>
+          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale. Prima dell'approvazione puoi rigenerare liberamente la bozza iniziale. Dopo l'approvazione hai <strong>3 revisioni incluse per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong>.</span></div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">5</div>
@@ -636,7 +636,7 @@
     <div class="guide-steps" style="margin-top:4px">
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Inserisci argomento, facoltà, corso, tipo laurea e approccio metodologico. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Prima dell'approvazione puoi rigenerare liberamente la bozza iniziale; dopo l'approvazione il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Revisioni aggiuntive</strong><span>Esauriti i crediti, acquista un <strong>Codice Base</strong> (+3 rev. su 1 capitolo, €2,90) o <strong>Codice Premium</strong> (+10 rev. totali, €7,90) su Gumroad. Inserisci il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
@@ -712,7 +712,12 @@ function initRevState(nChapters){
 
 const MAX_REV_PER_CHAPTER = 3;
 
+function isChapterApproved(idx){
+  return !!(thesis.chapters[idx] && thesis.chapters[idx].approved);
+}
+
 function canRevise(idx){
+  if(!isChapterApproved(idx)) return true;
   const perCh = revState.perChapter[idx]||0;
   if(perCh >= MAX_REV_PER_CHAPTER) return false;
   if(revState.totalUsed >= revState.totalBudget) return false;
@@ -729,19 +734,26 @@ function consumeRevision(idx){
 function renderRevCounter(idx){
   const el = document.getElementById(`revCounterBar-${idx}`);
   if(!el) return;
+  const approved = isChapterApproved(idx);
   const used = revState.perChapter[idx]||0;
   const max = MAX_REV_PER_CHAPTER;
   const dotsHtml = Array.from({length:max},(_,i)=>{
     let cls='rev-dot';
+    if(!approved) return `<span class="${cls}"></span>`;
     if(revState.premiumUnlocked) cls+=' used';
     else if(i<used) cls+= used>=max?' locked':' used';
     return`<span class="${cls}"></span>`;
   }).join('');
   el.querySelector('.rev-counter-dots').innerHTML=dotsHtml;
-  const remCh = revState.premiumUnlocked ? '∞' : Math.max(0,max-used);
-  el.querySelector('.rev-counter-info span:last-child').textContent = revState.premiumUnlocked
-    ? '+10 revisioni aggiunte (Premium)'
-    : `${remCh} revisioni rimanenti su questo capitolo`;
+  const labelEl = el.querySelector('.rev-counter-info span:last-child');
+  if(!approved){
+    labelEl.textContent = 'Bozza iniziale: rigenerazioni libere fino ad approvazione';
+  } else {
+    const remCh = revState.premiumUnlocked ? '∞' : Math.max(0,max-used);
+    labelEl.textContent = revState.premiumUnlocked
+      ? '+10 revisioni aggiunte (Premium)'
+      : `${remCh} revisioni rimanenti su questo capitolo`;
+  }
   renderGlobalCounter();
 }
 
@@ -1334,7 +1346,7 @@ Inizia direttamente dal testo del capitolo.
         <div class="rev-counter-info">
           <span>Revisioni capitolo:</span>
           <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
-          <span>3 revisioni disponibili</span>
+          <span>Bozza libera fino ad approvazione</span>
         </div>
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
@@ -1346,7 +1358,7 @@ Inizia direttamente dal testo del capitolo.
       </div>
       <div class="approval-row" id="chapApproval-${idx}" style="display:none">
         <span class="hint">Capitolo ${idx+1} approvato?</span>
-        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
+        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Modifica / rigenera bozza</button>
         ${idx<total-1
           ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>`
           :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
@@ -1370,7 +1382,7 @@ Inizia direttamente dal testo del capitolo.
       });
       document.getElementById(`chapSourcesWarn-${idx}`).style.display='block';
     }
-    thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0};
+    thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0,approved:false};
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
@@ -1384,6 +1396,8 @@ Inizia direttamente dal testo del capitolo.
 }
 
 function approveChapter(idx){
+  if(thesis.chapters[idx]) thesis.chapters[idx].approved = true;
+  renderRevCounter(idx);
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   thesis.currentChapterIdx=idx+1;
   const nc=document.getElementById('nextChapters');
@@ -1395,6 +1409,8 @@ function approveChapter(idx){
 
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
+  if(thesis.chapters[idx]) thesis.chapters[idx].approved = true;
+  renderRevCounter(idx);
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
@@ -1408,6 +1424,8 @@ function approveLastChapter(){
 async function reviseChapter(idx){
   if(!apiKey){openApiModal();return;}
 
+  const isFreeDraftRegeneration = !isChapterApproved(idx);
+
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
     const perCh=revState.perChapter[idx]||0;
@@ -1417,7 +1435,7 @@ async function reviseChapter(idx){
   }
   const fb=document.getElementById(`chapRevInput-${idx}`).value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
-  consumeRevision(idx);
+  if(!isFreeDraftRegeneration) consumeRevision(idx);
   const ch=thesis.chapters[idx];const cp=thesis.contextPacket;
   const btn=document.getElementById(`chapRevBtn-${idx}`);btn.disabled=true;
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
@@ -1457,7 +1475,7 @@ ISTRUZIONI:
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
-      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisionato';
+      document.getElementById(`chapChip-${idx}`).innerHTML=isFreeDraftRegeneration?'✓ Bozza rigenerata':'✓ Revisionato';
       document.getElementById(`chapApproval-${idx}`).style.display='flex';
       document.getElementById(`chapRevision-${idx}`).classList.remove('open');
       document.getElementById(`chapRevInput-${idx}`).value='';
@@ -1471,7 +1489,7 @@ ISTRUZIONI:
         if(redoBtn){redoBtn.textContent='🔓 Sblocca revisioni';redoBtn.onclick=()=>openUnlockModal(idx);}
       }
     });
-    showToast('Capitolo revisionato ✓');
+    showToast(isFreeDraftRegeneration ? 'Bozza iniziale rigenerata ✓' : 'Capitolo revisionato ✓');
   }catch(e){showToast('Errore: '+e.message,true);}
   btn.disabled=false;
 }
@@ -1613,3 +1631,4 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 </script>
 </body>
 </html>
+
