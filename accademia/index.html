@@ -149,17 +149,6 @@
   ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
   @media(max-width:640px){header{padding:14px 18px;}.container{padding:28px 18px 60px;}.form-grid{grid-template-columns:1fr;}.form-card{padding:22px;}.step-connector{width:18px;}.step-label{display:none;}}
 
-
-  /* ── RECOVERY BAR ── */
-  .recovery-bar{display:none;background:linear-gradient(135deg,rgba(201,168,76,.10),rgba(201,168,76,.04));border:1px solid rgba(201,168,76,.28);border-radius:16px;padding:18px 20px;margin:0 0 22px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .recovery-bar.visible{display:flex;}
-  .recovery-text{font-size:13px;color:var(--text2);line-height:1.6;flex:1;min-width:240px;}
-  .recovery-actions{display:flex;gap:10px;flex-wrap:wrap;}
-  .recovery-btn{padding:12px 18px;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;border:1px solid var(--border2);}
-  .recovery-btn.primary{background:linear-gradient(135deg,#b8922a,var(--gold));color:#0a0800;border:none;}
-  .recovery-btn.secondary{background:transparent;color:var(--text2);}
-  .recovery-btn:hover{transform:translateY(-1px);}
-
   /* ── DISCLAIMER MODALE OBBLIGATORIO ── */
   .disclaimer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);backdrop-filter:blur(16px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
   .disclaimer-box{background:var(--bg2);border:1px solid rgba(201,168,76,.3);border-radius:20px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;position:relative;overflow:hidden;}
@@ -253,7 +242,7 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
-    <button class="api-key-btn connected" id="apiKeyBtn" onclick="openApiModal()">
+    <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
       <span class="dot" id="statusDot"></span>
       <span id="statusLabel">Inserisci API Key</span>
     </button>
@@ -275,7 +264,7 @@
     <div class="disclaimer-body">
 
       <h3>Art. 1 — Natura del Servizio e Qualificazione Giuridica</h3>
-      <p>AccademIA è uno strumento di <strong>supporto alla ricerca e alla stesura accademica</strong>, sviluppato da RobPac Publishing. Il Servizio genera contenuti tramite modelli di intelligenza artificiale (modelli linguistici integrati nel Servizio) a partire dalle informazioni fornite dall'Utente. I contenuti prodotti costituiscono materiale ausiliario e non rappresentano in alcun modo un elaborato accademico definitivo né un prodotto editoriale.</p>
+      <p>AccademIA è uno strumento di <strong>supporto alla ricerca e alla stesura accademica</strong>, sviluppato da RobPac Publishing. Il Servizio genera contenuti tramite modelli di intelligenza artificiale (Anthropic Claude) a partire dalle informazioni fornite dall'Utente. I contenuti prodotti costituiscono materiale ausiliario e non rappresentano in alcun modo un elaborato accademico definitivo né un prodotto editoriale.</p>
       <p>Il presente Servizio non è riconducibile, né nella forma né nella sostanza, alla fattispecie di cui all'art. 2 della Legge n. 633/1941 (Legge sul Diritto d'Autore) in quanto i contenuti generati in via automatica non sono suscettibili di tutela autorale autonoma a favore dell'Utente finale.</p>
 
       <h3>Art. 2 — Responsabilità Esclusiva dell'Utente</h3>
@@ -301,36 +290,28 @@
     <div class="disclaimer-footer">
       <div class="disclaimer-checks">
         <label class="disclaimer-check">
-          <input type="checkbox" id="check1" onchange="checkDisclaimer()">
+          <input type="checkbox" id="check1">
           <span>Dichiaro di aver letto e compreso integralmente le presenti Condizioni d'Uso e le Avvertenze Legali, e di accettarle senza riserve.</span>
         </label>
         <label class="disclaimer-check">
-          <input type="checkbox" id="check2" onchange="checkDisclaimer()">
+          <input type="checkbox" id="check2">
           <span>Sono consapevole che i contenuti generati da AccademIA costituiscono esclusivamente materiale di supporto alla mia ricerca e che sono il solo responsabile della loro verifica, revisione e utilizzo finale.</span>
         </label>
         <label class="disclaimer-check">
-          <input type="checkbox" id="check3" onchange="checkDisclaimer()">
+          <input type="checkbox" id="check3">
           <span>Ho preso visione dell'informativa sul trattamento dei dati (Art. 5) e acconsento al trattamento dei dati immessi per le finalità del Servizio.</span>
         </label>
       </div>
-      <button class="btn-accept-disclaimer" id="btnAcceptDisclaimer" onclick="acceptDisclaimer()" disabled>Accetto — Accedi ad AccademIA</button>
+      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Accetto — Accedi ad AccademIA</button>
     </div>
   </div>
 </div>
 
 <main class="container">
   <div class="hero">
-    <div class="hero-label">✦ Workflow accademico con verifica strutturata</div>
+    <div class="hero-label">✦ Powered by Claude AI + Web Search accademico</div>
     <h1>La tua laurea,<br>con I.A.</h1>
     <p>Genera passo dopo passo indice, abstract e capitoli con fonti accademiche reali ricercate in tempo reale.</p>
-  </div>
-
-  <div class="recovery-bar" id="recoveryBar">
-    <div class="recovery-text" id="recoveryText"></div>
-    <div class="recovery-actions">
-      <button class="recovery-btn primary" type="button" onclick="restoreSavedProject()">Riprendi lavoro</button>
-      <button class="recovery-btn secondary" type="button" onclick="discardSavedProject()">Nuovo progetto</button>
-    </div>
   </div>
 
   <!-- GUIDA COLLASSABILE -->
@@ -355,7 +336,7 @@
         </div>
         <div class="guide-step">
           <div class="guide-step-num">4</div>
-          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>2 revisioni incluse per capitolo</strong>, oltre alle revisioni previste per indice, abstract e finale.</span></div>
+          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni incluse per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong> (dove N = numero capitoli).</span></div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">5</div>
@@ -363,7 +344,7 @@
         </div>
       </div>
       <div class="guide-note">
-        <strong>⚠ Revisioni aggiuntive:</strong> Se esaurisci le revisioni incluse, puoi acquistare un <strong>Codice Base</strong> (+3 revisioni su un capitolo, ~€2) o un <strong>Codice Premium</strong> (revisioni illimitate su tutta la tesi). Il codice viene consegnato via email dopo l'acquisto su Payhip.<br><br>
+        <strong>⚠ Revisioni aggiuntive:</strong> Se esaurisci le revisioni incluse, puoi acquistare un <strong>Codice Base</strong> (+3 revisioni su un capitolo, ~€2) o un <strong>Codice Premium</strong> (revisioni illimitate su tutta la tesi). Il codice viene consegnato via email dopo l'acquisto su Gumroad/Payhip.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
     </div>
@@ -519,7 +500,7 @@
 <div class="modal-overlay" id="apiModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('apiModal')">✕</button>
-    <h2>Stato account</h2>
+    <h2>API Key Claude</h2>
     <p>Inserisci la tua chiave API Anthropic. Viene usata solo in questa sessione del browser, non viene mai salvata.</p>
     <div class="form-group"><label>Chiave API</label><input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."></div>
     <div class="modal-actions">
@@ -544,29 +525,29 @@
   <div class="modal modal-wide">
     <button class="modal-close" onclick="closeModal('unlockModal')">✕</button>
     <h2>🔓 Revisioni esaurite</h2>
-    <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Hai esaurito le revisioni disponibili. Acquista un pacchetto extra associato al tuo account.</p>
+    <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Acquista un codice di sblocco oppure inserisci un codice già acquistato.</p>
     <div class="unlock-tabs">
-      <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Acquista extra</button>
-      <button class="unlock-tab" onclick="setUnlockTab('enter')">ℹ Stato account</button>
+      <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Acquista codice</button>
+      <button class="unlock-tab" onclick="setUnlockTab('enter')">🔑 Inserisci codice</button>
     </div>
 
     <div class="unlock-panel active" id="unlockPanelBuy">
       <div class="unlock-price-row">
         <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')">
           <div class="price">€2,90</div>
-          <div class="desc"><strong>Extra Capitolo</strong><br>+2 revisioni su<br>1 capitolo specifico</div>
+          <div class="desc"><strong>Codice Base</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
         </div>
         <div class="unlock-price-card" id="cardPremium" onclick="selectUnlockPlan('premium')">
           <div class="price">€7,90</div>
-          <div class="desc"><strong>Extra Progetto</strong><br>+8 revisioni libere<br>su tutto il progetto</div>
+          <div class="desc"><strong>Codice Premium</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
         </div>
       </div>
-      <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Acquista su Payhip →</button>
-      <div class="unlock-note">Dopo il pagamento, il tuo account viene aggiornato automaticamente con i crediti acquistati.</div>
+      <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Acquista su Gumroad →</button>
+      <div class="unlock-note">Dopo il pagamento ricevi il codice via email entro pochi minuti. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni.</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
-      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Il tuo account mostra automaticamente i crediti disponibili e gli extra attivi.</p>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Inserisci il codice ricevuto via email dopo l'acquisto.</p>
       <div class="unlock-code-row">
         <input type="text" id="unlockCodeInput" placeholder="TESIA-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px;">
         <button class="btn-unlock" onclick="applyUnlockCode()">Applica</button>
@@ -605,9 +586,9 @@
 
       <div class="tos-section">
         <h3>3. Piano Revisioni e Codici di Sblocco</h3>
-        <p>Il Piano Standard include revisioni per step: indice, abstract, capitoli e controllo finale leggero, secondo il pacchetto acquistato.</p>
-        <p>Gli extra acquistati su Payhip vengono associati all'account dell'Utente e incrementano i crediti disponibili per il progetto.</p>
-        <p>Lo stato del progetto e dei crediti viene gestito lato account e backend applicativo.</p>
+        <p>Il Piano Base include un numero di revisioni pari a <strong>N × 2</strong>, dove N è il numero di capitoli dell'elaborato generato nella sessione corrente. Le revisioni sono utilizzabili su qualsiasi capitolo, con un massimo di 3 revisioni per singolo capitolo.</p>
+        <p>Il <strong>Codice Base</strong> aggiunge 3 revisioni su un singolo capitolo a scelta. Il <strong>Codice Premium</strong> rimuove il limite di revisioni su tutti i capitoli per la sessione corrente. I codici sono monouso, validi per una singola sessione browser, non rimborsabili salvo vizi di conformità ai sensi del D.Lgs. 206/2005.</p>
+        <p>I contatori di revisione sono gestiti in memoria locale del browser (sessionStorage). RobPac Publishing non è responsabile per perdite di dati derivanti dalla chiusura del browser o da malfunzionamenti del dispositivo dell'Utente.</p>
       </div>
 
       <div class="tos-section">
@@ -654,9 +635,9 @@
     <h2>📖 Come funziona AccademIA</h2>
     <div class="guide-steps" style="margin-top:4px">
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Inserisci argomento, facoltà, corso, tipo laurea e approccio metodologico. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Indice e abstract seguono il piano incluso nel progetto e possono essere revisionati per step.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo viene generato e poi revisionato per step. Il contatore mostra le revisioni residue per ciascun elemento.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Revisioni aggiuntive</strong><span>Esauriti i crediti, acquista un extra su Payhip: l'account viene aggiornato automaticamente.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Revisioni aggiuntive</strong><span>Esauriti i crediti, acquista un <strong>Codice Base</strong> (+3 rev. su 1 capitolo, €2,90) o <strong>Codice Premium</strong> (+10 rev. totali, €7,90) su Gumroad. Inserisci il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
     <div class="guide-note" style="margin-top:16px"><strong>⚠ Verifica sempre le fonti</strong> prima della consegna. AccademIA usa web search reale, ma alcune citazioni potrebbero richiedere accesso istituzionale (JSTOR, Scopus, PubMed).</div>
@@ -773,19 +754,46 @@ function renderGlobalCounter(){
 
 // ── DISCLAIMER ──
 function checkDisclaimer(){
-  const allChecked = document.getElementById('check1').checked && document.getElementById('check2').checked && document.getElementById('check3').checked;
+  const c1=document.getElementById('check1');
+  const c2=document.getElementById('check2');
+  const c3=document.getElementById('check3');
   const btn=document.getElementById('btnAcceptDisclaimer');
-  if(allChecked){btn.classList.add('enabled');btn.disabled=false;}
-  else{btn.classList.remove('enabled');btn.disabled=true;}
+  if(!c1||!c2||!c3||!btn) return;
+  const allChecked=!!(c1.checked&&c2.checked&&c3.checked);
+  btn.disabled=!allChecked;
+  btn.setAttribute('aria-disabled', String(!allChecked));
+  btn.classList.toggle('enabled', allChecked);
+  btn.style.pointerEvents=allChecked?'auto':'none';
+  btn.style.opacity=allChecked?'1':'0.4';
 }
 function acceptDisclaimer(){
   sessionStorage.setItem('_td_accepted','1');
-  document.getElementById('disclaimerOverlay').style.display='none';
+  const overlay=document.getElementById('disclaimerOverlay');
+  if(overlay){
+    overlay.style.display='none';
+    overlay.classList.remove('open');
+  }
 }
-// Mostra disclaimer se non già accettato
+// Mostra disclaimer se non già accettato + collega gli eventi in modo robusto
 window.addEventListener('DOMContentLoaded',()=>{
+  const overlay=document.getElementById('disclaimerOverlay');
+  const btn=document.getElementById('btnAcceptDisclaimer');
+  ['check1','check2','check3'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.addEventListener('change',checkDisclaimer);
+      el.addEventListener('input',checkDisclaimer);
+      el.addEventListener('click',()=>setTimeout(checkDisclaimer,0));
+    }
+  });
+  if(btn){
+    btn.addEventListener('click',acceptDisclaimer);
+  }
+  checkDisclaimer();
   if(!sessionStorage.getItem('_td_accepted')){
-    document.getElementById('disclaimerOverlay').style.display='flex';
+    if(overlay) overlay.style.display='flex';
+  }else{
+    if(overlay) overlay.style.display='none';
   }
 });
 
@@ -842,7 +850,7 @@ function goToPurchase(){
 
 async function applyUnlockCode(){
   const raw=document.getElementById('unlockCodeInput').value.trim().toUpperCase();
-  if(!raw){showToast('Funzione disattivata: i crediti vengono ora associati automaticamente all'account',true);return;}
+  if(!raw){showToast('Inserisci un codice',true);return;}
   const msgEl=document.getElementById('unlockCodeMsg');
   msgEl.style.color='var(--text3)';
   msgEl.textContent='⏳ Verifica in corso...';
@@ -869,7 +877,7 @@ async function applyUnlockCode(){
     thesis.chapters.forEach((_,i)=>renderRevCounter(i));
     renderGlobalCounter();
     closeModal('unlockModal');
-    showToast('✦ Extra Progetto attivato sul tuo account!');
+    showToast('✦ Codice Premium attivato — +10 revisioni aggiunte!');
     return;
   }
   if(result.type==='base'){
@@ -881,7 +889,7 @@ async function applyUnlockCode(){
     }
     renderGlobalCounter();
     closeModal('unlockModal');
-    showToast(`✦ Extra Capitolo attivato sul Capitolo ${(targetIdx??0)+1}`);
+    showToast(`✦ Codice Base attivato — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
     return;
   }
 }
@@ -912,7 +920,6 @@ function saveApiKey(){
   const v=document.getElementById('apiKeyInput').value.trim();
   if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
   apiKey=v;
-  try{sessionStorage.setItem('accademia_api_key', v);}catch(e){}
   document.getElementById('statusDot').style.background='var(--green)';
   document.getElementById('statusLabel').textContent='API Key attiva';
   document.getElementById('apiKeyBtn').classList.add('connected');
@@ -1030,10 +1037,8 @@ async function startPhase1(){
     document.getElementById('indiceRevision').style.display='none';
     setStep(2);
     document.getElementById('nextAbstract').classList.add('visible');
-    persistProject();
     document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
     showToast('Indice del relatore acquisito ✓');
-    persistProject();
     return;
   }
 
@@ -1082,7 +1087,6 @@ Bibliografia`;
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Completato';
       document.getElementById('indiceApproval').style.display='flex';
-      persistProject();
     });
   }catch(e){showToast('Errore: '+e.message,true);document.getElementById('btnStep1').disabled=false;}
 }
@@ -1155,7 +1159,6 @@ Inizia direttamente. Solo il testo dell'abstract.`;
       document.getElementById('abstractChip').className='status-chip done';
       document.getElementById('abstractChip').innerHTML='✓ Completato';
       document.getElementById('abstractApproval').style.display='flex';
-      persistProject();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1165,7 +1168,6 @@ function approveAbstract(){
   const nc=document.getElementById('nextChapters');
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo 1 — ${escHtml(thesis.chapterTitles[0]||'')}</button>`;
   nc.classList.add('visible');setStep(3);
-  persistProject();
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
@@ -1399,7 +1401,7 @@ function approveLastChapter(){
 }
 
 async function reviseChapter(idx){
-  
+  if(!apiKey){openApiModal();return;}
 
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
@@ -1554,12 +1556,12 @@ function formatChapterHtml(text){
 // CLAUDE API — no search
 // ══════════════════════════════════════════════
 async function callClaude(userPrompt,withSearch=false){
-  const body={task:withSearch?'chapter_draft':'outline_draft',payload:{content:userPrompt}};
-  
-  const r=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const body={model:'claude-sonnet-4-6',max_tokens:4096,system:buildSystemPrompt(),messages:[{role:'user',content:userPrompt}]};
+  if(withSearch)body.tools=[{type:'web_search_20250305',name:'web_search'}];
+  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
   const d=await r.json();
-  return d.data?.output_text||d.output_text||d.data?.content?.[0]?.text||'';
+  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('')||'';
 }
 
 // ══════════════════════════════════════════════
@@ -1571,7 +1573,7 @@ async function callClaudeWithSearch(userPrompt){
   while(iter<MAX){
     iter++;
     const body={model:'claude-sonnet-4-6',max_tokens:5000,system:buildSystemPrompt(),tools:[{type:'web_search_20250305',name:'web_search'}],messages};
-    const r=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey},body:JSON.stringify(body)});
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
     const data=await r.json();
     const texts=data.content.filter(b=>b.type==='text');
