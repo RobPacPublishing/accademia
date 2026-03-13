@@ -274,7 +274,7 @@
       <p>Il Servizio è concesso in licenza d'uso personale, non esclusiva e non trasferibile. È espressamente vietato: (i) cedere, rivendere o sublicenziare l'accesso al Servizio a terzi; (ii) utilizzare i contenuti generati per conto di terzi a fini commerciali; (iii) tentare di aggirare i meccanismi di controllo del numero di revisioni incluse nel piano acquistato.</p>
 
       <h3>Art. 5 — Trattamento dei Dati Personali (GDPR)</h3>
-      <p>Il Servizio <strong>non raccoglie, non archivia e non trasmette</strong> dati personali dell'Utente a server propri. Le informazioni inserite (argomento, facoltà, corso) sono elaborate esclusivamente in memoria locale del browser durante la sessione attiva e vengono eliminate alla chiusura della sessione. Le richieste ai provider A.I. eventualmente utilizzati dal Servizio sono inoltrate dal backend applicativo con configurazione tecnica lato server. L'Utente non è tenuto a inserire alcuna chiave API nel frontend. Il trattamento dei dati da parte dei provider esterni resta disciplinato dalle rispettive privacy policy e condizioni d'uso.</p>
+      <p>Il Servizio <strong>non raccoglie, non archivia e non trasmette</strong> dati personali dell'Utente a server propri. Le informazioni inserite (argomento, facoltà, corso) sono elaborate e conservate esclusivamente nella memoria locale del browser dell'Utente, anche al fine di consentire il recupero della sessione nelle visite successive dallo stesso dispositivo e browser. Le richieste ai provider A.I. eventualmente utilizzati dal Servizio sono inoltrate dal backend applicativo con configurazione tecnica lato server. L'Utente non è tenuto a inserire alcuna chiave API nel frontend. Il trattamento dei dati da parte dei provider esterni resta disciplinato dalle rispettive privacy policy e condizioni d'uso.</p>
 
       <h3>Art. 6 — Limitazione di Garanzia</h3>
       <p>Il Servizio è fornito "<strong>as is</strong>", senza garanzie di alcun tipo, esplicite o implicite, ivi incluse garanzie di commerciabilità, idoneità a uno scopo specifico o non violazione di diritti di terzi. RobPac Publishing non garantisce che il Servizio sia privo di errori, interruzioni o che i risultati ottenuti soddisfino le aspettative dell'Utente o i requisiti dell'istituto accademico di riferimento.</p>
@@ -571,7 +571,7 @@
         <h3>3. Piano Revisioni e Codici di Sblocco</h3>
         <p>Il Piano Base include un numero di revisioni pari a <strong>N × 2</strong>, dove N è il numero di capitoli dell'elaborato generato nella sessione corrente. Le revisioni sono utilizzabili su qualsiasi capitolo, con un massimo di 3 revisioni per singolo capitolo.</p>
         <p>Il <strong>Codice Base</strong> aggiunge 3 revisioni su un singolo capitolo a scelta. Il <strong>Codice Premium</strong> rimuove il limite di revisioni su tutti i capitoli per la sessione corrente. I codici sono monouso, validi per una singola sessione browser, non rimborsabili salvo vizi di conformità ai sensi del D.Lgs. 206/2005.</p>
-        <p>I contatori di revisione sono gestiti in memoria locale del browser (sessionStorage). RobPac Publishing non è responsabile per perdite di dati derivanti dalla chiusura del browser o da malfunzionamenti del dispositivo dell'Utente.</p>
+        <p>I contatori di revisione sono gestiti nella memoria locale del browser dell'Utente. RobPac Publishing non è responsabile per perdite di dati derivanti dalla cancellazione manuale dei dati del browser, dall'uso della navigazione in incognito o da malfunzionamenti del dispositivo dell'Utente.</p>
       </div>
 
       <div class="tos-section">
@@ -583,7 +583,7 @@
       <div class="tos-section">
         <h3>5. Trattamento dei Dati Personali (GDPR — Reg. UE 2016/679)</h3>
         <p><strong>Titolare del trattamento:</strong> RobPac Publishing (Roberto Pacetti), Roma, Italia.</p>
-        <p><strong>Dati trattati:</strong> Il Servizio non raccoglie né archivia dati personali su server propri. I dati immessi dall'Utente (argomento tesi, facoltà, corso) sono conservati esclusivamente in memoria volatile del browser (sessionStorage) per la durata della sessione e vengono eliminati automaticamente alla sua chiusura.</p>
+        <p><strong>Dati trattati:</strong> Il Servizio non raccoglie né archivia dati personali su server propri. I dati immessi dall'Utente (argomento tesi, facoltà, corso) sono conservati esclusivamente nella memoria locale del browser dell'Utente, così da consentire il recupero della sessione nelle successive riaperture della pagina dallo stesso dispositivo e browser.</p>
         <p><strong>API Key Anthropic:</strong> La chiave API inserita dall'Utente è conservata in memoria volatile e trasmessa direttamente alle API Anthropic senza transito su infrastrutture di RobPac Publishing. Il trattamento dati da parte di Anthropic è regolato dalla propria Privacy Policy.</p>
         <p><strong>Diritti dell'Utente:</strong> Ai sensi degli artt. 15-22 GDPR, l'Utente ha diritto di accesso, rettifica, cancellazione, limitazione del trattamento, portabilità e opposizione. Dato che nessun dato personale è conservato da RobPac Publishing, tali diritti sono de facto garantiti dalla natura stessa del Servizio.</p>
         <p><strong>Cookie:</strong> Il Servizio non utilizza cookie di tracciamento, profilazione o analytics di alcun tipo.</p>
@@ -646,7 +646,12 @@ let thesis={
 };
 let uiState={indiceApproved:false,abstractApproved:false,completed:false};
 let isRestoringSession=false;
-const SESSION_STORAGE_KEY='accademia_session_v2';
+const PERSISTED_STATE_KEY='accademia_session_v3';
+const LEGACY_SESSION_STORAGE_KEY='accademia_session_v2';
+const DISCLAIMER_ACCEPT_KEY='_td_accepted';
+const PERSISTENT_STORAGE=(()=>{
+  try{return window.localStorage;}catch(_err){return window.sessionStorage;}
+})();
 
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
@@ -680,7 +685,7 @@ async function verifyAndConsumeCode(code) {
   return { valid: true, type: row.type };
 }
 
-// Contatori revisioni (sessionStorage per persistenza nella sessione)
+// Contatori revisioni (persistenza locale nel browser)
 let revState = {
   perChapter: {},   // { idx: count_used }
   totalUsed: 0,
@@ -755,8 +760,35 @@ function checkDisclaimer(){
   btn.style.pointerEvents=allChecked?'auto':'none';
   btn.style.opacity=allChecked?'1':'0.4';
 }
+function storageSet(key,value){
+  try{PERSISTENT_STORAGE.setItem(key,value);return true;}catch(err){console.warn('storageSet failed',err);return false;}
+}
+
+function storageGet(key){
+  try{return PERSISTENT_STORAGE.getItem(key);}catch(err){console.warn('storageGet failed',err);return null;}
+}
+
+function storageRemove(key){
+  try{PERSISTENT_STORAGE.removeItem(key);}catch(err){console.warn('storageRemove failed',err);}
+}
+
+function migrateLegacyBrowserState(){
+  try{
+    const legacyState=window.sessionStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
+    if(legacyState && !storageGet(PERSISTED_STATE_KEY)){
+      storageSet(PERSISTED_STATE_KEY,legacyState);
+    }
+    const legacyAccepted=window.sessionStorage.getItem(DISCLAIMER_ACCEPT_KEY);
+    if(legacyAccepted && !storageGet(DISCLAIMER_ACCEPT_KEY)){
+      storageSet(DISCLAIMER_ACCEPT_KEY,legacyAccepted);
+    }
+  }catch(err){
+    console.warn('migrateLegacyBrowserState failed',err);
+  }
+}
+
 function acceptDisclaimer(){
-  sessionStorage.setItem('_td_accepted','1');
+  storageSet(DISCLAIMER_ACCEPT_KEY,'1');
   const overlay=document.getElementById('disclaimerOverlay');
   if(overlay){
     overlay.style.display='none';
@@ -778,8 +810,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(btn){
     btn.addEventListener('click',acceptDisclaimer);
   }
+  migrateLegacyBrowserState();
   checkDisclaimer();
-  if(!sessionStorage.getItem('_td_accepted')){
+  if(!storageGet(DISCLAIMER_ACCEPT_KEY)){
     if(overlay) overlay.style.display='flex';
   }else{
     if(overlay) overlay.style.display='none';
@@ -856,13 +889,13 @@ function getUiSnapshot(){
 function saveSessionState(){
   try{
     const payload={
-      version:2,
+      version:3,
       ui:getUiSnapshot(),
       thesis:cloneJsonSafe(thesis,{}),
       revState:cloneJsonSafe(revState,{}),
       uiState:cloneJsonSafe(uiState,{})
     };
-    sessionStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify(payload));
+    storageSet(PERSISTED_STATE_KEY,JSON.stringify(payload));
   }catch(err){
     console.warn('saveSessionState failed',err);
   }
@@ -870,13 +903,13 @@ function saveSessionState(){
 
 function restoreSessionState(){
   isRestoringSession=true;
-  const raw=sessionStorage.getItem(SESSION_STORAGE_KEY);
+  const raw=storageGet(PERSISTED_STATE_KEY);
   if(!raw){isRestoringSession=false;return;}
   let payload;
   try{
     payload=JSON.parse(raw);
   }catch{
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    storageRemove(PERSISTED_STATE_KEY);
     isRestoringSession=false;
     return;
   }
