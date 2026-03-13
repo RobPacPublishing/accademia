@@ -644,6 +644,9 @@ let thesis={
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   contextPacket:null
 };
+let uiState={indiceApproved:false,abstractApproved:false,completed:false};
+let isRestoringSession=false;
+const SESSION_STORAGE_KEY='accademia_session_v2';
 
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
@@ -691,6 +694,8 @@ function initRevState(nChapters){
   revState.perChapter = {};
   revState.totalUsed = 0;
   revState.premiumUnlocked = false;
+  revState.unlockTargetChapter = null;
+  saveSessionState();
 }
 
 const MAX_REV_PER_CHAPTER = 3;
@@ -707,6 +712,7 @@ function consumeRevision(idx){
   revState.totalUsed++;
   renderRevCounter(idx);
   renderGlobalCounter();
+  saveSessionState();
 }
 
 function renderRevCounter(idx){
@@ -778,6 +784,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   }else{
     if(overlay) overlay.style.display='none';
   }
+  bindDraftPersistence();
+  restoreSessionState();
+  window.addEventListener('beforeunload',saveSessionState);
 });
 
 // ── GUIDA COLLASSABILE ──
@@ -786,6 +795,323 @@ function toggleGuide(){
   const toggle=document.getElementById('guideToggle');
   const open=body.classList.toggle('open');
   toggle.classList.toggle('open',open);
+}
+
+// ── SESSIONE / RECUPERO STATO ──
+function bindDraftPersistence(){
+  ['argomento','facolta','corso','tipoLaurea','indiceManuale','numChapters'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el || el.dataset.persistBound==='1') return;
+    const handler=()=>saveSessionState();
+    el.addEventListener('input',handler);
+    el.addEventListener('change',handler);
+    el.dataset.persistBound='1';
+  });
+}
+
+function getControlValue(id,fallback=''){
+  const el=document.getElementById(id);
+  return el ? el.value : fallback;
+}
+
+function cloneJsonSafe(value,fallback){
+  try{return JSON.parse(JSON.stringify(value));}catch{return fallback;}
+}
+
+function applyMetodToDom(val){
+  metodologia=val||'teorica';
+  const order=['teorica','empirica','caso_studio','revisione_sistematica','comparativa'];
+  document.querySelectorAll('.metod-chip').forEach((chip,idx)=>{
+    chip.classList.toggle('active',order[idx]===metodologia);
+  });
+  const warning=document.getElementById('empiricaWarning');
+  if(warning) warning.style.display=metodologia==='empirica'?'flex':'none';
+}
+
+function applyChapterOverrideState(active){
+  chapterOverrideActive=!!active;
+  const btn=document.getElementById('toggleOverride');
+  if(btn){
+    btn.classList.toggle('active',chapterOverrideActive);
+    btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
+  }
+  const wrap=document.getElementById('chapterOverride');
+  if(wrap) wrap.style.display=chapterOverrideActive?'flex':'none';
+}
+
+function getUiSnapshot(){
+  return {
+    indiceMode,
+    chapterOverrideActive,
+    metodologia,
+    argomento:getControlValue('argomento'),
+    facolta:getControlValue('facolta'),
+    corso:getControlValue('corso'),
+    tipoLaurea:getControlValue('tipoLaurea','triennale'),
+    indiceManuale:getControlValue('indiceManuale'),
+    numChapters:getControlValue('numChapters','4')
+  };
+}
+
+function saveSessionState(){
+  try{
+    const payload={
+      version:2,
+      ui:getUiSnapshot(),
+      thesis:cloneJsonSafe(thesis,{}),
+      revState:cloneJsonSafe(revState,{}),
+      uiState:cloneJsonSafe(uiState,{})
+    };
+    sessionStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify(payload));
+  }catch(err){
+    console.warn('saveSessionState failed',err);
+  }
+}
+
+function restoreSessionState(){
+  isRestoringSession=true;
+  const raw=sessionStorage.getItem(SESSION_STORAGE_KEY);
+  if(!raw){isRestoringSession=false;return;}
+  let payload;
+  try{
+    payload=JSON.parse(raw);
+  }catch{
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    isRestoringSession=false;
+    return;
+  }
+  if(!payload||typeof payload!=='object'){isRestoringSession=false;return;}
+
+  const ui=payload.ui||{};
+  const setVal=(id,val)=>{
+    const el=document.getElementById(id);
+    if(el && val!==undefined && val!==null) el.value=val;
+  };
+  setVal('argomento',ui.argomento||'');
+  setVal('facolta',ui.facolta||'');
+  setVal('corso',ui.corso||'');
+  setVal('tipoLaurea',ui.tipoLaurea||'triennale');
+  setVal('indiceManuale',ui.indiceManuale||'');
+  setVal('numChapters',ui.numChapters||'4');
+
+  indiceMode=ui.indiceMode==='manual'?'manual':'ai';
+  metodologia=ui.metodologia||'teorica';
+  setIndiceMode(indiceMode);
+  applyChapterOverrideState(!!ui.chapterOverrideActive);
+  applyMetodToDom(metodologia);
+
+  const safeThesis=payload.thesis&&typeof payload.thesis==='object'?payload.thesis:{};
+  thesis={
+    argomento:safeThesis.argomento||'',
+    facolta:safeThesis.facolta||'',
+    corso:safeThesis.corso||'',
+    tipo:safeThesis.tipo||'',
+    metodologia:safeThesis.metodologia||'',
+    indice:safeThesis.indice||'',
+    indiceVersions:Array.isArray(safeThesis.indiceVersions)?safeThesis.indiceVersions:[],
+    abstract:safeThesis.abstract||'',
+    abstractVersions:Array.isArray(safeThesis.abstractVersions)?safeThesis.abstractVersions:[],
+    chapters:Array.isArray(safeThesis.chapters)?safeThesis.chapters:[],
+    chapterTitles:Array.isArray(safeThesis.chapterTitles)?safeThesis.chapterTitles:[],
+    currentChapterIdx:Number.isInteger(safeThesis.currentChapterIdx)?safeThesis.currentChapterIdx:0,
+    contextPacket:safeThesis.contextPacket||null
+  };
+
+  const safeRev=payload.revState&&typeof payload.revState==='object'?payload.revState:{};
+  revState={
+    perChapter:safeRev.perChapter&&typeof safeRev.perChapter==='object'?safeRev.perChapter:{},
+    totalUsed:Number.isFinite(safeRev.totalUsed)?safeRev.totalUsed:0,
+    totalBudget:Number.isFinite(safeRev.totalBudget)?safeRev.totalBudget:0,
+    premiumUnlocked:!!safeRev.premiumUnlocked,
+    unlockTargetChapter:Number.isInteger(safeRev.unlockTargetChapter)?safeRev.unlockTargetChapter:null
+  };
+
+  const safeUiState=payload.uiState&&typeof payload.uiState==='object'?payload.uiState:{};
+  uiState={
+    indiceApproved:!!safeUiState.indiceApproved,
+    abstractApproved:!!safeUiState.abstractApproved,
+    completed:!!safeUiState.completed
+  };
+
+  ensureContextPacket();
+  renderRestoredSession();
+  isRestoringSession=false;
+  saveSessionState();
+}
+
+function ensureContextPacket(){
+  if(thesis.contextPacket&&thesis.contextPacket.dp&&thesis.contextPacket.mp&&thesis.contextPacket.tipoLabel){
+    return true;
+  }
+  const argomento=thesis.argomento||getControlValue('argomento').trim();
+  const facolta=thesis.facolta||getControlValue('facolta');
+  const corso=thesis.corso||getControlValue('corso').trim();
+  const tipo=thesis.tipo||getControlValue('tipoLaurea','triennale');
+  const metod=thesis.metodologia||metodologia||'teorica';
+  if(!argomento||!facolta||!corso){
+    return false;
+  }
+  thesis.argomento=argomento;
+  thesis.facolta=facolta;
+  thesis.corso=corso;
+  thesis.tipo=tipo;
+  thesis.metodologia=metod;
+  metodologia=metod;
+  thesis.contextPacket={
+    tipoLabel:tipoLaureaLabel(thesis.tipo),
+    isMagistrale:thesis.tipo!=='triennale',
+    dp:getDisciplineProfile(thesis.facolta),
+    mp:getMetodologiaProfile(thesis.metodologia)
+  };
+  return true;
+}
+
+function renderRestoredSession(){
+  document.getElementById('btnStep1').disabled=false;
+  document.getElementById('indiceBlock').style.display='none';
+  document.getElementById('indiceApproval').style.display='none';
+  document.getElementById('indiceRevision').style.display='none';
+  document.getElementById('nextAbstract').classList.remove('visible');
+  document.getElementById('abstractBlock').style.display='none';
+  document.getElementById('abstractApproval').style.display='none';
+  document.getElementById('abstractRevision').style.display='none';
+  document.getElementById('nextChapters').classList.remove('visible');
+  document.getElementById('downloadBar').style.display='none';
+  document.getElementById('chaptersArea').innerHTML='';
+
+  if(!thesis.indice && !thesis.abstract && (!Array.isArray(thesis.chapters) || thesis.chapters.length===0)){
+    updateWordCount();
+    return;
+  }
+
+  if(thesis.indice){
+    document.getElementById('indiceBlock').style.display='block';
+    document.getElementById('indiceText').textContent=thesis.indice;
+    document.getElementById('indiceChip').className='status-chip done';
+    document.getElementById('indiceChip').innerHTML='✓ Ripristinato';
+    if(!uiState.indiceApproved){
+      document.getElementById('indiceApproval').style.display='flex';
+    }
+  }
+
+  if(uiState.indiceApproved){
+    document.getElementById('nextAbstract').classList.add('visible');
+    setStep(2);
+  }else if(thesis.indice){
+    setStep(1);
+  }
+
+  if(thesis.abstract){
+    document.getElementById('nextAbstract').classList.remove('visible');
+    document.getElementById('abstractBlock').style.display='block';
+    document.getElementById('abstractText').textContent=thesis.abstract;
+    document.getElementById('abstractChip').className='status-chip done';
+    document.getElementById('abstractChip').innerHTML='✓ Ripristinato';
+    if(!uiState.abstractApproved){
+      document.getElementById('abstractApproval').style.display='flex';
+      setStep(2);
+    }
+  }
+
+  if(uiState.abstractApproved){
+    setStep(3);
+    renderStoredChapters();
+    if(uiState.completed){
+      document.getElementById('downloadBar').style.display='flex';
+      document.getElementById('nextChapters').classList.remove('visible');
+      setStep(4);
+    }else if(thesis.chapters.length===0){
+      showNextChapterButton(0);
+    }else if(thesis.currentChapterIdx < thesis.chapters.length){
+      const pendingIdx=thesis.currentChapterIdx;
+      const approval=document.getElementById(`chapApproval-${pendingIdx}`);
+      if(approval) approval.style.display='flex';
+    }else if(thesis.currentChapterIdx === thesis.chapters.length && thesis.currentChapterIdx < thesis.chapterTitles.length){
+      showNextChapterButton(thesis.currentChapterIdx);
+    }
+    syncProgressFromState();
+  }
+
+  updateWordCount();
+}
+
+function syncProgressFromState(){
+  const total=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles.length:0;
+  if(!total || (!Array.isArray(thesis.chapters) || thesis.chapters.length===0)) return;
+  if(uiState.completed){
+    updateChapterProgressBar(total-1,total,true);
+    return;
+  }
+  if(thesis.currentChapterIdx < thesis.chapters.length){
+    updateChapterProgressBar(thesis.currentChapterIdx,total,false);
+    return;
+  }
+  if(thesis.currentChapterIdx > 0){
+    updateChapterProgressBar(thesis.currentChapterIdx-1,total,true);
+  }
+}
+
+function showNextChapterButton(idx){
+  const nc=document.getElementById('nextChapters');
+  const title=thesis.chapterTitles[idx]||`Capitolo ${idx+1}`;
+  nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+1} — ${escHtml(title)}</button>`;
+  nc.classList.add('visible');
+}
+
+function renderStoredChapters(){
+  const area=document.getElementById('chaptersArea');
+  if(!area) return;
+  ensureGlobalCounter();
+  thesis.chapters.forEach((ch,idx)=>{
+    const title=ch?.title||thesis.chapterTitles[idx]||`Capitolo ${idx+1}`;
+    const total=thesis.chapterTitles.length||thesis.chapters.length;
+    const block=document.createElement('div');
+    block.id=`chap-${idx}`;
+    block.innerHTML=`
+      <div class="output-block" id="chapOutput-${idx}">
+        <div class="output-block-header">
+          <div class="output-block-title">
+            📖 Capitolo ${idx+1}
+            <span class="status-chip done" id="chapChip-${idx}">✓ Ripristinato</span>
+            <span class="version-badge" id="chapVerBadge-${idx}" style="display:inline-flex" onclick="openVersionModal('chapter',${idx})">↺ v${(Array.isArray(ch?.versions)&&ch.versions.length?ch.versions.length:1)}</span>
+          </div>
+          <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
+        </div>
+        <div class="output-block-body"><div class="content-text" id="chapText-${idx}">${escHtml(ch?.content||'')}</div></div>
+        <div class="sources-bar" id="chapSources-${idx}"><span class="sources-label">🔍 Query ricercate</span></div>
+        <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica le citazioni prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (Google Scholar, JSTOR, ResearchGate).</div>
+        <div class="rev-counter-bar" id="revCounterBar-${idx}">
+          <div class="rev-counter-info">
+            <span>Revisioni capitolo:</span>
+            <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
+            <span>3 revisioni disponibili</span>
+          </div>
+          <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
+        </div>
+        <div class="revision-inline" id="chapRevision-${idx}">
+          <div class="revision-inline-row">
+            <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
+            <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
+          </div>
+        </div>
+        <div class="approval-row" id="chapApproval-${idx}" style="display:none">
+          <span class="hint">Capitolo ${idx+1} approvato?</span>
+          <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
+          ${idx<total-1
+            ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>`
+            :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
+        </div>
+      </div>`;
+    area.appendChild(block);
+    renderRevCounter(idx);
+    if(!canRevise(idx)){
+      const revBtn=document.getElementById(`chapRevBtn-${idx}`);
+      if(revBtn){revBtn.textContent='🔓 Sblocca revisioni';revBtn.onclick=()=>openUnlockModal(idx);}
+      const redoBtn=document.querySelector(`#chapApproval-${idx} .btn-redo`);
+      if(redoBtn){redoBtn.textContent='🔓 Sblocca revisioni';redoBtn.onclick=()=>openUnlockModal(idx);}
+    }
+  });
+  renderGlobalCounter();
 }
 
 // ── UNLOCK MODAL ──
@@ -860,6 +1186,7 @@ async function applyUnlockCode(){
     thesis.chapters.forEach((_,i)=>renderRevCounter(i));
     renderGlobalCounter();
     closeModal('unlockModal');
+    saveSessionState();
     showToast('✦ Codice Premium attivato — +10 revisioni aggiunte!');
     return;
   }
@@ -872,6 +1199,7 @@ async function applyUnlockCode(){
     }
     renderGlobalCounter();
     closeModal('unlockModal');
+    saveSessionState();
     showToast(`✦ Codice Base attivato — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
     return;
   }
@@ -898,7 +1226,7 @@ function ensureGlobalCounter(){
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');metodologia=val;document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';}
+function setMetod(el,val){applyMetodToDom(val);saveSessionState();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -906,13 +1234,11 @@ function setIndiceMode(mode){
   document.getElementById('indiceManualWrap').style.display=mode==='manual'?'block':'none';
   document.getElementById('indiceAIWrap').style.display=mode==='ai'?'block':'none';
   document.getElementById('btnStep1').textContent=mode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
+  if(!isRestoringSession) saveSessionState();
 }
 function toggleChapterOverride(){
-  chapterOverrideActive=!chapterOverrideActive;
-  const btn=document.getElementById('toggleOverride');
-  btn.classList.toggle('active',chapterOverrideActive);
-  btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
-  document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
+  applyChapterOverrideState(!chapterOverrideActive);
+  saveSessionState();
 }
 function setStep(n){
   for(let i=0;i<=4;i++){
@@ -977,6 +1303,7 @@ REGOLE ASSOLUTE — VIOLAZIONE NON TOLLERATA:
 // ══════════════════════════════════════════════
 async function startPhase1(){
   if(!validateForm())return;
+  uiState={indiceApproved:false,abstractApproved:false,completed:false};
   thesis.argomento=document.getElementById('argomento').value.trim();
   thesis.facolta=document.getElementById('facolta').value;
   thesis.corso=document.getElementById('corso').value.trim();
@@ -1004,6 +1331,8 @@ async function startPhase1(){
     document.getElementById('indiceApproval').style.display='none';
     document.getElementById('indiceRevision').style.display='none';
     setStep(2);
+    uiState.indiceApproved=true;
+    saveSessionState();
     document.getElementById('nextAbstract').classList.add('visible');
     document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
     showToast('Indice del relatore acquisito ✓');
@@ -1050,6 +1379,7 @@ Bibliografia`;
   try{
     const t=await callClaude(prompt,'outline_draft');
     thesis.indice=t;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
+    saveSessionState();
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
@@ -1061,14 +1391,17 @@ Bibliografia`;
 
 function approveIndice(){
   thesis.chapterTitles=extractChapterTitles(thesis.indice);
+  uiState.indiceApproved=true;
   initRevState(thesis.chapterTitles.length);
   document.getElementById('indiceApproval').style.display='none';
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
+  saveSessionState();
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 async function reviseIndice(){
+  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   const fb=document.getElementById('indiceRevInput').value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
   const cp=thesis.contextPacket;
@@ -1087,6 +1420,7 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
   try{
     const t=await callClaude(prompt,'outline_review');
     thesis.indice=t;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
+    saveSessionState();
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
@@ -1102,6 +1436,7 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
 // PHASE 2 — ABSTRACT
 // ══════════════════════════════════════════════
 async function generateAbstract(){
+  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   document.getElementById('nextAbstract').classList.remove('visible');
   document.getElementById('abstractBlock').style.display='block';
   document.getElementById('abstractOutput').classList.add('typing');
@@ -1122,6 +1457,7 @@ Inizia direttamente. Solo il testo dell'abstract.`;
   try{
     const t=await callClaude(prompt,'abstract_draft');
     thesis.abstract=t;thesis.abstractVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
+    saveSessionState();
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
       document.getElementById('abstractChip').className='status-chip done';
@@ -1132,14 +1468,17 @@ Inizia direttamente. Solo il testo dell'abstract.`;
 }
 
 function approveAbstract(){
+  uiState.abstractApproved=true;
   document.getElementById('abstractApproval').style.display='none';
   const nc=document.getElementById('nextChapters');
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo 1 — ${escHtml(thesis.chapterTitles[0]||'')}</button>`;
   nc.classList.add('visible');setStep(3);
+  saveSessionState();
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 async function reviseAbstract(){
+  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   const fb=document.getElementById('abstractRevInput').value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
   const cp=thesis.contextPacket;
@@ -1155,6 +1494,7 @@ Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
   try{
     const t=await callClaude(prompt,'abstract_review');
     thesis.abstract=t;thesis.abstractVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
+    saveSessionState();
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
       document.getElementById('abstractChip').className='status-chip done';
@@ -1334,6 +1674,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       document.getElementById(`chapSourcesWarn-${idx}`).style.display='block';
     }
     thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0};
+    saveSessionState();
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
@@ -1349,6 +1690,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
 function approveChapter(idx){
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   thesis.currentChapterIdx=idx+1;
+  saveSessionState();
   const nc=document.getElementById('nextChapters');
   const nextTitle=thesis.chapterTitles[idx+1]||'';
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
@@ -1358,17 +1700,20 @@ function approveChapter(idx){
 
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
+  uiState.completed=true;
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   setStep(4);
   document.getElementById('downloadBar').style.display='flex';
   updateWordCount();
+  saveSessionState();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
   showToast('🎓 Tesi completata!');
 }
 
 async function reviseChapter(idx){
+  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
     const perCh=revState.perChapter[idx]||0;
@@ -1407,6 +1752,7 @@ ISTRUZIONI:
     const text=result.text;
     ch.versions.push({content:text,timestamp:now(),label:`Rev: "${fb.substring(0,35)}"`});
     ch.currentVersion=ch.versions.length-1;ch.content=text;
+    saveSessionState();
     document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${ch.currentVersion+1}`;
     if(result.sources.length>0){
       const bar=document.getElementById(`chapSources-${idx}`);
@@ -1469,7 +1815,7 @@ function openVersionModal(type,idx){
     const item=document.createElement('div');
     item.className='version-item'+(i===ch.currentVersion?' current':'');
     item.innerHTML=`<span class="version-item-label">v${i+1} — ${v.label}</span><span class="version-item-time">${v.timestamp}</span>`;
-    item.onclick=()=>{ch.currentVersion=i;ch.content=v.content;document.getElementById(`chapText-${idx}`).textContent=v.content;document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${i+1}`;updateWordCount();closeModal('versionModal');showToast(`Versione ${i+1} ripristinata`);};
+    item.onclick=()=>{ch.currentVersion=i;ch.content=v.content;document.getElementById(`chapText-${idx}`).textContent=v.content;document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${i+1}`;updateWordCount();saveSessionState();closeModal('versionModal');showToast(`Versione ${i+1} ripristinata`);};
     list.appendChild(item);
   });
   openModal('versionModal');
