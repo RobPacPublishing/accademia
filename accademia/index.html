@@ -174,6 +174,13 @@
   .header-nav{display:flex;align-items:center;gap:6px;}
   .nav-link{background:none;border:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:6px 10px;border-radius:var(--radius-sm);transition:all .2s;white-space:nowrap;}
   .nav-link:hover{color:var(--gold);background:var(--gold-dim2);}
+  .auth-status{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border2);border-radius:999px;font-size:11px;color:var(--text3);background:var(--bg4);}
+  .auth-status.hidden,.nav-link.hidden{display:none;}
+  .auth-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;}
+  .auth-status.connected .auth-dot{background:var(--green);}
+  .auth-email{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .auth-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+  .auth-note{font-size:12px;color:var(--text3);margin-top:12px;line-height:1.6;}
 
   /* ── GUIDA UTENTE COLLASSABILE ── */
   .guide-bar{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:24px;overflow:hidden;}
@@ -242,6 +249,12 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
+    <div class="auth-status hidden" id="authStatus">
+      <span class="auth-dot"></span>
+      <span class="auth-email" id="authEmail"></span>
+    </div>
+    <button class="nav-link" id="authBtn" onclick="openAuthModal()">☁ Accedi</button>
+    <button class="nav-link hidden" id="logoutBtn" onclick="logoutSupabase()">Esci</button>
   </div>
 </header>
 
@@ -274,7 +287,7 @@
       <p>Il Servizio è concesso in licenza d'uso personale, non esclusiva e non trasferibile. È espressamente vietato: (i) cedere, rivendere o sublicenziare l'accesso al Servizio a terzi; (ii) utilizzare i contenuti generati per conto di terzi a fini commerciali; (iii) tentare di aggirare i meccanismi di controllo del numero di revisioni incluse nel piano acquistato.</p>
 
       <h3>Art. 5 — Trattamento dei Dati Personali (GDPR)</h3>
-      <p>Il Servizio <strong>non raccoglie, non archivia e non trasmette</strong> dati personali dell'Utente a server propri. Le informazioni inserite (argomento, facoltà, corso) sono elaborate e conservate esclusivamente nella memoria locale del browser dell'Utente, anche al fine di consentire il recupero della sessione nelle visite successive dallo stesso dispositivo e browser. Le richieste ai provider A.I. eventualmente utilizzati dal Servizio sono inoltrate dal backend applicativo con configurazione tecnica lato server. L'Utente non è tenuto a inserire alcuna chiave API nel frontend. Il trattamento dei dati da parte dei provider esterni resta disciplinato dalle rispettive privacy policy e condizioni d'uso.</p>
+      <p>Il Servizio elabora i dati inseriti dall'Utente per generare e salvare l'elaborato. In modalità non autenticata può usare anche la memoria locale del browser; in modalità autenticata può sincronizzare stato e contenuti su infrastruttura Supabase per consentire il recupero della sessione anche in momenti successivi o da altri dispositivi. Le richieste ai provider A.I. eventualmente utilizzati dal Servizio sono inoltrate dal backend applicativo con configurazione tecnica lato server. L'Utente non è tenuto a inserire alcuna chiave API nel frontend. Il trattamento dei dati da parte dei provider esterni resta disciplinato dalle rispettive privacy policy e condizioni d'uso.</p>
 
       <h3>Art. 6 — Limitazione di Garanzia</h3>
       <p>Il Servizio è fornito "<strong>as is</strong>", senza garanzie di alcun tipo, esplicite o implicite, ivi incluse garanzie di commerciabilità, idoneità a uno scopo specifico o non violazione di diritti di terzi. RobPac Publishing non garantisce che il Servizio sia privo di errori, interruzioni o che i risultati ottenuti soddisfino le aspettative dell'Utente o i requisiti dell'istituto accademico di riferimento.</p>
@@ -571,7 +584,7 @@
         <h3>3. Piano Revisioni e Codici di Sblocco</h3>
         <p>Il Piano Base include un numero di revisioni pari a <strong>N × 2</strong>, dove N è il numero di capitoli dell'elaborato generato nella sessione corrente. Le revisioni sono utilizzabili su qualsiasi capitolo, con un massimo di 3 revisioni per singolo capitolo.</p>
         <p>Il <strong>Codice Base</strong> aggiunge 3 revisioni su un singolo capitolo a scelta. Il <strong>Codice Premium</strong> rimuove il limite di revisioni su tutti i capitoli per la sessione corrente. I codici sono monouso, validi per una singola sessione browser, non rimborsabili salvo vizi di conformità ai sensi del D.Lgs. 206/2005.</p>
-        <p>I contatori di revisione sono gestiti nella memoria locale del browser dell'Utente. RobPac Publishing non è responsabile per perdite di dati derivanti dalla cancellazione manuale dei dati del browser, dall'uso della navigazione in incognito o da malfunzionamenti del dispositivo dell'Utente.</p>
+        <p>I contatori di revisione e lo stato dell'elaborato possono essere salvati localmente oppure, se l'Utente accede al proprio account, sincronizzati su infrastruttura Supabase. In assenza di autenticazione, la permanenza dei dati resta dipendente dal browser e dal dispositivo utilizzato.</p>
       </div>
 
       <div class="tos-section">
@@ -583,9 +596,9 @@
       <div class="tos-section">
         <h3>5. Trattamento dei Dati Personali (GDPR — Reg. UE 2016/679)</h3>
         <p><strong>Titolare del trattamento:</strong> RobPac Publishing (Roberto Pacetti), Roma, Italia.</p>
-        <p><strong>Dati trattati:</strong> Il Servizio non raccoglie né archivia dati personali su server propri. I dati immessi dall'Utente (argomento tesi, facoltà, corso) sono conservati esclusivamente nella memoria locale del browser dell'Utente, così da consentire il recupero della sessione nelle successive riaperture della pagina dallo stesso dispositivo e browser.</p>
+        <p><strong>Dati trattati:</strong> I dati immessi dall'Utente possono essere conservati nella memoria locale del browser e, se l'Utente effettua l'accesso, sincronizzati su infrastruttura Supabase per consentire il recupero della sessione anche da altri dispositivi.</p>
         <p><strong>API Key Anthropic:</strong> La chiave API inserita dall'Utente è conservata in memoria volatile e trasmessa direttamente alle API Anthropic senza transito su infrastrutture di RobPac Publishing. Il trattamento dati da parte di Anthropic è regolato dalla propria Privacy Policy.</p>
-        <p><strong>Diritti dell'Utente:</strong> Ai sensi degli artt. 15-22 GDPR, l'Utente ha diritto di accesso, rettifica, cancellazione, limitazione del trattamento, portabilità e opposizione. Dato che nessun dato personale è conservato da RobPac Publishing, tali diritti sono de facto garantiti dalla natura stessa del Servizio.</p>
+        <p><strong>Diritti dell'Utente:</strong> Ai sensi degli artt. 15-22 GDPR, l'Utente ha diritto di accesso, rettifica, cancellazione, limitazione del trattamento, portabilità e opposizione. In presenza di sincronizzazione cloud, tali richieste potranno riguardare anche i dati salvati sull'infrastruttura collegata al Servizio.</p>
         <p><strong>Cookie:</strong> Il Servizio non utilizza cookie di tracciamento, profilazione o analytics di alcun tipo.</p>
       </div>
 
@@ -628,8 +641,32 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('authModal')">✕</button>
+    <h2>☁ Accesso account</h2>
+    <p>Accedi per salvare la tesi lato server e riprenderla anche da altri dispositivi.</p>
+    <div class="auth-grid">
+      <div class="form-group">
+        <label for="authEmailInput">Email</label>
+        <input type="email" id="authEmailInput" placeholder="nome@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="authPasswordInput">Password</label>
+        <input type="password" id="authPasswordInput" placeholder="Minimo 6 caratteri" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-save" onclick="loginSupabase()">Accedi</button>
+      <button class="btn-modal-cancel" onclick="registerSupabase()">Registrati</button>
+    </div>
+    <div class="auth-note">Se la conferma email è attiva in Supabase, dopo la registrazione dovrai aprire il link ricevuto e poi tornare qui.</div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ══════════════════════════════════════════════
 // STATE
@@ -655,28 +692,56 @@ const PERSISTENT_STORAGE=(()=>{
 
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
-const SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_30WGAbZRVjNR8vujs0kQnQ_fZtoHpZr';
+let supabaseClient=null;
+let supabaseConfig={url:'',publishableKey:''};
+let authUser=null;
+let currentCloudThesisId=null;
+let cloudSyncTimer=null;
+let authListenerBound=false;
+let isApplyingRemoteState=false;
+
+async function fetchSupabaseConfig(){
+  if(supabaseConfig.url&&supabaseConfig.publishableKey) return supabaseConfig;
+  const res=await fetch('/api/task?config=supabase');
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.url||!data.publishableKey){
+    throw new Error(data.error||'Configurazione Supabase non disponibile');
+  }
+  supabaseConfig={url:data.url,publishableKey:data.publishableKey};
+  return supabaseConfig;
+}
+
+async function ensureSupabaseClient(){
+  if(supabaseClient) return supabaseClient;
+  const cfg=await fetchSupabaseConfig();
+  if(!window.supabase||typeof window.supabase.createClient!=='function'){
+    throw new Error('Client Supabase non disponibile');
+  }
+  supabaseClient=window.supabase.createClient(cfg.url,cfg.publishableKey);
+  return supabaseClient;
+}
+
+async function getSupabaseRestHeaders(){
+  const cfg=await fetchSupabaseConfig();
+  return {
+    'apikey': cfg.publishableKey,
+    'Authorization': `Bearer ${cfg.publishableKey}`
+  };
+}
 
 async function verifyAndConsumeCode(code) {
-  // 1. Cerca il codice
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id,type,used`, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`
-    }
-  });
+  const headers=await getSupabaseRestHeaders();
+  const cfg=await fetchSupabaseConfig();
+  const res = await fetch(`${cfg.url}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id,type,used`, { headers });
   const rows = await res.json();
   if (!rows.length) return { valid: false, reason: 'not_found' };
   const row = rows[0];
   if (row.used) return { valid: false, reason: 'already_used' };
 
-  // 2. Marca come usato
-  await fetch(`${SUPABASE_URL}/rest/v1/codes?id=eq.${row.id}`, {
+  await fetch(`${cfg.url}/rest/v1/codes?id=eq.${row.id}`, {
     method: 'PATCH',
     headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      ...headers,
       'Content-Type': 'application/json',
       'Prefer': 'return=minimal'
     },
@@ -820,7 +885,168 @@ window.addEventListener('DOMContentLoaded',()=>{
   bindDraftPersistence();
   restoreSessionState();
   window.addEventListener('beforeunload',saveSessionState);
+  initSupabaseAuth();
 });
+
+async function initSupabaseAuth(){
+  try{
+    const client=await ensureSupabaseClient();
+    const {data:{session}}=await client.auth.getSession();
+    await handleAuthSession(session,false);
+    if(!authListenerBound){
+      client.auth.onAuthStateChange((_event,sessionData)=>{handleAuthSession(sessionData,true);});
+      authListenerBound=true;
+    }
+  }catch(err){
+    console.warn('initSupabaseAuth failed',err);
+    updateAuthUi();
+  }
+}
+
+function updateAuthUi(){
+  const status=document.getElementById('authStatus');
+  const email=document.getElementById('authEmail');
+  const authBtn=document.getElementById('authBtn');
+  const logoutBtn=document.getElementById('logoutBtn');
+  if(!status||!email||!authBtn||!logoutBtn) return;
+  if(authUser&&authUser.email){
+    status.classList.remove('hidden');
+    status.classList.add('connected');
+    email.textContent=authUser.email;
+    authBtn.classList.add('hidden');
+    logoutBtn.classList.remove('hidden');
+  }else{
+    status.classList.add('hidden');
+    status.classList.remove('connected');
+    email.textContent='';
+    authBtn.classList.remove('hidden');
+    logoutBtn.classList.add('hidden');
+  }
+}
+
+function openAuthModal(){
+  openModal('authModal');
+}
+
+async function loginSupabase(){
+  const email=document.getElementById('authEmailInput').value.trim();
+  const password=document.getElementById('authPasswordInput').value;
+  if(!email||!password){showToast('Inserisci email e password',true);return;}
+  try{
+    const client=await ensureSupabaseClient();
+    const {error}=await client.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    closeModal('authModal');
+    showToast('Accesso effettuato ✓');
+  }catch(err){
+    showToast(err.message||'Errore di accesso',true);
+  }
+}
+
+async function registerSupabase(){
+  const email=document.getElementById('authEmailInput').value.trim();
+  const password=document.getElementById('authPasswordInput').value;
+  if(!email||!password){showToast('Inserisci email e password',true);return;}
+  try{
+    const client=await ensureSupabaseClient();
+    const {data,error}=await client.auth.signUp({email,password});
+    if(error) throw error;
+    if(data&&data.session){
+      closeModal('authModal');
+      showToast('Account creato ✓');
+    }else{
+      showToast('Registrazione inviata: controlla la tua email');
+    }
+  }catch(err){
+    showToast(err.message||'Errore di registrazione',true);
+  }
+}
+
+async function logoutSupabase(){
+  try{
+    const client=await ensureSupabaseClient();
+    await client.auth.signOut();
+    authUser=null;
+    currentCloudThesisId=null;
+    updateAuthUi();
+    showToast('Disconnessione effettuata');
+  }catch(err){
+    showToast(err.message||'Errore di disconnessione',true);
+  }
+}
+
+async function handleAuthSession(session,notify){
+  authUser=session&&session.user?session.user:null;
+  updateAuthUi();
+  if(!authUser){
+    currentCloudThesisId=null;
+    return;
+  }
+  await loadLatestCloudThesis();
+  if(notify) showToast('Cloud attivo ✓');
+}
+
+function scheduleCloudSave(payload){
+  if(!authUser||isRestoringSession||isApplyingRemoteState) return;
+  const data=payload||getPersistedPayload();
+  if(!hasMeaningfulState(data)) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer=setTimeout(()=>{syncSessionToCloud(data).catch(err=>console.warn('syncSessionToCloud failed',err));},700);
+}
+
+async function syncSessionToCloud(payload){
+  if(!authUser||isRestoringSession||isApplyingRemoteState) return;
+  const client=await ensureSupabaseClient();
+  const p=payload||getPersistedPayload();
+  const row={
+    user_id:authUser.id,
+    title:(p.ui&&p.ui.argomento)||thesis.argomento||'Tesi senza titolo',
+    degree_course:(p.ui&&p.ui.corso)||thesis.corso||null,
+    subject_area:(p.ui&&p.ui.facolta)||thesis.facolta||null,
+    methodology:(p.ui&&p.ui.metodologia)||thesis.metodologia||null,
+    index_mode:(p.ui&&p.ui.indiceMode)||indiceMode,
+    status:deriveCloudStatus(p),
+    current_step:deriveCurrentStepValue(p),
+    workflow_state:{ payload:p },
+    form_state:p.ui||{},
+    last_opened_at:new Date().toISOString()
+  };
+
+  if(currentCloudThesisId){
+    const {error}=await client.from('theses').update(row).eq('id',currentCloudThesisId).eq('user_id',authUser.id);
+    if(error) throw error;
+    return;
+  }
+
+  const {data,error}=await client.from('theses').insert(row).select('id').single();
+  if(error) throw error;
+  currentCloudThesisId=data.id;
+}
+
+async function loadLatestCloudThesis(){
+  if(!authUser) return;
+  const client=await ensureSupabaseClient();
+  const {data,error}=await client
+    .from('theses')
+    .select('id,workflow_state,updated_at')
+    .eq('user_id',authUser.id)
+    .order('updated_at',{ascending:false})
+    .limit(1);
+  if(error) throw error;
+  if(!Array.isArray(data)||!data.length){
+    currentCloudThesisId=null;
+    if(hasMeaningfulState()) scheduleCloudSave();
+    return;
+  }
+  const row=data[0];
+  currentCloudThesisId=row.id;
+  const payload=row.workflow_state&&row.workflow_state.payload?row.workflow_state.payload:null;
+  if(!payload) return;
+  isApplyingRemoteState=true;
+  applyPersistedPayload(payload);
+  isApplyingRemoteState=false;
+  showToast('Sessione cloud ripristinata ✓');
+}
 
 // ── GUIDA COLLASSABILE ──
 function toggleGuide(){
@@ -886,34 +1112,56 @@ function getUiSnapshot(){
   };
 }
 
+function getPersistedPayload(){
+  return {
+    version:4,
+    savedAt:new Date().toISOString(),
+    ui:getUiSnapshot(),
+    thesis:cloneJsonSafe(thesis,{}),
+    revState:cloneJsonSafe(revState,{}),
+    uiState:cloneJsonSafe(uiState,{})
+  };
+}
+
+function hasMeaningfulState(payload){
+  const p=payload||getPersistedPayload();
+  const t=p.thesis||{};
+  const ui=p.ui||{};
+  return !!(
+    (ui.argomento&&String(ui.argomento).trim())||
+    (t.indice&&String(t.indice).trim())||
+    (t.abstract&&String(t.abstract).trim())||
+    (Array.isArray(t.chapters)&&t.chapters.some(ch=>ch&&((ch.title&&String(ch.title).trim())||(ch.content&&String(ch.content).trim()))))
+  );
+}
+
+function deriveCloudStatus(payload){
+  const p=payload||getPersistedPayload();
+  if(p.uiState&&p.uiState.completed) return 'completed';
+  return hasMeaningfulState(p)?'active':'draft';
+}
+
+function deriveCurrentStepValue(payload){
+  const p=payload||getPersistedPayload();
+  if(p.uiState&&p.uiState.completed) return 'completed';
+  if(p.uiState&&p.uiState.abstractApproved) return 'chapters';
+  if(p.uiState&&p.uiState.indiceApproved) return p.thesis&&p.thesis.abstract ? 'abstract_ready' : 'abstract';
+  if(p.thesis&&p.thesis.indice) return 'index_review';
+  return 'setup';
+}
+
 function saveSessionState(){
   try{
-    const payload={
-      version:3,
-      ui:getUiSnapshot(),
-      thesis:cloneJsonSafe(thesis,{}),
-      revState:cloneJsonSafe(revState,{}),
-      uiState:cloneJsonSafe(uiState,{})
-    };
+    const payload=getPersistedPayload();
     storageSet(PERSISTED_STATE_KEY,JSON.stringify(payload));
+    scheduleCloudSave(payload);
   }catch(err){
     console.warn('saveSessionState failed',err);
   }
 }
 
-function restoreSessionState(){
-  isRestoringSession=true;
-  const raw=storageGet(PERSISTED_STATE_KEY);
-  if(!raw){isRestoringSession=false;return;}
-  let payload;
-  try{
-    payload=JSON.parse(raw);
-  }catch{
-    storageRemove(PERSISTED_STATE_KEY);
-    isRestoringSession=false;
-    return;
-  }
-  if(!payload||typeof payload!=='object'){isRestoringSession=false;return;}
+function applyPersistedPayload(payload){
+  if(!payload||typeof payload!=='object') return;
 
   const ui=payload.ui||{};
   const setVal=(id,val)=>{
@@ -968,8 +1216,23 @@ function restoreSessionState(){
 
   ensureContextPacket();
   renderRestoredSession();
-  isRestoringSession=false;
   saveSessionState();
+}
+
+function restoreSessionState(){
+  isRestoringSession=true;
+  const raw=storageGet(PERSISTED_STATE_KEY);
+  if(!raw){isRestoringSession=false;return;}
+  let payload;
+  try{
+    payload=JSON.parse(raw);
+  }catch{
+    storageRemove(PERSISTED_STATE_KEY);
+    isRestoringSession=false;
+    return;
+  }
+  applyPersistedPayload(payload);
+  isRestoringSession=false;
 }
 
 function ensureContextPacket(){
