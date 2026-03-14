@@ -174,26 +174,6 @@
   .header-nav{display:flex;align-items:center;gap:6px;}
   .nav-link{background:none;border:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:6px 10px;border-radius:var(--radius-sm);transition:all .2s;white-space:nowrap;}
   .nav-link:hover{color:var(--gold);background:var(--gold-dim2);}
-  .auth-status{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border2);border-radius:999px;font-size:11px;color:var(--text3);background:var(--bg4);}
-  .auth-status.hidden,.nav-link.hidden{display:none;}
-  .auth-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;}
-  .auth-status.connected .auth-dot{background:var(--green);}
-  .auth-email{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .auth-grid{display:grid;grid-template-columns:1fr;gap:12px;}
-  .auth-note{font-size:12px;color:var(--text3);margin-top:12px;line-height:1.6;}
-  .app-shell.hidden{display:none;}
-  .auth-gate{max-width:860px;margin:34px auto 80px;padding:0 32px;}
-  .auth-gate.hidden{display:none;}
-  .auth-gate-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:34px;position:relative;overflow:hidden;text-align:center;}
-  .auth-gate-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
-  .auth-gate-kicker{display:inline-block;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,168,76,.3);padding:4px 14px;border-radius:20px;margin-bottom:18px;}
-  .auth-gate h2{font-family:'Playfair Display',serif;font-size:30px;line-height:1.15;margin-bottom:12px;color:var(--text);}
-  .auth-gate p{color:var(--text3);font-size:15px;max-width:520px;margin:0 auto 20px;line-height:1.7;}
-  .auth-gate-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}
-  .auth-gate-btn{padding:12px 18px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--bg4);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
-  .auth-gate-btn.primary{background:linear-gradient(135deg,#b8922a,var(--gold),#d4b05a);border:none;color:#0a0800;}
-  .auth-gate-btn:hover{transform:translateY(-1px);}
-  @media(max-width:640px){.auth-gate{padding:0 18px;margin:24px auto 60px;}.auth-gate-card{padding:24px;}.auth-gate h2{font-size:24px;}}
 
   /* ── GUIDA UTENTE COLLASSABILE ── */
   .guide-bar{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:24px;overflow:hidden;}
@@ -262,12 +242,10 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini</button>
-    <div class="auth-status hidden" id="authStatus">
-      <span class="auth-dot"></span>
-      <span class="auth-email" id="authEmail"></span>
-    </div>
-    <button class="nav-link" id="authBtn" onclick="openAuthModal()">☁ Accedi</button>
-    <button class="nav-link hidden" id="logoutBtn" onclick="logoutSupabase()">Esci</button>
+    <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusLabel">Inserisci API Key</span>
+    </button>
   </div>
 </header>
 
@@ -300,7 +278,7 @@
       <p>Il Servizio è concesso in licenza d'uso personale, non esclusiva e non trasferibile. È espressamente vietato: (i) cedere, rivendere o sublicenziare l'accesso al Servizio a terzi; (ii) utilizzare i contenuti generati per conto di terzi a fini commerciali; (iii) tentare di aggirare i meccanismi di controllo del numero di revisioni incluse nel piano acquistato.</p>
 
       <h3>Art. 5 — Trattamento dei Dati Personali (GDPR)</h3>
-      <p>Il Servizio elabora i dati inseriti dall'Utente per generare e salvare l'elaborato. In modalità non autenticata può usare anche la memoria locale del browser; in modalità autenticata può sincronizzare stato e contenuti su infrastruttura Supabase per consentire il recupero della sessione anche in momenti successivi o da altri dispositivi. Le richieste ai provider A.I. eventualmente utilizzati dal Servizio sono inoltrate dal backend applicativo con configurazione tecnica lato server. L'Utente non è tenuto a inserire alcuna chiave API nel frontend. Il trattamento dei dati da parte dei provider esterni resta disciplinato dalle rispettive privacy policy e condizioni d'uso.</p>
+      <p>Il Servizio tratta dati di accesso e contenuti di lavoro strettamente necessari al funzionamento dell'account, al salvataggio della tesi e alla ripresa delle sessioni. Alcune funzionalità si appoggiano inoltre a provider esterni di autenticazione, storage e modelli AI, soggetti alle rispettive policy.</p>
 
       <h3>Art. 6 — Limitazione di Garanzia</h3>
       <p>Il Servizio è fornito "<strong>as is</strong>", senza garanzie di alcun tipo, esplicite o implicite, ivi incluse garanzie di commerciabilità, idoneità a uno scopo specifico o non violazione di diritti di terzi. RobPac Publishing non garantisce che il Servizio sia privo di errori, interruzioni o che i risultati ottenuti soddisfino le aspettative dell'Utente o i requisiti dell'istituto accademico di riferimento.</p>
@@ -329,18 +307,7 @@
   </div>
 </div>
 
-<div class="auth-gate hidden" id="authGate">
-  <div class="auth-gate-card">
-    <div class="auth-gate-kicker">Accesso richiesto</div>
-    <h2>Accedi per iniziare o riprendere la tua tesi</h2>
-    <p>AccademIA ora richiede un account per salvare il lavoro in modo stabile, riprenderlo in futuro e usarlo anche da altri dispositivi.</p>
-    <div class="auth-gate-actions">
-      <button class="auth-gate-btn primary" type="button" onclick="openAuthModal()">Accedi / Registrati</button>
-    </div>
-  </div>
-</div>
-
-<main class="container app-shell hidden" id="appShell">
+<main class="container">
   <div class="hero">
     <div class="hero-label">✦ Powered by Claude AI + Web Search accademico</div>
     <h1>La tua laurea,<br>con I.A.</h1>
@@ -369,7 +336,7 @@
         </div>
         <div class="guide-step">
           <div class="guide-step-num">4</div>
-          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni incluse per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong> (dove N = numero capitoli).</span></div>
+          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni disponibili per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong> (dove N = numero capitoli).</span></div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">5</div>
@@ -377,7 +344,7 @@
         </div>
       </div>
       <div class="guide-note">
-        <strong>⚠ Revisioni aggiuntive:</strong> Se esaurisci le revisioni incluse, puoi acquistare un <strong>Codice Base</strong> (+3 revisioni su un capitolo, ~€2) o un <strong>Codice Premium</strong> (revisioni illimitate su tutta la tesi). Il codice viene consegnato via email dopo l'acquisto su Gumroad/Payhip.<br><br>
+        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade Premium</strong> (+10 revisioni totali sulla tesi). Il codice viene inviato via email dopo l'attivazione.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
     </div>
@@ -530,6 +497,19 @@
   </div>
 </main>
 
+<div class="modal-overlay" id="apiModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('apiModal')">✕</button>
+    <h2>Configurazione servizio</h2>
+    <p>Le chiavi dei provider AI sono gestite lato server. Non è richiesto alcun inserimento manuale da parte tua.</p>
+    <div class="form-group"><label>Chiave API</label><input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."></div>
+    <div class="modal-actions">
+      <button class="btn-modal-save" onclick="saveApiKey()">Salva</button>
+      <button class="btn-modal-cancel" onclick="closeModal('apiModal')">Annulla</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="versionModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('versionModal')">✕</button>
@@ -545,29 +525,29 @@
   <div class="modal modal-wide">
     <button class="modal-close" onclick="closeModal('unlockModal')">✕</button>
     <h2>🔓 Revisioni esaurite</h2>
-    <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Acquista un codice di sblocco oppure inserisci un codice già acquistato.</p>
+    <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Attiva un pacchetto aggiuntivo oppure inserisci un codice già acquistato.</p>
     <div class="unlock-tabs">
-      <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Acquista codice</button>
+      <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Attiva pacchetto</button>
       <button class="unlock-tab" onclick="setUnlockTab('enter')">🔑 Inserisci codice</button>
     </div>
 
     <div class="unlock-panel active" id="unlockPanelBuy">
       <div class="unlock-price-row">
         <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')">
-          <div class="price">€2,90</div>
-          <div class="desc"><strong>Codice Base</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
+          <div class="price">+3</div>
+          <div class="desc"><strong>Revisioni aggiuntive</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
         </div>
         <div class="unlock-price-card" id="cardPremium" onclick="selectUnlockPlan('premium')">
-          <div class="price">€7,90</div>
-          <div class="desc"><strong>Codice Premium</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
+          <div class="price">+10</div>
+          <div class="desc"><strong>Upgrade Premium</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
         </div>
       </div>
-      <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Acquista su Gumroad →</button>
-      <div class="unlock-note">Dopo il pagamento ricevi il codice via email entro pochi minuti. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni.</div>
+      <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Prosegui all'attivazione →</button>
+      <div class="unlock-note">Dopo l'attivazione ricevi il codice via email. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni aggiuntive.</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
-      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Inserisci il codice ricevuto via email dopo l'acquisto.</p>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Inserisci il codice ricevuto via email dopo l'attivazione del pacchetto.</p>
       <div class="unlock-code-row">
         <input type="text" id="unlockCodeInput" placeholder="TESIA-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px;">
         <button class="btn-unlock" onclick="applyUnlockCode()">Applica</button>
@@ -594,8 +574,8 @@
         <p><strong>"Servizio"</strong>: la piattaforma AccademIA, accessibile tramite file HTML standalone o sito web, sviluppata e distribuita da RobPac Publishing.</p>
         <p><strong>"Utente"</strong>: qualsiasi persona fisica che accede e utilizza il Servizio, previa accettazione delle presenti condizioni.</p>
         <p><strong>"Contenuto Generato"</strong>: qualsiasi testo, struttura, citazione o elaborato prodotto dal Servizio tramite modelli di intelligenza artificiale.</p>
-        <p><strong>"Piano Base"</strong>: licenza d'uso che include la generazione dell'elaborato e un numero di revisioni pari al doppio dei capitoli generati (N × 2), non trasferibili.</p>
-        <p><strong>"Codice di Sblocco"</strong>: codice alfanumerico monouso acquistabile separatamente che estende il numero di revisioni disponibili.</p>
+        <p><strong>"Piano attivo"</strong>: configurazione di accesso associata all'account che abilita la generazione dell'elaborato e il numero di revisioni previste.</p>
+        <p><strong>"Pacchetto aggiuntivo / Codice di sblocco"</strong>: attivazione monouso che consente di estendere il numero di revisioni disponibili.</p>
       </div>
 
       <div class="tos-section">
@@ -606,9 +586,9 @@
 
       <div class="tos-section">
         <h3>3. Piano Revisioni e Codici di Sblocco</h3>
-        <p>Il Piano Base include un numero di revisioni pari a <strong>N × 2</strong>, dove N è il numero di capitoli dell'elaborato generato nella sessione corrente. Le revisioni sono utilizzabili su qualsiasi capitolo, con un massimo di 3 revisioni per singolo capitolo.</p>
-        <p>Il <strong>Codice Base</strong> aggiunge 3 revisioni su un singolo capitolo a scelta. Il <strong>Codice Premium</strong> rimuove il limite di revisioni su tutti i capitoli per la sessione corrente. I codici sono monouso, validi per una singola sessione browser, non rimborsabili salvo vizi di conformità ai sensi del D.Lgs. 206/2005.</p>
-        <p>I contatori di revisione e lo stato dell'elaborato possono essere salvati localmente oppure, se l'Utente accede al proprio account, sincronizzati su infrastruttura Supabase. In assenza di autenticazione, la permanenza dei dati resta dipendente dal browser e dal dispositivo utilizzato.</p>
+        <p>Il piano attivo determina il numero di revisioni disponibili. Nell'assetto attuale dell'app il contatore operativo segue un budget complessivo pari a <strong>N × 2</strong>, dove N è il numero dei capitoli generati, con un massimo di 3 revisioni per singolo capitolo.</p>
+        <p>Il <strong>Pacchetto Revisioni aggiuntive</strong> aggiunge 3 revisioni su un singolo capitolo a scelta. L'<strong>Upgrade Premium</strong> aggiunge 10 revisioni totali sulla tesi. I codici sono monouso e validi per una singola attivazione.</p>
+        <p>I contatori di revisione sono associati allo stato di lavoro dell'account. Eventuali anomalie o incongruenze devono essere segnalate tramite i canali di contatto indicati dal servizio.</p>
       </div>
 
       <div class="tos-section">
@@ -620,9 +600,9 @@
       <div class="tos-section">
         <h3>5. Trattamento dei Dati Personali (GDPR — Reg. UE 2016/679)</h3>
         <p><strong>Titolare del trattamento:</strong> RobPac Publishing (Roberto Pacetti), Roma, Italia.</p>
-        <p><strong>Dati trattati:</strong> I dati immessi dall'Utente possono essere conservati nella memoria locale del browser e, se l'Utente effettua l'accesso, sincronizzati su infrastruttura Supabase per consentire il recupero della sessione anche da altri dispositivi.</p>
-        <p><strong>API Key Anthropic:</strong> La chiave API inserita dall'Utente è conservata in memoria volatile e trasmessa direttamente alle API Anthropic senza transito su infrastrutture di RobPac Publishing. Il trattamento dati da parte di Anthropic è regolato dalla propria Privacy Policy.</p>
-        <p><strong>Diritti dell'Utente:</strong> Ai sensi degli artt. 15-22 GDPR, l'Utente ha diritto di accesso, rettifica, cancellazione, limitazione del trattamento, portabilità e opposizione. In presenza di sincronizzazione cloud, tali richieste potranno riguardare anche i dati salvati sull'infrastruttura collegata al Servizio.</p>
+        <p><strong>Dati trattati:</strong> Il Servizio utilizza dati di accesso e contenuti di lavoro necessari alla gestione dell'account, al salvataggio della tesi e alla ripresa delle sessioni su dispositivi diversi.</p>
+        <p><strong>Fornitori terzi:</strong> Alcune funzionalità del Servizio si appoggiano a provider esterni di autenticazione, storage e modelli AI. I relativi trattamenti sono disciplinati anche dalle policy dei rispettivi fornitori.</p>
+        <p><strong>Diritti dell'Utente:</strong> Ai sensi degli artt. 15-22 GDPR, l'Utente ha diritto di accesso, rettifica, cancellazione, limitazione del trattamento, portabilità e opposizione, nei limiti e con le modalità previste dalla normativa applicabile.</p>
         <p><strong>Cookie:</strong> Il Servizio non utilizza cookie di tracciamento, profilazione o analytics di alcun tipo.</p>
       </div>
 
@@ -657,7 +637,7 @@
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Inserisci argomento, facoltà, corso, tipo laurea e approccio metodologico. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Revisioni aggiuntive</strong><span>Esauriti i crediti, acquista un <strong>Codice Base</strong> (+3 rev. su 1 capitolo, €2,90) o <strong>Codice Premium</strong> (+10 rev. totali, €7,90) su Gumroad. Inserisci il codice per sbloccare.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade Premium</strong> (+10 rev. totali sulla tesi). Inserisci poi il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
     <div class="guide-note" style="margin-top:16px"><strong>⚠ Verifica sempre le fonti</strong> prima della consegna. AccademIA usa web search reale, ma alcune citazioni potrebbero richiedere accesso istituzionale (JSTOR, Scopus, PubMed).</div>
@@ -665,39 +645,15 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="authModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('authModal')">✕</button>
-    <h2>☁ Accesso account</h2>
-    <p>Accedi per salvare la tesi lato server e riprenderla anche da altri dispositivi.</p>
-    <div class="auth-grid">
-      <div class="form-group">
-        <label for="authEmailInput">Email</label>
-        <input type="email" id="authEmailInput" placeholder="nome@email.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label for="authPasswordInput">Password</label>
-        <input type="password" id="authPasswordInput" placeholder="Minimo 6 caratteri" autocomplete="current-password">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-modal-save" onclick="loginSupabase()">Accedi</button>
-      <button class="btn-modal-cancel" onclick="registerSupabase()">Registrati</button>
-    </div>
-    <div class="auth-note">Se la conferma email è attiva in Supabase, dopo la registrazione dovrai aprire il link ricevuto e poi tornare qui.</div>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let apiKey='', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -705,67 +661,31 @@ let thesis={
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   contextPacket:null
 };
-let uiState={indiceApproved:false,abstractApproved:false,completed:false};
-let isRestoringSession=false;
-const PERSISTED_STATE_KEY='accademia_session_v3';
-const LEGACY_SESSION_STORAGE_KEY='accademia_session_v2';
-const DISCLAIMER_ACCEPT_KEY='_td_accepted';
-const PERSISTENT_STORAGE=(()=>{
-  try{return window.localStorage;}catch(_err){return window.sessionStorage;}
-})();
 
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
-let supabaseClient=null;
-let supabaseConfig={url:'',publishableKey:''};
-let authUser=null;
-let currentCloudThesisId=null;
-let cloudSyncTimer=null;
-let authListenerBound=false;
-let isApplyingRemoteState=false;
-
-async function fetchSupabaseConfig(){
-  if(supabaseConfig.url&&supabaseConfig.publishableKey) return supabaseConfig;
-  const res=await fetch('/api/task?config=supabase');
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok||!data.url||!data.publishableKey){
-    throw new Error(data.error||'Configurazione Supabase non disponibile');
-  }
-  supabaseConfig={url:data.url,publishableKey:data.publishableKey};
-  return supabaseConfig;
-}
-
-async function ensureSupabaseClient(){
-  if(supabaseClient) return supabaseClient;
-  const cfg=await fetchSupabaseConfig();
-  if(!window.supabase||typeof window.supabase.createClient!=='function'){
-    throw new Error('Client Supabase non disponibile');
-  }
-  supabaseClient=window.supabase.createClient(cfg.url,cfg.publishableKey);
-  return supabaseClient;
-}
-
-async function getSupabaseRestHeaders(){
-  const cfg=await fetchSupabaseConfig();
-  return {
-    'apikey': cfg.publishableKey,
-    'Authorization': `Bearer ${cfg.publishableKey}`
-  };
-}
+const SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_30WGAbZRVjNR8vujs0kQnQ_fZtoHpZr';
 
 async function verifyAndConsumeCode(code) {
-  const headers=await getSupabaseRestHeaders();
-  const cfg=await fetchSupabaseConfig();
-  const res = await fetch(`${cfg.url}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id,type,used`, { headers });
+  // 1. Cerca il codice
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id,type,used`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`
+    }
+  });
   const rows = await res.json();
   if (!rows.length) return { valid: false, reason: 'not_found' };
   const row = rows[0];
   if (row.used) return { valid: false, reason: 'already_used' };
 
-  await fetch(`${cfg.url}/rest/v1/codes?id=eq.${row.id}`, {
+  // 2. Marca come usato
+  await fetch(`${SUPABASE_URL}/rest/v1/codes?id=eq.${row.id}`, {
     method: 'PATCH',
     headers: {
-      ...headers,
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=minimal'
     },
@@ -774,7 +694,7 @@ async function verifyAndConsumeCode(code) {
   return { valid: true, type: row.type };
 }
 
-// Contatori revisioni (persistenza locale nel browser)
+// Contatori revisioni
 let revState = {
   perChapter: {},   // { idx: count_used }
   totalUsed: 0,
@@ -788,8 +708,6 @@ function initRevState(nChapters){
   revState.perChapter = {};
   revState.totalUsed = 0;
   revState.premiumUnlocked = false;
-  revState.unlockTargetChapter = null;
-  saveSessionState();
 }
 
 const MAX_REV_PER_CHAPTER = 3;
@@ -806,7 +724,6 @@ function consumeRevision(idx){
   revState.totalUsed++;
   renderRevCounter(idx);
   renderGlobalCounter();
-  saveSessionState();
 }
 
 function renderRevCounter(idx){
@@ -849,42 +766,13 @@ function checkDisclaimer(){
   btn.style.pointerEvents=allChecked?'auto':'none';
   btn.style.opacity=allChecked?'1':'0.4';
 }
-function storageSet(key,value){
-  try{PERSISTENT_STORAGE.setItem(key,value);return true;}catch(err){console.warn('storageSet failed',err);return false;}
-}
-
-function storageGet(key){
-  try{return PERSISTENT_STORAGE.getItem(key);}catch(err){console.warn('storageGet failed',err);return null;}
-}
-
-function storageRemove(key){
-  try{PERSISTENT_STORAGE.removeItem(key);}catch(err){console.warn('storageRemove failed',err);}
-}
-
-function migrateLegacyBrowserState(){
-  try{
-    const legacyState=window.sessionStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
-    if(legacyState && !storageGet(PERSISTED_STATE_KEY)){
-      storageSet(PERSISTED_STATE_KEY,legacyState);
-    }
-    const legacyAccepted=window.sessionStorage.getItem(DISCLAIMER_ACCEPT_KEY);
-    if(legacyAccepted && !storageGet(DISCLAIMER_ACCEPT_KEY)){
-      storageSet(DISCLAIMER_ACCEPT_KEY,legacyAccepted);
-    }
-  }catch(err){
-    console.warn('migrateLegacyBrowserState failed',err);
-  }
-}
-
 function acceptDisclaimer(){
-  storageSet(DISCLAIMER_ACCEPT_KEY,'1');
+  sessionStorage.setItem('_td_accepted','1');
   const overlay=document.getElementById('disclaimerOverlay');
   if(overlay){
     overlay.style.display='none';
     overlay.classList.remove('open');
   }
-  updateAppAccessUi();
-  if(!authUser) openAuthModal();
 }
 // Mostra disclaimer se non già accettato + collega gli eventi in modo robusto
 window.addEventListener('DOMContentLoaded',()=>{
@@ -901,223 +789,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(btn){
     btn.addEventListener('click',acceptDisclaimer);
   }
-  migrateLegacyBrowserState();
   checkDisclaimer();
-  if(!storageGet(DISCLAIMER_ACCEPT_KEY)){
+  if(!sessionStorage.getItem('_td_accepted')){
     if(overlay) overlay.style.display='flex';
   }else{
     if(overlay) overlay.style.display='none';
   }
-  bindDraftPersistence();
-  updateAppAccessUi();
-  window.addEventListener('beforeunload',saveSessionState);
-  initSupabaseAuth();
 });
-
-async function initSupabaseAuth(){
-  try{
-    const client=await ensureSupabaseClient();
-    const {data:{session}}=await client.auth.getSession();
-    await handleAuthSession(session,false);
-    if(!authListenerBound){
-      client.auth.onAuthStateChange((_event,sessionData)=>{handleAuthSession(sessionData,true);});
-      authListenerBound=true;
-    }
-    if(!session?.user && storageGet(DISCLAIMER_ACCEPT_KEY)) openAuthModal();
-  }catch(err){
-    console.warn('initSupabaseAuth failed',err);
-    updateAuthUi();
-  }
-}
-
-function updateAuthUi(){
-  const status=document.getElementById('authStatus');
-  const email=document.getElementById('authEmail');
-  const authBtn=document.getElementById('authBtn');
-  const logoutBtn=document.getElementById('logoutBtn');
-  if(!status||!email||!authBtn||!logoutBtn) return;
-  if(authUser&&authUser.email){
-    status.classList.remove('hidden');
-    status.classList.add('connected');
-    email.textContent=authUser.email;
-    authBtn.classList.add('hidden');
-    logoutBtn.classList.remove('hidden');
-  }else{
-    status.classList.add('hidden');
-    status.classList.remove('connected');
-    email.textContent='';
-    authBtn.classList.remove('hidden');
-    logoutBtn.classList.add('hidden');
-  }
-  updateAppAccessUi();
-}
-
-function updateAppAccessUi(){
-  const appShell=document.getElementById('appShell');
-  const authGate=document.getElementById('authGate');
-  if(!appShell||!authGate) return;
-  const disclaimerAccepted=!!storageGet(DISCLAIMER_ACCEPT_KEY);
-  const canUseApp=disclaimerAccepted && !!authUser;
-  appShell.classList.toggle('hidden',!canUseApp);
-  authGate.classList.toggle('hidden',canUseApp||!disclaimerAccepted);
-}
-
-function getUserScopedSessionKey(userId){
-  return `${PERSISTED_STATE_KEY}_${userId}`;
-}
-
-function readPersistedPayloadFromKey(key){
-  const raw=storageGet(key);
-  if(!raw) return null;
-  try{return JSON.parse(raw);}catch{return null;}
-}
-
-function restoreSessionStateForAuthenticatedUser(){
-  if(!authUser||!authUser.id) return null;
-  const scopedKey=getUserScopedSessionKey(authUser.id);
-  let payload=readPersistedPayloadFromKey(scopedKey);
-  if(!payload){
-    payload=readPersistedPayloadFromKey(PERSISTED_STATE_KEY);
-    if(payload){
-      storageSet(scopedKey,JSON.stringify(payload));
-    }
-  }
-  if(!payload) return null;
-  isApplyingRemoteState=true;
-  applyPersistedPayload(payload);
-  isApplyingRemoteState=false;
-  return payload;
-}
-
-function openAuthModal(){
-  openModal('authModal');
-}
-
-async function loginSupabase(){
-  const email=document.getElementById('authEmailInput').value.trim();
-  const password=document.getElementById('authPasswordInput').value;
-  if(!email||!password){showToast('Inserisci email e password',true);return;}
-  try{
-    const client=await ensureSupabaseClient();
-    const {error}=await client.auth.signInWithPassword({email,password});
-    if(error) throw error;
-    closeModal('authModal');
-    showToast('Accesso effettuato ✓');
-  }catch(err){
-    showToast(err.message||'Errore di accesso',true);
-  }
-}
-
-async function registerSupabase(){
-  const email=document.getElementById('authEmailInput').value.trim();
-  const password=document.getElementById('authPasswordInput').value;
-  if(!email||!password){showToast('Inserisci email e password',true);return;}
-  try{
-    const client=await ensureSupabaseClient();
-    const {data,error}=await client.auth.signUp({email,password});
-    if(error) throw error;
-    if(data&&data.session){
-      closeModal('authModal');
-      showToast('Account creato ✓');
-    }else{
-      showToast('Registrazione inviata: controlla la tua email');
-    }
-  }catch(err){
-    showToast(err.message||'Errore di registrazione',true);
-  }
-}
-
-async function logoutSupabase(){
-  try{
-    const client=await ensureSupabaseClient();
-    await client.auth.signOut();
-    authUser=null;
-    currentCloudThesisId=null;
-    updateAuthUi();
-    showToast('Disconnessione effettuata');
-    openAuthModal();
-  }catch(err){
-    showToast(err.message||'Errore di disconnessione',true);
-  }
-}
-
-async function handleAuthSession(session,notify){
-  authUser=session&&session.user?session.user:null;
-  updateAuthUi();
-  if(!authUser){
-    currentCloudThesisId=null;
-    return;
-  }
-  await loadLatestCloudThesis();
-  updateAppAccessUi();
-  if(notify) showToast('Cloud attivo ✓');
-}
-
-function scheduleCloudSave(payload){
-  if(!authUser||isRestoringSession||isApplyingRemoteState) return;
-  const data=payload||getPersistedPayload();
-  if(!hasMeaningfulState(data)) return;
-  clearTimeout(cloudSyncTimer);
-  cloudSyncTimer=setTimeout(()=>{syncSessionToCloud(data).catch(err=>console.warn('syncSessionToCloud failed',err));},700);
-}
-
-async function syncSessionToCloud(payload){
-  if(!authUser||isRestoringSession||isApplyingRemoteState) return;
-  const client=await ensureSupabaseClient();
-  const p=payload||getPersistedPayload();
-  const row={
-    user_id:authUser.id,
-    title:(p.ui&&p.ui.argomento)||thesis.argomento||'Tesi senza titolo',
-    degree_course:(p.ui&&p.ui.corso)||thesis.corso||null,
-    subject_area:(p.ui&&p.ui.facolta)||thesis.facolta||null,
-    methodology:(p.ui&&p.ui.metodologia)||thesis.metodologia||null,
-    index_mode:(p.ui&&p.ui.indiceMode)||indiceMode,
-    status:deriveCloudStatus(p),
-    current_step:deriveCurrentStepValue(p),
-    workflow_state:{ payload:p },
-    form_state:p.ui||{},
-    last_opened_at:new Date().toISOString()
-  };
-
-  if(currentCloudThesisId){
-    const {error}=await client.from('theses').update(row).eq('id',currentCloudThesisId).eq('user_id',authUser.id);
-    if(error) throw error;
-    return;
-  }
-
-  const {data,error}=await client.from('theses').insert(row).select('id').single();
-  if(error) throw error;
-  currentCloudThesisId=data.id;
-}
-
-async function loadLatestCloudThesis(){
-  if(!authUser) return;
-  const client=await ensureSupabaseClient();
-  const {data,error}=await client
-    .from('theses')
-    .select('id,workflow_state,updated_at')
-    .eq('user_id',authUser.id)
-    .order('updated_at',{ascending:false})
-    .limit(1);
-  if(error) throw error;
-  if(!Array.isArray(data)||!data.length){
-    currentCloudThesisId=null;
-    const localPayload=restoreSessionStateForAuthenticatedUser();
-    if(localPayload&&hasMeaningfulState(localPayload)){
-      scheduleCloudSave(localPayload);
-      showToast("Bozza locale associata all'account ✓");
-    }
-    return;
-  }
-  const row=data[0];
-  currentCloudThesisId=row.id;
-  const payload=row.workflow_state&&row.workflow_state.payload?row.workflow_state.payload:null;
-  if(!payload) return;
-  isApplyingRemoteState=true;
-  applyPersistedPayload(payload);
-  isApplyingRemoteState=false;
-  showToast('Sessione cloud ripristinata ✓');
-}
 
 // ── GUIDA COLLASSABILE ──
 function toggleGuide(){
@@ -1125,350 +803,6 @@ function toggleGuide(){
   const toggle=document.getElementById('guideToggle');
   const open=body.classList.toggle('open');
   toggle.classList.toggle('open',open);
-}
-
-// ── SESSIONE / RECUPERO STATO ──
-function bindDraftPersistence(){
-  ['argomento','facolta','corso','tipoLaurea','indiceManuale','numChapters'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(!el || el.dataset.persistBound==='1') return;
-    const handler=()=>saveSessionState();
-    el.addEventListener('input',handler);
-    el.addEventListener('change',handler);
-    el.dataset.persistBound='1';
-  });
-}
-
-function getControlValue(id,fallback=''){
-  const el=document.getElementById(id);
-  return el ? el.value : fallback;
-}
-
-function cloneJsonSafe(value,fallback){
-  try{return JSON.parse(JSON.stringify(value));}catch{return fallback;}
-}
-
-function applyMetodToDom(val){
-  metodologia=val||'teorica';
-  const order=['teorica','empirica','caso_studio','revisione_sistematica','comparativa'];
-  document.querySelectorAll('.metod-chip').forEach((chip,idx)=>{
-    chip.classList.toggle('active',order[idx]===metodologia);
-  });
-  const warning=document.getElementById('empiricaWarning');
-  if(warning) warning.style.display=metodologia==='empirica'?'flex':'none';
-}
-
-function applyChapterOverrideState(active){
-  chapterOverrideActive=!!active;
-  const btn=document.getElementById('toggleOverride');
-  if(btn){
-    btn.classList.toggle('active',chapterOverrideActive);
-    btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
-  }
-  const wrap=document.getElementById('chapterOverride');
-  if(wrap) wrap.style.display=chapterOverrideActive?'flex':'none';
-}
-
-function getUiSnapshot(){
-  return {
-    indiceMode,
-    chapterOverrideActive,
-    metodologia,
-    argomento:getControlValue('argomento'),
-    facolta:getControlValue('facolta'),
-    corso:getControlValue('corso'),
-    tipoLaurea:getControlValue('tipoLaurea','triennale'),
-    indiceManuale:getControlValue('indiceManuale'),
-    numChapters:getControlValue('numChapters','4')
-  };
-}
-
-function getPersistedPayload(){
-  return {
-    version:4,
-    savedAt:new Date().toISOString(),
-    ui:getUiSnapshot(),
-    thesis:cloneJsonSafe(thesis,{}),
-    revState:cloneJsonSafe(revState,{}),
-    uiState:cloneJsonSafe(uiState,{})
-  };
-}
-
-function hasMeaningfulState(payload){
-  const p=payload||getPersistedPayload();
-  const t=p.thesis||{};
-  const ui=p.ui||{};
-  return !!(
-    (ui.argomento&&String(ui.argomento).trim())||
-    (t.indice&&String(t.indice).trim())||
-    (t.abstract&&String(t.abstract).trim())||
-    (Array.isArray(t.chapters)&&t.chapters.some(ch=>ch&&((ch.title&&String(ch.title).trim())||(ch.content&&String(ch.content).trim()))))
-  );
-}
-
-function deriveCloudStatus(payload){
-  const p=payload||getPersistedPayload();
-  if(p.uiState&&p.uiState.completed) return 'completed';
-  return hasMeaningfulState(p)?'active':'draft';
-}
-
-function deriveCurrentStepValue(payload){
-  const p=payload||getPersistedPayload();
-  if(p.uiState&&p.uiState.completed) return 'completed';
-  if(p.uiState&&p.uiState.abstractApproved) return 'chapters';
-  if(p.uiState&&p.uiState.indiceApproved) return p.thesis&&p.thesis.abstract ? 'abstract_ready' : 'abstract';
-  if(p.thesis&&p.thesis.indice) return 'index_review';
-  return 'setup';
-}
-
-function saveSessionState(){
-  try{
-    const payload=getPersistedPayload();
-    if(authUser&&authUser.id){
-      storageSet(getUserScopedSessionKey(authUser.id),JSON.stringify(payload));
-      scheduleCloudSave(payload);
-    }
-  }catch(err){
-    console.warn('saveSessionState failed',err);
-  }
-}
-
-function applyPersistedPayload(payload){
-  if(!payload||typeof payload!=='object') return;
-
-  const ui=payload.ui||{};
-  const setVal=(id,val)=>{
-    const el=document.getElementById(id);
-    if(el && val!==undefined && val!==null) el.value=val;
-  };
-  setVal('argomento',ui.argomento||'');
-  setVal('facolta',ui.facolta||'');
-  setVal('corso',ui.corso||'');
-  setVal('tipoLaurea',ui.tipoLaurea||'triennale');
-  setVal('indiceManuale',ui.indiceManuale||'');
-  setVal('numChapters',ui.numChapters||'4');
-
-  indiceMode=ui.indiceMode==='manual'?'manual':'ai';
-  metodologia=ui.metodologia||'teorica';
-  setIndiceMode(indiceMode);
-  applyChapterOverrideState(!!ui.chapterOverrideActive);
-  applyMetodToDom(metodologia);
-
-  const safeThesis=payload.thesis&&typeof payload.thesis==='object'?payload.thesis:{};
-  thesis={
-    argomento:safeThesis.argomento||'',
-    facolta:safeThesis.facolta||'',
-    corso:safeThesis.corso||'',
-    tipo:safeThesis.tipo||'',
-    metodologia:safeThesis.metodologia||'',
-    indice:safeThesis.indice||'',
-    indiceVersions:Array.isArray(safeThesis.indiceVersions)?safeThesis.indiceVersions:[],
-    abstract:safeThesis.abstract||'',
-    abstractVersions:Array.isArray(safeThesis.abstractVersions)?safeThesis.abstractVersions:[],
-    chapters:Array.isArray(safeThesis.chapters)?safeThesis.chapters:[],
-    chapterTitles:Array.isArray(safeThesis.chapterTitles)?safeThesis.chapterTitles:[],
-    currentChapterIdx:Number.isInteger(safeThesis.currentChapterIdx)?safeThesis.currentChapterIdx:0,
-    contextPacket:safeThesis.contextPacket||null
-  };
-
-  const safeRev=payload.revState&&typeof payload.revState==='object'?payload.revState:{};
-  revState={
-    perChapter:safeRev.perChapter&&typeof safeRev.perChapter==='object'?safeRev.perChapter:{},
-    totalUsed:Number.isFinite(safeRev.totalUsed)?safeRev.totalUsed:0,
-    totalBudget:Number.isFinite(safeRev.totalBudget)?safeRev.totalBudget:0,
-    premiumUnlocked:!!safeRev.premiumUnlocked,
-    unlockTargetChapter:Number.isInteger(safeRev.unlockTargetChapter)?safeRev.unlockTargetChapter:null
-  };
-
-  const safeUiState=payload.uiState&&typeof payload.uiState==='object'?payload.uiState:{};
-  uiState={
-    indiceApproved:!!safeUiState.indiceApproved,
-    abstractApproved:!!safeUiState.abstractApproved,
-    completed:!!safeUiState.completed
-  };
-
-  ensureContextPacket();
-  renderRestoredSession();
-  saveSessionState();
-}
-
-function restoreSessionState(){
-  return restoreSessionStateForAuthenticatedUser();
-}
-
-function ensureContextPacket(){
-  if(thesis.contextPacket&&thesis.contextPacket.dp&&thesis.contextPacket.mp&&thesis.contextPacket.tipoLabel){
-    return true;
-  }
-  const argomento=thesis.argomento||getControlValue('argomento').trim();
-  const facolta=thesis.facolta||getControlValue('facolta');
-  const corso=thesis.corso||getControlValue('corso').trim();
-  const tipo=thesis.tipo||getControlValue('tipoLaurea','triennale');
-  const metod=thesis.metodologia||metodologia||'teorica';
-  if(!argomento||!facolta||!corso){
-    return false;
-  }
-  thesis.argomento=argomento;
-  thesis.facolta=facolta;
-  thesis.corso=corso;
-  thesis.tipo=tipo;
-  thesis.metodologia=metod;
-  metodologia=metod;
-  thesis.contextPacket={
-    tipoLabel:tipoLaureaLabel(thesis.tipo),
-    isMagistrale:thesis.tipo!=='triennale',
-    dp:getDisciplineProfile(thesis.facolta),
-    mp:getMetodologiaProfile(thesis.metodologia)
-  };
-  return true;
-}
-
-function renderRestoredSession(){
-  document.getElementById('btnStep1').disabled=false;
-  document.getElementById('indiceBlock').style.display='none';
-  document.getElementById('indiceApproval').style.display='none';
-  document.getElementById('indiceRevision').style.display='none';
-  document.getElementById('nextAbstract').classList.remove('visible');
-  document.getElementById('abstractBlock').style.display='none';
-  document.getElementById('abstractApproval').style.display='none';
-  document.getElementById('abstractRevision').style.display='none';
-  document.getElementById('nextChapters').classList.remove('visible');
-  document.getElementById('downloadBar').style.display='none';
-  document.getElementById('chaptersArea').innerHTML='';
-
-  if(!thesis.indice && !thesis.abstract && (!Array.isArray(thesis.chapters) || thesis.chapters.length===0)){
-    updateWordCount();
-    return;
-  }
-
-  if(thesis.indice){
-    document.getElementById('indiceBlock').style.display='block';
-    document.getElementById('indiceText').textContent=thesis.indice;
-    document.getElementById('indiceChip').className='status-chip done';
-    document.getElementById('indiceChip').innerHTML='✓ Ripristinato';
-    if(!uiState.indiceApproved){
-      document.getElementById('indiceApproval').style.display='flex';
-    }
-  }
-
-  if(uiState.indiceApproved){
-    document.getElementById('nextAbstract').classList.add('visible');
-    setStep(2);
-  }else if(thesis.indice){
-    setStep(1);
-  }
-
-  if(thesis.abstract){
-    document.getElementById('nextAbstract').classList.remove('visible');
-    document.getElementById('abstractBlock').style.display='block';
-    document.getElementById('abstractText').textContent=thesis.abstract;
-    document.getElementById('abstractChip').className='status-chip done';
-    document.getElementById('abstractChip').innerHTML='✓ Ripristinato';
-    if(!uiState.abstractApproved){
-      document.getElementById('abstractApproval').style.display='flex';
-      setStep(2);
-    }
-  }
-
-  if(uiState.abstractApproved){
-    setStep(3);
-    renderStoredChapters();
-    if(uiState.completed){
-      document.getElementById('downloadBar').style.display='flex';
-      document.getElementById('nextChapters').classList.remove('visible');
-      setStep(4);
-    }else if(thesis.chapters.length===0){
-      showNextChapterButton(0);
-    }else if(thesis.currentChapterIdx < thesis.chapters.length){
-      const pendingIdx=thesis.currentChapterIdx;
-      const approval=document.getElementById(`chapApproval-${pendingIdx}`);
-      if(approval) approval.style.display='flex';
-    }else if(thesis.currentChapterIdx === thesis.chapters.length && thesis.currentChapterIdx < thesis.chapterTitles.length){
-      showNextChapterButton(thesis.currentChapterIdx);
-    }
-    syncProgressFromState();
-  }
-
-  updateWordCount();
-}
-
-function syncProgressFromState(){
-  const total=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles.length:0;
-  if(!total || (!Array.isArray(thesis.chapters) || thesis.chapters.length===0)) return;
-  if(uiState.completed){
-    updateChapterProgressBar(total-1,total,true);
-    return;
-  }
-  if(thesis.currentChapterIdx < thesis.chapters.length){
-    updateChapterProgressBar(thesis.currentChapterIdx,total,false);
-    return;
-  }
-  if(thesis.currentChapterIdx > 0){
-    updateChapterProgressBar(thesis.currentChapterIdx-1,total,true);
-  }
-}
-
-function showNextChapterButton(idx){
-  const nc=document.getElementById('nextChapters');
-  const title=thesis.chapterTitles[idx]||`Capitolo ${idx+1}`;
-  nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+1} — ${escHtml(title)}</button>`;
-  nc.classList.add('visible');
-}
-
-function renderStoredChapters(){
-  const area=document.getElementById('chaptersArea');
-  if(!area) return;
-  ensureGlobalCounter();
-  thesis.chapters.forEach((ch,idx)=>{
-    const title=ch?.title||thesis.chapterTitles[idx]||`Capitolo ${idx+1}`;
-    const total=thesis.chapterTitles.length||thesis.chapters.length;
-    const block=document.createElement('div');
-    block.id=`chap-${idx}`;
-    block.innerHTML=`
-      <div class="output-block" id="chapOutput-${idx}">
-        <div class="output-block-header">
-          <div class="output-block-title">
-            📖 Capitolo ${idx+1}
-            <span class="status-chip done" id="chapChip-${idx}">✓ Ripristinato</span>
-            <span class="version-badge" id="chapVerBadge-${idx}" style="display:inline-flex" onclick="openVersionModal('chapter',${idx})">↺ v${(Array.isArray(ch?.versions)&&ch.versions.length?ch.versions.length:1)}</span>
-          </div>
-          <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
-        </div>
-        <div class="output-block-body"><div class="content-text" id="chapText-${idx}">${escHtml(ch?.content||'')}</div></div>
-        <div class="sources-bar" id="chapSources-${idx}"><span class="sources-label">🔍 Query ricercate</span></div>
-        <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica le citazioni prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (Google Scholar, JSTOR, ResearchGate).</div>
-        <div class="rev-counter-bar" id="revCounterBar-${idx}">
-          <div class="rev-counter-info">
-            <span>Revisioni capitolo:</span>
-            <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
-            <span>3 revisioni disponibili</span>
-          </div>
-          <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
-        </div>
-        <div class="revision-inline" id="chapRevision-${idx}">
-          <div class="revision-inline-row">
-            <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
-            <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
-          </div>
-        </div>
-        <div class="approval-row" id="chapApproval-${idx}" style="display:none">
-          <span class="hint">Capitolo ${idx+1} approvato?</span>
-          <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
-          ${idx<total-1
-            ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>`
-            :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
-        </div>
-      </div>`;
-    area.appendChild(block);
-    renderRevCounter(idx);
-    if(!canRevise(idx)){
-      const revBtn=document.getElementById(`chapRevBtn-${idx}`);
-      if(revBtn){revBtn.textContent='🔓 Sblocca revisioni';revBtn.onclick=()=>openUnlockModal(idx);}
-      const redoBtn=document.querySelector(`#chapApproval-${idx} .btn-redo`);
-      if(redoBtn){redoBtn.textContent='🔓 Sblocca revisioni';redoBtn.onclick=()=>openUnlockModal(idx);}
-    }
-  });
-  renderGlobalCounter();
 }
 
 // ── UNLOCK MODAL ──
@@ -1480,7 +814,7 @@ function openUnlockModal(chapIdx){
   document.getElementById('unlockModalSub').textContent=
     chapIdx!==null
       ? `Hai esaurito le revisioni per il Capitolo ${chapIdx+1} "${thesis.chapterTitles[chapIdx]||''}". Budget totale rimanente: ${rem}/${revState.totalBudget}.`
-      : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Acquista un Codice Premium per continuare.`;
+      : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade Premium per continuare.`;
   unlockPlan='';
   document.getElementById('cardBase').classList.remove('selected');
   document.getElementById('cardPremium').classList.remove('selected');
@@ -1505,8 +839,8 @@ function selectUnlockPlan(plan){
   document.getElementById('btnGoToPurchase').disabled=false;
 }
 
-const GUMROAD_BASE_URL='https://gumroad.com/l/TESIA-BASE';     // ← sostituire con URL reale
-const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM'; // ← sostituire con URL reale
+const GUMROAD_BASE_URL='https://gumroad.com/l/TESIA-BASE';
+const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM';
 
 function goToPurchase(){
   const url=unlockPlan==='premium'?GUMROAD_PREMIUM_URL:GUMROAD_BASE_URL;
@@ -1543,8 +877,7 @@ async function applyUnlockCode(){
     thesis.chapters.forEach((_,i)=>renderRevCounter(i));
     renderGlobalCounter();
     closeModal('unlockModal');
-    saveSessionState();
-    showToast('✦ Codice Premium attivato — +10 revisioni aggiunte!');
+    showToast('✦ Upgrade Premium attivato — +10 revisioni aggiunte!');
     return;
   }
   if(result.type==='base'){
@@ -1556,8 +889,7 @@ async function applyUnlockCode(){
     }
     renderGlobalCounter();
     closeModal('unlockModal');
-    saveSessionState();
-    showToast(`✦ Codice Base attivato — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
+    showToast(`✦ Revisioni aggiuntive attivate — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
     return;
   }
 }
@@ -1581,9 +913,23 @@ function ensureGlobalCounter(){
 }
 
 // ══════════════════════════════════════════════
+// API KEY
+// ══════════════════════════════════════════════
+function openApiModal(){document.getElementById('apiKeyInput').value=apiKey;openModal('apiModal');}
+function saveApiKey(){
+  const v=document.getElementById('apiKeyInput').value.trim();
+  if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
+  apiKey=v;
+  document.getElementById('statusDot').style.background='var(--green)';
+  document.getElementById('statusLabel').textContent='API Key attiva';
+  document.getElementById('apiKeyBtn').classList.add('connected');
+  closeModal('apiModal');showToast('API Key salvata ✓');
+}
+
+// ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){applyMetodToDom(val);saveSessionState();}
+function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');metodologia=val;document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -1591,11 +937,13 @@ function setIndiceMode(mode){
   document.getElementById('indiceManualWrap').style.display=mode==='manual'?'block':'none';
   document.getElementById('indiceAIWrap').style.display=mode==='ai'?'block':'none';
   document.getElementById('btnStep1').textContent=mode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
-  if(!isRestoringSession) saveSessionState();
 }
 function toggleChapterOverride(){
-  applyChapterOverrideState(!chapterOverrideActive);
-  saveSessionState();
+  chapterOverrideActive=!chapterOverrideActive;
+  const btn=document.getElementById('toggleOverride');
+  btn.classList.toggle('active',chapterOverrideActive);
+  btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
+  document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
 }
 function setStep(n){
   for(let i=0;i<=4;i++){
@@ -1660,7 +1008,6 @@ REGOLE ASSOLUTE — VIOLAZIONE NON TOLLERATA:
 // ══════════════════════════════════════════════
 async function startPhase1(){
   if(!validateForm())return;
-  uiState={indiceApproved:false,abstractApproved:false,completed:false};
   thesis.argomento=document.getElementById('argomento').value.trim();
   thesis.facolta=document.getElementById('facolta').value;
   thesis.corso=document.getElementById('corso').value.trim();
@@ -1688,8 +1035,6 @@ async function startPhase1(){
     document.getElementById('indiceApproval').style.display='none';
     document.getElementById('indiceRevision').style.display='none';
     setStep(2);
-    uiState.indiceApproved=true;
-    saveSessionState();
     document.getElementById('nextAbstract').classList.add('visible');
     document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
     showToast('Indice del relatore acquisito ✓');
@@ -1736,7 +1081,6 @@ Bibliografia`;
   try{
     const t=await callClaude(prompt,'outline_draft');
     thesis.indice=t;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
-    saveSessionState();
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
@@ -1748,17 +1092,14 @@ Bibliografia`;
 
 function approveIndice(){
   thesis.chapterTitles=extractChapterTitles(thesis.indice);
-  uiState.indiceApproved=true;
   initRevState(thesis.chapterTitles.length);
   document.getElementById('indiceApproval').style.display='none';
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
-  saveSessionState();
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 async function reviseIndice(){
-  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   const fb=document.getElementById('indiceRevInput').value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
   const cp=thesis.contextPacket;
@@ -1777,7 +1118,6 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
   try{
     const t=await callClaude(prompt,'outline_review');
     thesis.indice=t;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
-    saveSessionState();
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
@@ -1793,7 +1133,6 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
 // PHASE 2 — ABSTRACT
 // ══════════════════════════════════════════════
 async function generateAbstract(){
-  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   document.getElementById('nextAbstract').classList.remove('visible');
   document.getElementById('abstractBlock').style.display='block';
   document.getElementById('abstractOutput').classList.add('typing');
@@ -1814,7 +1153,6 @@ Inizia direttamente. Solo il testo dell'abstract.`;
   try{
     const t=await callClaude(prompt,'abstract_draft');
     thesis.abstract=t;thesis.abstractVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
-    saveSessionState();
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
       document.getElementById('abstractChip').className='status-chip done';
@@ -1825,17 +1163,14 @@ Inizia direttamente. Solo il testo dell'abstract.`;
 }
 
 function approveAbstract(){
-  uiState.abstractApproved=true;
   document.getElementById('abstractApproval').style.display='none';
   const nc=document.getElementById('nextChapters');
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo 1 — ${escHtml(thesis.chapterTitles[0]||'')}</button>`;
   nc.classList.add('visible');setStep(3);
-  saveSessionState();
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 async function reviseAbstract(){
-  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
   const fb=document.getElementById('abstractRevInput').value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
   const cp=thesis.contextPacket;
@@ -1851,7 +1186,6 @@ Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
   try{
     const t=await callClaude(prompt,'abstract_review');
     thesis.abstract=t;thesis.abstractVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
-    saveSessionState();
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
       document.getElementById('abstractChip').className='status-chip done';
@@ -2031,7 +1365,6 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       document.getElementById(`chapSourcesWarn-${idx}`).style.display='block';
     }
     thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0};
-    saveSessionState();
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
@@ -2047,7 +1380,6 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
 function approveChapter(idx){
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   thesis.currentChapterIdx=idx+1;
-  saveSessionState();
   const nc=document.getElementById('nextChapters');
   const nextTitle=thesis.chapterTitles[idx+1]||'';
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
@@ -2057,20 +1389,19 @@ function approveChapter(idx){
 
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
-  uiState.completed=true;
   document.getElementById(`chapApproval-${idx}`).style.display='none';
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   setStep(4);
   document.getElementById('downloadBar').style.display='flex';
   updateWordCount();
-  saveSessionState();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
   showToast('🎓 Tesi completata!');
 }
 
 async function reviseChapter(idx){
-  if(!ensureContextPacket()){showToast('Sessione incompleta. Reinserisci i dati principali e rigenera.',true);return;}
+  if(!apiKey){openApiModal();return;}
+
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
     const perCh=revState.perChapter[idx]||0;
@@ -2109,7 +1440,6 @@ ISTRUZIONI:
     const text=result.text;
     ch.versions.push({content:text,timestamp:now(),label:`Rev: "${fb.substring(0,35)}"`});
     ch.currentVersion=ch.versions.length-1;ch.content=text;
-    saveSessionState();
     document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${ch.currentVersion+1}`;
     if(result.sources.length>0){
       const bar=document.getElementById(`chapSources-${idx}`);
@@ -2172,7 +1502,7 @@ function openVersionModal(type,idx){
     const item=document.createElement('div');
     item.className='version-item'+(i===ch.currentVersion?' current':'');
     item.innerHTML=`<span class="version-item-label">v${i+1} — ${v.label}</span><span class="version-item-time">${v.timestamp}</span>`;
-    item.onclick=()=>{ch.currentVersion=i;ch.content=v.content;document.getElementById(`chapText-${idx}`).textContent=v.content;document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${i+1}`;updateWordCount();saveSessionState();closeModal('versionModal');showToast(`Versione ${i+1} ripristinata`);};
+    item.onclick=()=>{ch.currentVersion=i;ch.content=v.content;document.getElementById(`chapText-${idx}`).textContent=v.content;document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${i+1}`;updateWordCount();closeModal('versionModal');showToast(`Versione ${i+1} ripristinata`);};
     list.appendChild(item);
   });
   openModal('versionModal');
