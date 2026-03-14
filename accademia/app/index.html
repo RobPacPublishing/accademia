@@ -242,10 +242,7 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini e Privacy</button>
-    <button class="api-key-btn" id="apiKeyBtn" onclick="openApiModal()">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusLabel">Inserisci API Key</span>
-    </button>
+
   </div>
 </header>
 
@@ -341,7 +338,7 @@
         </div>
       </div>
       <div class="guide-note">
-        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade Premium</strong> (+10 revisioni totali sulla tesi). Il codice viene inviato via email dopo l'attivazione.<br><br>
+        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> (+10 revisioni totali sulla tesi). Il codice viene inviato via email dopo l'attivazione.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
     </div>
@@ -494,19 +491,6 @@
   </div>
 </main>
 
-<div class="modal-overlay" id="apiModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('apiModal')">✕</button>
-    <h2>Configurazione servizio</h2>
-    <p>Le chiavi dei provider AI sono gestite lato server. Non è richiesto alcun inserimento manuale da parte tua.</p>
-    <div class="form-group"><label>Chiave API</label><input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."></div>
-    <div class="modal-actions">
-      <button class="btn-modal-save" onclick="saveApiKey()">Salva</button>
-      <button class="btn-modal-cancel" onclick="closeModal('apiModal')">Annulla</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay" id="versionModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('versionModal')">✕</button>
@@ -536,7 +520,7 @@
         </div>
         <div class="unlock-price-card" id="cardPremium" onclick="selectUnlockPlan('premium')">
           <div class="price">+10</div>
-          <div class="desc"><strong>Upgrade Premium</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
+          <div class="desc"><strong>Upgrade di piano</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
         </div>
       </div>
       <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Prosegui all'attivazione →</button>
@@ -634,7 +618,7 @@
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Inserisci argomento, facoltà, corso, tipo laurea e approccio metodologico. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade Premium</strong> (+10 rev. totali sulla tesi). Inserisci poi il codice per sbloccare.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade di piano</strong> (+10 rev. totali sulla tesi). Inserisci poi il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
     <div class="guide-note" style="margin-top:16px"><strong>⚠ Verifica sempre le fonti</strong> prima della consegna. AccademIA usa web search reale, ma alcune citazioni potrebbero richiedere accesso istituzionale (JSTOR, Scopus, PubMed).</div>
@@ -650,7 +634,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let apiKey='', chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -811,7 +795,7 @@ function openUnlockModal(chapIdx){
   document.getElementById('unlockModalSub').textContent=
     chapIdx!==null
       ? `Hai esaurito le revisioni per il Capitolo ${chapIdx+1} "${thesis.chapterTitles[chapIdx]||''}". Budget totale rimanente: ${rem}/${revState.totalBudget}.`
-      : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade Premium per continuare.`;
+      : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade di piano per continuare.`;
   unlockPlan='';
   document.getElementById('cardBase').classList.remove('selected');
   document.getElementById('cardPremium').classList.remove('selected');
@@ -874,7 +858,7 @@ async function applyUnlockCode(){
     thesis.chapters.forEach((_,i)=>renderRevCounter(i));
     renderGlobalCounter();
     closeModal('unlockModal');
-    showToast('✦ Upgrade Premium attivato — +10 revisioni aggiunte!');
+    showToast('✦ Upgrade di piano attivato — +10 revisioni aggiunte!');
     return;
   }
   if(result.type==='base'){
@@ -907,20 +891,6 @@ function ensureGlobalCounter(){
   wrap.innerHTML='<span id="globalRevCounter"></span>';
   document.getElementById('chaptersArea').prepend(wrap);
   renderGlobalCounter();
-}
-
-// ══════════════════════════════════════════════
-// API KEY
-// ══════════════════════════════════════════════
-function openApiModal(){document.getElementById('apiKeyInput').value=apiKey;openModal('apiModal');}
-function saveApiKey(){
-  const v=document.getElementById('apiKeyInput').value.trim();
-  if(!v.startsWith('sk-ant')){showToast('Chiave non valida',true);return;}
-  apiKey=v;
-  document.getElementById('statusDot').style.background='var(--green)';
-  document.getElementById('statusLabel').textContent='API Key attiva';
-  document.getElementById('apiKeyBtn').classList.add('connected');
-  closeModal('apiModal');showToast('API Key salvata ✓');
 }
 
 // ══════════════════════════════════════════════
@@ -1397,8 +1367,6 @@ function approveLastChapter(){
 }
 
 async function reviseChapter(idx){
-  if(!apiKey){openApiModal();return;}
-
   // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
     const perCh=revState.perChapter[idx]||0;
