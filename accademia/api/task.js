@@ -59,13 +59,13 @@ function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
   const input =
-    typeof safe.input === 'string'
+    typeof safe.input === 'string' || (safe.input && typeof safe.input === 'object')
       ? safe.input
-      : typeof safe.payload === 'string'
+      : typeof safe.payload === 'string' || (safe.payload && typeof safe.payload === 'object')
         ? safe.payload
-        : typeof safe.content === 'string'
+        : typeof safe.content === 'string' || (safe.content && typeof safe.content === 'object')
           ? safe.content
-          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
+          : {};
 
   return { task, input };
 }
@@ -187,10 +187,8 @@ async function handleAnthropic({ task, input, res }) {
 }
 
 function buildUserPrompt(task, input) {
-  const payload =
-    typeof input === 'string'
-      ? input
-      : JSON.stringify(input || {}, null, 2);
+  const normalized = normalizeAcademicInput(input);
+  const { context, rawPayload } = normalized;
 
   const map = {
     outline_draft:
@@ -211,7 +209,67 @@ function buildUserPrompt(task, input) {
       'Esegui un controllo finale di coerenza complessiva sull’elaborato ricevuto.'
   };
 
-  return `${map[task] || 'Elabora il contenuto ricevuto in modo utile e coerente.'}\n\nDATI:\n${payload}`;
+  return [
+    map[task] || 'Elabora il contenuto ricevuto in modo utile e coerente.',
+    '',
+    'CONTESTO GENERALE:',
+    context,
+    '',
+    'DATI OPERATIVI:',
+    rawPayload
+  ].join('\n');
+}
+
+function normalizeAcademicInput(input) {
+  if (typeof input === 'string') {
+    return {
+      context: formatContextBlock({}),
+      rawPayload: input
+    };
+  }
+
+  const safe = input && typeof input === 'object' ? input : {};
+
+  const meta = {
+    titolo: pickFirstString(safe.titolo, safe.title, safe.projectTitle, safe.thesisTitle),
+    corsoDiLaurea: pickFirstString(safe.corsoDiLaurea, safe.degreeCourse, safe.corso, safe.course),
+    livello: pickFirstString(safe.livello, safe.degreeLevel, safe.tipoLaurea, safe.academicLevel),
+    disciplina: pickFirstString(safe.disciplina, safe.subjectArea, safe.subject, safe.area),
+    metodologia: pickFirstString(safe.metodologia, safe.methodology, safe.metodo, safe.method),
+    lingua: pickFirstString(safe.lingua, safe.language),
+    stileCitazionale: pickFirstString(safe.stileCitazionale, safe.citationStyle, safe.style),
+    targetLunghezza: pickFirstString(safe.targetLunghezza, safe.lengthTarget, safe.wordTarget)
+  };
+
+  return {
+    context: formatContextBlock(meta),
+    rawPayload: JSON.stringify(safe, null, 2)
+  };
+}
+
+function formatContextBlock(meta) {
+  const rows = [
+    ['Titolo o tema', meta.titolo],
+    ['Corso di laurea', meta.corsoDiLaurea],
+    ['Livello accademico', meta.livello],
+    ['Disciplina o area', meta.disciplina],
+    ['Metodologia dichiarata', meta.metodologia],
+    ['Lingua richiesta', meta.lingua],
+    ['Stile citazionale', meta.stileCitazionale],
+    ['Target di lunghezza', meta.targetLunghezza]
+  ];
+
+  const lines = rows.map(([label, value]) => `- ${label}: ${value || 'non specificato'}`);
+  return lines.join('\n');
+}
+
+function pickFirstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
 }
 
 function extractOpenAIText(data) {
