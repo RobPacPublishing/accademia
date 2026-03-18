@@ -59,13 +59,10 @@ function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
   const input =
-    typeof safe.input === 'string' || (safe.input && typeof safe.input === 'object')
-      ? safe.input
-      : typeof safe.payload === 'string' || (safe.payload && typeof safe.payload === 'object')
-        ? safe.payload
-        : typeof safe.content === 'string' || (safe.content && typeof safe.content === 'object')
-          ? safe.content
-          : {};
+    safe.input ??
+    safe.payload ??
+    safe.content ??
+    {};
 
   return { task, input };
 }
@@ -79,6 +76,11 @@ function pickProvider(task) {
   ]);
 
   return anthropicTasks.has(task) ? 'anthropic' : 'openai';
+}
+
+function getAnthropicMaxTokens(task) {
+  const largeTasks = new Set(['chapter_draft', 'chapter_review', 'final_consistency_review']);
+  return largeTasks.has(task) ? 7000 : 4000;
 }
 
 async function handleOpenAI({ task, input, res }) {
@@ -117,17 +119,9 @@ async function handleOpenAI({ task, input, res }) {
     });
   }
 
-  const text =
-    data?.output_text ||
-    extractOpenAIText(data) ||
-    'Nessun contenuto restituito';
+  const text = data?.output_text || extractOpenAIText(data) || 'Nessun contenuto restituito';
 
-  return res.status(200).json({
-    ok: true,
-    provider: 'openai',
-    task,
-    text
-  });
+  return res.status(200).json({ ok: true, provider: 'openai', task, text });
 }
 
 async function handleAnthropic({ task, input, res }) {
@@ -152,13 +146,8 @@ async function handleAnthropic({ task, input, res }) {
       body: JSON.stringify({
         model: anthropicModel,
         system: GENERAL_SYSTEM_PROMPT,
-        max_tokens: 4000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
+        max_tokens: getAnthropicMaxTokens(task),
+        messages: [{ role: 'user', content: prompt }]
       })
     },
     ANTHROPIC_TIMEOUT_MS
@@ -173,10 +162,9 @@ async function handleAnthropic({ task, input, res }) {
     });
   }
 
-  const text =
-    Array.isArray(data?.content)
-      ? data.content.map(part => part?.text || '').join('\n').trim()
-      : '';
+  const text = Array.isArray(data?.content)
+    ? data.content.map(part => part?.text || '').join('\n').trim()
+    : '';
 
   return res.status(200).json({
     ok: true,
@@ -188,36 +176,137 @@ async function handleAnthropic({ task, input, res }) {
 
 function buildUserPrompt(task, input) {
   const normalized = normalizeAcademicInput(input);
-  const { context, rawPayload } = normalized;
-
-  const map = {
-    outline_draft:
-      'Genera un indice accademico coerente, difendibile e ben strutturato sulla base dei dati ricevuti. Restituisci solo il contenuto utile.',
-    abstract_draft:
-      'Genera un abstract accademico chiaro e coerente sulla base dei dati ricevuti. Restituisci solo il contenuto utile.',
-    chapter_draft:
-      'Scrivi il capitolo richiesto in modo accademico, chiaro e coerente, sulla base dei dati ricevuti. Restituisci solo il contenuto utile.',
-    outline_review:
-      'Revisiona criticamente l’indice ricevuto, evidenziando problemi e proponendo una versione migliorata coerente con il contesto accademico.',
-    abstract_review:
-      'Revisiona criticamente l’abstract ricevuto, correggendo debolezze e incoerenze.',
-    chapter_review:
-      'Revisiona criticamente il capitolo ricevuto, controllando coerenza, chiarezza e robustezza argomentativa.',
-    tutor_revision:
-      'Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto, modificando solo ciò che è necessario.',
-    final_consistency_review:
-      'Esegui un controllo finale di coerenza complessiva sull’elaborato ricevuto.'
-  };
+  const taskPrompt = getTaskPrompt(task);
 
   return [
-    map[task] || 'Elabora il contenuto ricevuto in modo utile e coerente.',
+    taskPrompt.objective,
+    '',
+    'ISTRUZIONI SPECIFICHE:',
+    taskPrompt.instructions,
+    '',
+    'FORMATO DI USCITA OBBLIGATORIO:',
+    taskPrompt.outputFormat,
     '',
     'CONTESTO GENERALE:',
-    context,
+    normalized.context,
     '',
     'DATI OPERATIVI:',
-    rawPayload
+    normalized.rawPayload
   ].join('\n');
+}
+
+function getTaskPrompt(task) {
+  const prompts = {
+    outline_draft: {
+      objective: 'Crea un indice accademico solido, coerente e difendibile sulla base dei dati ricevuti.',
+      instructions: [
+        '- organizza i contenuti in una progressione logica chiara;',
+        '- evita titoli generici, ripetitivi o ridondanti;',
+        '- mantieni coerenza tra titolo dell’elaborato, obiettivo e articolazione interna;',
+        '- non inserire sezioni non giustificate dai dati disponibili.'
+      ].join('\n'),
+      outputFormat: [
+        '- restituisci solo l’indice finale;',
+        '- usa una gerarchia chiara tra capitoli e sottosezioni;',
+        '- non aggiungere commenti esplicativi esterni all’indice.'
+      ].join('\n')
+    },
+    abstract_draft: {
+      objective: 'Scrivi un abstract accademico chiaro, denso e coerente con i dati ricevuti.',
+      instructions: [
+        '- formula l’oggetto della tesi in modo preciso;',
+        '- esplicita, quando possibile dai dati forniti, obiettivo, taglio, metodo e focus;',
+        '- evita enfasi, slogan o formulazioni vaghe;',
+        '- non introdurre risultati o fonti non presenti nei dati.'
+      ].join('\n'),
+      outputFormat: [
+        '- restituisci un abstract compatto in prosa continua;',
+        '- non usare elenchi puntati;',
+        '- non aggiungere note introduttive o finali.'
+      ].join('\n')
+    },
+    chapter_draft: {
+      objective: 'Scrivi il capitolo richiesto in stile accademico, con rigore argomentativo e coerenza interna.',
+      instructions: [
+        '- sviluppa il capitolo seguendo il perimetro dei dati forniti;',
+        '- mantieni progressione logica tra paragrafi e transizioni pulite;',
+        '- evita ripetizioni meccaniche e affermazioni apodittiche non sostenute dai dati;',
+        '- non inventare riferimenti bibliografici o risultati di ricerca.'
+      ].join('\n'),
+      outputFormat: [
+        '- restituisci solo il testo del capitolo;',
+        '- usa paragrafi ben costruiti;',
+        '- mantieni eventuali titoli interni solo se coerenti con i dati ricevuti.'
+      ].join('\n')
+    },
+    outline_review: {
+      objective: 'Revisiona criticamente l’indice ricevuto e miglioralo senza snaturarne l’impianto utile.',
+      instructions: [
+        '- individua lacune, squilibri, ridondanze o passaggi poco difendibili;',
+        '- correggi la struttura in funzione di maggiore coerenza e linearità;',
+        '- preserva ciò che è già valido.'
+      ].join('\n'),
+      outputFormat: [
+        '- prima scrivi “Criticità rilevate” con osservazioni sintetiche;',
+        '- poi scrivi “Indice revisionato” e riporta la nuova struttura;',
+        '- niente premessa o chiusura.'
+      ].join('\n')
+    },
+    abstract_review: {
+      objective: 'Revisiona l’abstract ricevuto migliorandone coerenza, densità e chiarezza accademica.',
+      instructions: [
+        '- correggi vaghezze, ridondanze e passaggi deboli;',
+        '- rafforza la precisione terminologica senza appesantire il testo;',
+        '- non introdurre contenuti nuovi non supportati dai dati.'
+      ].join('\n'),
+      outputFormat: [
+        '- prima scrivi “Criticità rilevate” in forma sintetica;',
+        '- poi scrivi “Abstract revisionato” e riporta la versione migliorata.'
+      ].join('\n')
+    },
+    chapter_review: {
+      objective: 'Revisiona criticamente il capitolo ricevuto sul piano logico, stilistico e argomentativo.',
+      instructions: [
+        '- individua incoerenze, ripetizioni, salti logici o passaggi deboli;',
+        '- migliora chiarezza e compattezza senza cambiare inutilmente il significato;',
+        '- non inserire dati o riferimenti non presenti nei materiali ricevuti.'
+      ].join('\n'),
+      outputFormat: [
+        '- prima scrivi “Criticità rilevate” con punti sintetici;',
+        '- poi scrivi “Capitolo revisionato” e riporta il testo migliorato.'
+      ].join('\n')
+    },
+    tutor_revision: {
+      objective: 'Applica con rigore le osservazioni del relatore o tutor modificando solo ciò che è necessario.',
+      instructions: [
+        '- recepisci le osservazioni in modo fedele e proporzionato;',
+        '- evita riscritture invasive se non richieste;',
+        '- mantieni tono e coerenza del testo di partenza.'
+      ].join('\n'),
+      outputFormat: [
+        '- prima scrivi “Modifiche applicate” con sintesi essenziale;',
+        '- poi scrivi “Testo aggiornato” e riporta la versione aggiornata.'
+      ].join('\n')
+    },
+    final_consistency_review: {
+      objective: 'Esegui un controllo finale di coerenza complessiva sull’elaborato ricevuto.',
+      instructions: [
+        '- verifica coerenza terminologica, continuità argomentativa, assenza di ripetizioni evidenti e allineamento tra le parti;',
+        '- segnala solo problemi reali e rilevanti;',
+        '- non formulare controlli fattuali che richiedano fonti esterne non fornite.'
+      ].join('\n'),
+      outputFormat: [
+        '- scrivi le sezioni: “Incongruenze”, “Ripetizioni”, “Punti da rifinire”, “Versione coerentizzata se necessaria”;',
+        '- se il testo è già coerente, dichiaralo in modo sobrio e restituisci solo minimi aggiustamenti.'
+      ].join('\n')
+    }
+  };
+
+  return prompts[task] || {
+    objective: 'Elabora il contenuto ricevuto in modo utile e coerente.',
+    instructions: '- lavora solo sui dati forniti.',
+    outputFormat: '- restituisci solo il contenuto utile al task.'
+  };
 }
 
 function normalizeAcademicInput(input) {
@@ -259,15 +348,12 @@ function formatContextBlock(meta) {
     ['Target di lunghezza', meta.targetLunghezza]
   ];
 
-  const lines = rows.map(([label, value]) => `- ${label}: ${value || 'non specificato'}`);
-  return lines.join('\n');
+  return rows.map(([label, value]) => `- ${label}: ${value || 'non specificato'}`).join('\n');
 }
 
 function pickFirstString(...values) {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
+    if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
 }
@@ -315,9 +401,7 @@ async function safeJson(response) {
 
 function simplifyProviderError(data) {
   if (!data) return 'Errore provider non dettagliato';
-
   if (typeof data === 'string') return data;
-
   if (data.error?.message) return data.error.message;
   if (data.message) return data.message;
 
