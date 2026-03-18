@@ -13,6 +13,9 @@ Obiettivi generali:
 
 Vincoli permanenti:
 - non dichiarare di aver consultato fonti esterne se non sono state fornite nei dati;
+- se viene richiesto o implicato uno stile citazionale, rispettalo solo nei limiti dei materiali ricevuti;
+- se mancano fonti verificabili, non simulare apparati bibliografici completi;
+- in caso di dubbio tra fluidità e correttezza, privilegia la correttezza;
 - non usare formule meta come “ecco il testo”, “di seguito”, “ho revisionato”, salvo richiesta esplicita;
 - restituisci solo l'output utile al task richiesto;
 - conserva, per quanto possibile, il significato del materiale fornito dall'utente senza alterarlo arbitrariamente.`;
@@ -184,6 +187,9 @@ function buildUserPrompt(task, input) {
     'ISTRUZIONI SPECIFICHE:',
     taskPrompt.instructions,
     '',
+    'POLITICA FONTI E CITAZIONI:',
+    normalized.sourcePolicy,
+    '',
     'FORMATO DI USCITA OBBLIGATORIO:',
     taskPrompt.outputFormat,
     '',
@@ -217,7 +223,8 @@ function getTaskPrompt(task) {
         '- formula l’oggetto della tesi in modo preciso;',
         '- esplicita, quando possibile dai dati forniti, obiettivo, taglio, metodo e focus;',
         '- evita enfasi, slogan o formulazioni vaghe;',
-        '- non introdurre risultati o fonti non presenti nei dati.'
+        '- non introdurre risultati o fonti non presenti nei dati;',
+        '- se i dati includono fonti, non alterarne attribuzione o forma in modo arbitrario.'
       ].join('\n'),
       outputFormat: [
         '- restituisci un abstract compatto in prosa continua;',
@@ -232,7 +239,8 @@ function getTaskPrompt(task) {
         '- mantieni coerenza con tesi centrale, indice approvato, lessico già impostato e materiali precedenti se presenti;',
         '- mantieni progressione logica tra paragrafi e transizioni pulite;',
         '- evita ripetizioni meccaniche e affermazioni apodittiche non sostenute dai dati;',
-        '- non inventare riferimenti bibliografici o risultati di ricerca.'
+        '- non inventare riferimenti bibliografici o risultati di ricerca;',
+        '- se sono presenti fonti nei dati, richiamale solo con prudenza e coerenza formale.'
       ].join('\n'),
       outputFormat: [
         '- restituisci solo il testo del capitolo;',
@@ -317,6 +325,7 @@ function normalizeAcademicInput(input) {
   if (typeof input === 'string') {
     return {
       context: formatContextBlock({}),
+      sourcePolicy: formatSourcePolicy({}),
       rawPayload: input
     };
   }
@@ -331,13 +340,56 @@ function normalizeAcademicInput(input) {
     metodologia: pickFirstString(safe.metodologia, safe.methodology, safe.metodo, safe.method),
     lingua: pickFirstString(safe.lingua, safe.language),
     stileCitazionale: pickFirstString(safe.stileCitazionale, safe.citationStyle, safe.style),
-    targetLunghezza: pickFirstString(safe.targetLunghezza, safe.lengthTarget, safe.wordTarget)
+    targetLunghezza: pickFirstString(safe.targetLunghezza, safe.lengthTarget, safe.wordTarget),
+    usaFontiSoloFornite: pickFirstBoolean(safe.usaFontiSoloFornite, safe.sourcesOnly, safe.onlyProvidedSources),
+    bibliografiaPresente: detectBibliographyPresence(safe)
   };
 
   return {
     context: formatContextBlock(meta),
+    sourcePolicy: formatSourcePolicy(meta),
     rawPayload: JSON.stringify(safe, null, 2)
   };
+}
+
+
+function formatSourcePolicy(meta) {
+  const citationStyle = meta.stileCitazionale || 'non specificato';
+  const sourcesOnly = meta.usaFontiSoloFornite ? 'sì' : 'non specificato';
+  const bibliographyPresent = meta.bibliografiaPresente ? 'sì' : 'no o non chiaro';
+
+  return [
+    `- Stile citazionale richiesto: ${citationStyle}`,
+    `- Usa solo fonti fornite: ${sourcesOnly}`,
+    `- Bibliografia o fonti nei dati: ${bibliographyPresent}`,
+    '- se le fonti nei dati sono assenti o insufficienti, non inventare riferimenti;',
+    '- se citi autori o opere già presenti nei dati, mantieni coerenza formale e prudenza;',
+    '- non costruire bibliografie fittizie per rendere il testo più accademico.'
+  ].join('\n');
+}
+
+function detectBibliographyPresence(safe) {
+  const candidates = [
+    safe.bibliografia,
+    safe.bibliography,
+    safe.fonti,
+    safe.sources,
+    safe.references,
+    safe.referenceList
+  ];
+
+  return candidates.some(value => {
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (Array.isArray(value)) return value.length > 0;
+    return false;
+  });
+}
+
+function pickFirstBoolean(...values) {
+  for (const value of values) {
+    if (typeof value === 'boolean') return value;
+  }
+  return false;
 }
 
 function formatContextBlock(meta) {
