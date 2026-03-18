@@ -17,6 +17,16 @@ Vincoli permanenti:
 - restituisci solo l'output utile al task richiesto;
 - conserva, per quanto possibile, il significato del materiale fornito dall'utente senza alterarlo arbitrariamente.`;
 
+const OPENAI_SYSTEM_OVERLAY = `Indicazioni specifiche per provider:
+- privilegia risposte stabili, ordinate e con struttura controllata;
+- evita creatività superflua o riformulazioni decorative;
+- mantieni alta aderenza al task e al formato richiesto.`;
+
+const ANTHROPIC_SYSTEM_OVERLAY = `Indicazioni specifiche per provider:
+- privilegia profondità argomentativa e precisione redazionale;
+- evita espansioni speculative o interpretazioni non sostenute dai dati;
+- mantieni continuità logica e sobrietà stilistica.`;
+
 export default async function handler(req, res) {
   if (req.method === 'GET' && req.query?.config === 'supabase') {
     const url = process.env.SUPABASE_URL;
@@ -59,12 +69,16 @@ function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
   const input =
-    safe.input ??
-    safe.payload ??
-    safe.content ??
+    isUsableValue(safe.input) ? safe.input :
+    isUsableValue(safe.payload) ? safe.payload :
+    isUsableValue(safe.content) ? safe.content :
     {};
 
   return { task, input };
+}
+
+function isUsableValue(value) {
+  return (typeof value === 'string' && value.trim()) || (value && typeof value === 'object');
 }
 
 function pickProvider(task) {
@@ -79,8 +93,37 @@ function pickProvider(task) {
 }
 
 function getAnthropicMaxTokens(task) {
-  const largeTasks = new Set(['chapter_draft', 'chapter_review', 'final_consistency_review']);
-  return largeTasks.has(task) ? 7000 : 4000;
+  if (task === 'chapter_draft') return 7000;
+  if (task === 'chapter_review' || task === 'tutor_revision' || task === 'final_consistency_review') {
+    return 6000;
+  }
+  return 4000;
+}
+
+function composeSystemPrompt(provider, task, input) {
+  const normalized = normalizeAcademicInput(input);
+  const overlay = provider === 'anthropic' ? ANTHROPIC_SYSTEM_OVERLAY : OPENAI_SYSTEM_OVERLAY;
+
+  return [
+    GENERAL_SYSTEM_PROMPT,
+    '',
+    overlay,
+    '',
+    'Contesto accademico sintetico:',
+    normalized.context,
+    '',
+    'Gestione lacune dati:',
+    normalized.dataGaps,
+    '',
+    'Disciplina e metodo:',
+    normalized.disciplineGuidance,
+    '',
+    'Stile e lunghezza:',
+    normalized.styleGuidance,
+    '',
+    'Task corrente:',
+    getTaskObjective(task)
+  ].join('\n');
 }
 
 async function handleOpenAI({ task, input, res }) {
@@ -103,7 +146,7 @@ async function handleOpenAI({ task, input, res }) {
       },
       body: JSON.stringify({
         model: openaiModel,
-        instructions: GENERAL_SYSTEM_PROMPT,
+        instructions: composeSystemPrompt('openai', task, input),
         input: prompt
       })
     },
@@ -121,7 +164,12 @@ async function handleOpenAI({ task, input, res }) {
 
   const text = data?.output_text || extractOpenAIText(data) || 'Nessun contenuto restituito';
 
-  return res.status(200).json({ ok: true, provider: 'openai', task, text });
+  return res.status(200).json({
+    ok: true,
+    provider: 'openai',
+    task,
+    text
+  });
 }
 
 async function handleAnthropic({ task, input, res }) {
@@ -145,9 +193,14 @@ async function handleAnthropic({ task, input, res }) {
       },
       body: JSON.stringify({
         model: anthropicModel,
-        system: GENERAL_SYSTEM_PROMPT,
+        system: composeSystemPrompt('anthropic', task, input),
         max_tokens: getAnthropicMaxTokens(task),
-        messages: [{ role: 'user', content: prompt }]
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
       })
     },
     ANTHROPIC_TIMEOUT_MS
@@ -176,22 +229,29 @@ async function handleAnthropic({ task, input, res }) {
 
 function buildUserPrompt(task, input) {
   const normalized = normalizeAcademicInput(input);
-  const taskPrompt = getTaskPrompt(task);
+  const taskData = getTaskPrompt(task);
 
   return [
-    taskPrompt.objective,
+    'OBIETTIVO:',
+    taskData.objective,
     '',
     'ISTRUZIONI SPECIFICHE:',
-    taskPrompt.instructions,
+    taskData.instructions,
+    '',
+    'FORMATO DI USCITA:',
+    taskData.outputFormat,
+    '',
+    'CONTESTO GENERALE:',
+    normalized.context,
+    '',
+    'GESTIONE LACUNE DATI:',
+    normalized.dataGaps,
     '',
     'PROFILO DISCIPLINARE:',
     normalized.disciplineGuidance,
     '',
-    'FORMATO DI USCITA OBBLIGATORIO:',
-    taskPrompt.outputFormat,
-    '',
-    'CONTESTO GENERALE:',
-    normalized.context,
+    'STILE E LUNGHEZZA:',
+    normalized.styleGuidance,
     '',
     'DATI OPERATIVI:',
     normalized.rawPayload
@@ -201,123 +261,129 @@ function buildUserPrompt(task, input) {
 function getTaskPrompt(task) {
   const prompts = {
     outline_draft: {
-      objective: 'Crea un indice accademico solido, coerente e difendibile sulla base dei dati ricevuti.',
+      objective: 'Genera un indice accademico coerente, difendibile e ben strutturato.',
       instructions: [
-        '- organizza i contenuti in una progressione logica chiara;',
-        '- evita titoli generici, ripetitivi o ridondanti;',
-        '- mantieni coerenza tra titolo dell’elaborato, obiettivo e articolazione interna;',
-        '- non inserire sezioni non giustificate dai dati disponibili.'
+        '- costruisci una progressione logica chiara;',
+        '- evita titoli generici, vaghi o ornamentali;',
+        '- mantieni equilibrio tra capitoli e sottosezioni;',
+        '- non introdurre sezioni non sostenute dai dati.'
       ].join('\n'),
       outputFormat: [
         '- restituisci solo l’indice finale;',
-        '- usa una gerarchia chiara tra capitoli e sottosezioni;',
-        '- non aggiungere commenti esplicativi esterni all’indice.'
+        '- usa una gerarchia chiara;',
+        '- niente note introduttive o finali.'
       ].join('\n')
     },
     abstract_draft: {
-      objective: 'Scrivi un abstract accademico chiaro, denso e coerente con i dati ricevuti.',
+      objective: 'Genera un abstract accademico chiaro, compatto e coerente.',
       instructions: [
-        '- formula l’oggetto della tesi in modo preciso;',
-        '- esplicita, quando possibile dai dati forniti, obiettivo, taglio, metodo e focus;',
-        '- evita enfasi, slogan o formulazioni vaghe;',
-        '- non introdurre risultati o fonti non presenti nei dati.'
+        '- chiarisci oggetto, focus e perimetro del lavoro;',
+        '- esplicita obiettivo e metodo solo se sostenuti dai dati;',
+        '- evita vaghezze, slogan e risultati inventati.'
       ].join('\n'),
       outputFormat: [
-        '- restituisci un abstract compatto in prosa continua;',
-        '- non usare elenchi puntati;',
-        '- non aggiungere note introduttive o finali.'
+        '- restituisci solo il testo dell’abstract;',
+        '- usa prosa continua;',
+        '- niente elenchi.'
       ].join('\n')
     },
     chapter_draft: {
-      objective: 'Scrivi il capitolo richiesto in stile accademico, con rigore argomentativo e coerenza interna.',
+      objective: 'Scrivi il capitolo richiesto con rigore accademico, coerenza logica e densità controllata.',
       instructions: [
-        '- sviluppa il capitolo seguendo il perimetro dei dati forniti;',
-        '- mantieni progressione logica tra paragrafi e transizioni pulite;',
-        '- evita ripetizioni meccaniche e affermazioni apodittiche non sostenute dai dati;',
-        '- non inventare riferimenti bibliografici o risultati di ricerca.'
+        '- sviluppa il testo solo entro il perimetro dei dati ricevuti;',
+        '- mantieni progressione argomentativa e transizioni pulite;',
+        '- evita ripetizioni, riempitivi e pseudo-accademismo;',
+        '- non inventare fonti, risultati o riferimenti.'
       ].join('\n'),
       outputFormat: [
         '- restituisci solo il testo del capitolo;',
         '- usa paragrafi ben costruiti;',
-        '- mantieni eventuali titoli interni solo se coerenti con i dati ricevuti.'
+        '- mantieni eventuali titoli interni solo se coerenti con i dati.'
       ].join('\n')
     },
     outline_review: {
-      objective: 'Revisiona criticamente l’indice ricevuto e miglioralo senza snaturarne l’impianto utile.',
+      objective: 'Revisiona l’indice ricevuto migliorandone coerenza e difendibilità.',
       instructions: [
-        '- individua lacune, squilibri, ridondanze o passaggi poco difendibili;',
-        '- correggi la struttura in funzione di maggiore coerenza e linearità;',
-        '- preserva ciò che è già valido.'
+        '- individua lacune, squilibri e ridondanze reali;',
+        '- conserva ciò che è già valido;',
+        '- correggi solo ciò che migliora davvero la struttura.'
       ].join('\n'),
       outputFormat: [
-        '- prima scrivi “Criticità rilevate” con osservazioni sintetiche;',
-        '- poi scrivi “Indice revisionato” e riporta la nuova struttura;',
-        '- niente premessa o chiusura.'
+        '- scrivi prima “Criticità rilevate”;',
+        '- poi scrivi “Indice revisionato”;',
+        '- niente chiusure superflue.'
       ].join('\n')
     },
     abstract_review: {
-      objective: 'Revisiona l’abstract ricevuto migliorandone coerenza, densità e chiarezza accademica.',
+      objective: 'Revisiona l’abstract migliorando precisione, densità e chiarezza.',
       instructions: [
-        '- correggi vaghezze, ridondanze e passaggi deboli;',
-        '- rafforza la precisione terminologica senza appesantire il testo;',
+        '- correggi vaghezze e ridondanze;',
         '- non introdurre contenuti nuovi non supportati dai dati.'
       ].join('\n'),
       outputFormat: [
-        '- prima scrivi “Criticità rilevate” in forma sintetica;',
-        '- poi scrivi “Abstract revisionato” e riporta la versione migliorata.'
+        '- scrivi prima “Criticità rilevate”;',
+        '- poi scrivi “Abstract revisionato”.'
       ].join('\n')
     },
     chapter_review: {
-      objective: 'Revisiona criticamente il capitolo ricevuto sul piano logico, stilistico e argomentativo.',
+      objective: 'Revisiona criticamente il capitolo sul piano logico, stilistico e argomentativo.',
       instructions: [
-        '- individua incoerenze, ripetizioni, salti logici o passaggi deboli;',
-        '- migliora chiarezza e compattezza senza cambiare inutilmente il significato;',
-        '- non inserire dati o riferimenti non presenti nei materiali ricevuti.'
+        '- individua incoerenze, ripetizioni e salti logici;',
+        '- migliora il testo in modo conservativo;',
+        '- non rifondare inutilmente il capitolo.'
       ].join('\n'),
       outputFormat: [
-        '- prima scrivi “Criticità rilevate” con punti sintetici;',
-        '- poi scrivi “Capitolo revisionato” e riporta il testo migliorato.'
+        '- scrivi “Criticità rilevate”;',
+        '- poi “Interventi prioritari”;',
+        '- poi “Testo revisionato”.'
       ].join('\n')
     },
     tutor_revision: {
-      objective: 'Applica con rigore le osservazioni del relatore o tutor modificando solo ciò che è necessario.',
+      objective: 'Applica in modo rigoroso le osservazioni del relatore o tutor.',
       instructions: [
-        '- recepisci le osservazioni in modo fedele e proporzionato;',
-        '- evita riscritture invasive se non richieste;',
-        '- mantieni tono e coerenza del testo di partenza.'
+        '- dai priorità alle osservazioni ricevute;',
+        '- modifica solo ciò che è necessario;',
+        '- conserva l’impianto valido del testo.'
       ].join('\n'),
       outputFormat: [
-        '- prima scrivi “Modifiche applicate” con sintesi essenziale;',
-        '- poi scrivi “Testo aggiornato” e riporta la versione aggiornata.'
+        '- scrivi “Osservazioni recepite”;',
+        '- poi “Testo aggiornato”.'
       ].join('\n')
     },
     final_consistency_review: {
-      objective: 'Esegui un controllo finale di coerenza complessiva sull’elaborato ricevuto.',
+      objective: 'Esegui un controllo finale di coerenza complessiva sull’elaborato.',
       instructions: [
-        '- verifica coerenza terminologica, continuità argomentativa, assenza di ripetizioni evidenti e allineamento tra le parti;',
-        '- segnala solo problemi reali e rilevanti;',
-        '- non formulare controlli fattuali che richiedano fonti esterne non fornite.'
+        '- segnala solo criticità concrete e prioritarie;',
+        '- distingui problemi sostanziali da semplici rifiniture;',
+        '- non riscrivere integralmente l’elaborato.'
       ].join('\n'),
       outputFormat: [
-        '- scrivi le sezioni: “Incongruenze”, “Ripetizioni”, “Punti da rifinire”, “Versione coerentizzata se necessaria”;',
-        '- se il testo è già coerente, dichiaralo in modo sobrio e restituisci solo minimi aggiustamenti.'
+        '- scrivi “Criticità ad alta priorità”;',
+        '- poi “Criticità secondarie”;',
+        '- poi “Interventi consigliati”.'
       ].join('\n')
     }
   };
 
   return prompts[task] || {
     objective: 'Elabora il contenuto ricevuto in modo utile e coerente.',
-    instructions: '- lavora solo sui dati forniti.',
-    outputFormat: '- restituisci solo il contenuto utile al task.'
+    instructions: '- resta aderente ai dati ricevuti.',
+    outputFormat: '- restituisci solo il contenuto utile.'
   };
+}
+
+function getTaskObjective(task) {
+  return getTaskPrompt(task).objective;
 }
 
 function normalizeAcademicInput(input) {
   if (typeof input === 'string') {
     return {
       context: formatContextBlock({}),
-      rawPayload: input,
-      disciplineGuidance: getDisciplineGuidance({})
+      dataGaps: formatDataGapBlock({}),
+      disciplineGuidance: getDisciplineGuidance({}),
+      styleGuidance: getStyleGuidance({}, 'generic'),
+      rawPayload: input
     };
   }
 
@@ -336,79 +402,11 @@ function normalizeAcademicInput(input) {
 
   return {
     context: formatContextBlock(meta),
-    rawPayload: JSON.stringify(safe, null, 2),
-    disciplineGuidance: getDisciplineGuidance(meta)
+    dataGaps: formatDataGapBlock(meta),
+    disciplineGuidance: getDisciplineGuidance(meta),
+    styleGuidance: getStyleGuidance(meta, safe.task),
+    rawPayload: JSON.stringify(safe, null, 2)
   };
-}
-
-
-function getDisciplineGuidance(meta) {
-  const faculty = normalizeFaculty(meta.corsoDiLaurea || meta.disciplina || '');
-  const style = meta.stileCitazionale?.trim() || inferCitationStyle(faculty);
-
-  const profiles = {
-    giurisprudenza: [
-      '- privilegia definizioni precise, distinzione tra piani normativi, interpretativi e applicativi;',
-      '- evita affermazioni su norme o orientamenti giurisprudenziali non presenti nei dati;',
-      `- usa, quando coerente con i dati, uno stile argomentativo compatibile con elaborati giuridici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    psicologia: [
-      '- privilegia chiarezza concettuale, rigore terminologico e cautela nell’uso di costrutti psicologici;',
-      '- distingui tra ipotesi, modelli teorici, evidenze e interpretazioni;',
-      `- mantieni un registro compatibile con elaborati di area psicologica; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    lettere: [
-      '- privilegia analisi testuale, contestualizzazione storico-culturale e precisione terminologica;',
-      '- evita generalizzazioni non supportate e letture arbitrarie dei testi;',
-      `- mantieni un registro critico-argomentativo compatibile con studi umanistici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    economia: [
-      '- privilegia chiarezza dei concetti, linearità espositiva e distinzione tra descrizione, analisi e implicazioni;',
-      '- evita dati quantitativi, indicatori o conclusioni empiriche non presenti nei materiali ricevuti;',
-      `- mantieni un registro tecnico ma leggibile, compatibile con elaborati economici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    pedagogia: [
-      '- privilegia chiarezza teorica, coerenza educativa e attenzione al lessico formativo;',
-      '- distingui bene tra quadro teorico, implicazioni didattiche e osservazioni applicative;',
-      `- mantieni un registro adatto a elaborati pedagogici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    medicina: [
-      '- privilegia massima cautela, precisione terminologica e distinzione tra descrizione clinica, ipotesi e dato osservativo;',
-      '- non introdurre protocolli, dati clinici, linee guida o affermazioni sanitarie non presenti nei materiali forniti;',
-      `- mantieni un registro formale e sobrio, compatibile con area medico-sanitaria; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    default: [
-      '- adatta il registro alla disciplina indicata nei dati, senza simulare specializzazioni non supportate;',
-      '- privilegia coerenza argomentativa, precisione terminologica e prudenza metodologica;',
-      `- usa come riferimento citazionale: ${style}.`
-    ].join('\n')
-  };
-
-  return profiles[faculty] || profiles.default;
-}
-
-function normalizeFaculty(value) {
-  const v = String(value || '').toLowerCase();
-  if (v.includes('giuris')) return 'giurisprudenza';
-  if (v.includes('psicolog')) return 'psicologia';
-  if (v.includes('letter') || v.includes('filolog') || v.includes('umanist')) return 'lettere';
-  if (v.includes('econom')) return 'economia';
-  if (v.includes('pedagog') || v.includes('scienze della formazione')) return 'pedagogia';
-  if (v.includes('medic') || v.includes('infermier') || v.includes('sanitar')) return 'medicina';
-  return 'default';
-}
-
-function inferCitationStyle(faculty) {
-  const map = {
-    psicologia: 'APA',
-    medicina: 'Vancouver',
-    giurisprudenza: 'note e riferimenti giuridici coerenti con l’ateneo',
-    lettere: 'note a piè di pagina o standard umanistico coerente con l’ateneo',
-    economia: 'APA o Harvard coerente con l’ateneo',
-    pedagogia: 'APA o standard dell’ateneo'
-  };
-
-  return map[faculty] || 'standard coerente con l’ateneo';
 }
 
 function formatContextBlock(meta) {
@@ -426,68 +424,94 @@ function formatContextBlock(meta) {
   return rows.map(([label, value]) => `- ${label}: ${value || 'non specificato'}`).join('\n');
 }
 
-function pickFirstString(...values) {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim()) return value.trim();
+function formatDataGapBlock(meta) {
+  const gaps = [];
+
+  if (!meta.titolo) gaps.push('titolo o tema non specificato');
+  if (!meta.corsoDiLaurea) gaps.push('corso di laurea non specificato');
+  if (!meta.livello) gaps.push('livello accademico non specificato');
+  if (!meta.disciplina) gaps.push('disciplina o area non specificata');
+  if (!meta.stileCitazionale) gaps.push('stile citazionale non specificato');
+
+  if (!gaps.length) {
+    return [
+      '- dati minimi di contesto presenti;',
+      '- puoi mantenere un livello di specificità normale senza inventare elementi esterni.'
+    ].join('\n');
   }
-  return '';
-}
 
-
-function formatQualityRubric(task) {
-  const rubric = {
-    outline_draft: {
-      criteria: 'coerenza gerarchica, progressione logica, assenza di titoli ridondanti, difendibilità accademica',
-      severity: 'alta per incoerenze strutturali; media per genericità; bassa per lievi squilibri formali',
-      priority: 'prima correggere struttura e perimetro, poi pulire titoli e formulazioni'
-    },
-    abstract_draft: {
-      criteria: 'precisione di oggetto, obiettivo, metodo, perimetro, densità e sobrietà',
-      severity: 'alta per contenuti inventati o vaghi; media per ridondanza; bassa per micro-asimmetrie stilistiche',
-      priority: 'prima eliminare vaghezze e contenuti non supportati, poi compattare il testo'
-    },
-    chapter_draft: {
-      criteria: 'tenuta argomentativa, continuità, coerenza terminologica, densità informativa, prudenza fattuale',
-      severity: 'alta per salti logici, invenzioni o contraddizioni; media per ripetizioni; bassa per ruvidità stilistiche',
-      priority: 'prima proteggere tesi centrale e correttezza, poi ottimizzare fluidità e densità'
-    },
-    outline_review: {
-      criteria: 'diagnosi reale delle criticità, correzione proporzionata, conservazione dell’impianto valido',
-      severity: 'alta per errori di struttura; media per ridondanze; bassa per limature formali',
-      priority: 'prima individuare criticità reali, poi proporre indice revisionato essenziale'
-    },
-    abstract_review: {
-      criteria: 'diagnosi sintetica, revisione conservativa, maggiore precisione e compattezza',
-      severity: 'alta per incoerenze concettuali; media per vaghezza; bassa per stile',
-      priority: 'prima correggere contenuto e tenuta logica, poi rifinire il registro'
-    },
-    chapter_review: {
-      criteria: 'tracciabilità degli interventi, conservazione del significato, correzione di incoerenze e ridondanze',
-      severity: 'alta per errori logici o alterazioni improprie; media per ripetizioni; bassa per micro-editing',
-      priority: 'prima risolvere problemi sostanziali, poi migliorare chiarezza e compattezza'
-    },
-    tutor_revision: {
-      criteria: 'fedeltà alle osservazioni, proporzionalità delle modifiche, rispetto dell’impianto esistente',
-      severity: 'alta per mancata recezione o riscrittura eccessiva; media per applicazione incompleta; bassa per dettagli secondari',
-      priority: 'prima recepire le osservazioni vincolanti, poi mantenere coerenza e tono del testo'
-    },
-    final_consistency_review: {
-      criteria: 'coerenza globale, uniformità terminologica, assenza di ripetizioni, priorità di intervento realmente utili',
-      severity: 'alta per contraddizioni e incoerenze; media per disallineamenti; bassa per rifiniture minori',
-      priority: 'prima segnalare problemi ad alto impatto, poi eventuali rifiniture residue'
-    }
-  }[task] || {
-    criteria: 'coerenza, utilità, precisione e aderenza ai dati',
-    severity: 'alta per errori sostanziali; media per debolezze strutturali; bassa per stile',
-    priority: 'prima correggere la sostanza, poi la forma'
-  };
+  const severity = gaps.length >= 4 ? 'alta' : gaps.length >= 2 ? 'media' : 'bassa';
 
   return [
-    `- Criteri principali: ${rubric.criteria}`,
-    `- Severità da considerare: ${rubric.severity}`,
-    `- Ordine di priorità: ${rubric.priority}`,
-    '- Se i dati non bastano, segnala lacune solo quando incidono davvero sull’affidabilità del task e non inventare integrazioni.'
+    `- severità lacune: ${severity};`,
+    `- lacune rilevate: ${gaps.join('; ')};`,
+    '- riduci il livello di dettaglio non sostenibile dai dati;',
+    '- non simulare completezza metodologica, disciplinare o bibliografica;',
+    '- mantieni output utile ma prudente.'
   ].join('\n');
+}
+
+function getDisciplineGuidance(meta) {
+  const area = (meta.disciplina || '').toLowerCase();
+
+  if (area.includes('giurisprud')) {
+    return [
+      '- privilegia lessico giuridico sobrio e preciso;',
+      '- evita affermazioni normative non supportate dai dati;',
+      '- mantieni argomentazione ordinata e difendibile.'
+    ].join('\n');
+  }
+
+  if (area.includes('psicolog')) {
+    return [
+      '- usa lessico psicologico preciso ma leggibile;',
+      '- evita diagnosi, dati clinici o risultati di ricerca non presenti;',
+      '- mantieni distinzione tra concetti, modelli e interpretazioni.'
+    ].join('\n');
+  }
+
+  if (area.includes('econom') || area.includes('aziendal')) {
+    return [
+      '- privilegia chiarezza analitica e linearità espositiva;',
+      '- non introdurre dati quantitativi non forniti;',
+      '- mantieni nesso chiaro tra concetti, variabili e implicazioni.'
+    ].join('\n');
+  }
+
+  if (area.includes('letter') || area.includes('filolog') || area.includes('storia')) {
+    return [
+      '- privilegia analisi testuale e contestualizzazione sobria;',
+      '- evita attribuzioni o interpretazioni non sostenute dai dati;',
+      '- mantieni rigore terminologico e chiarezza argomentativa.'
+    ].join('\n');
+  }
+
+  return [
+    '- adotta un registro universitario sobrio e professionale;',
+    '- mantieni rigore logico e chiarezza espositiva;',
+    '- evita specialismi non giustificati dai dati.'
+  ].join('\n');
+}
+
+function getStyleGuidance(meta) {
+  const target = (meta.targetLunghezza || '').toLowerCase();
+  const style = meta.stileCitazionale || 'non specificato';
+
+  return [
+    `- stile citazionale: ${style};`,
+    `- target di lunghezza dichiarato: ${target || 'non specificato'};`,
+    '- privilegia densità informativa, paragrafi puliti e progressione logica;',
+    '- se la lunghezza non è specificata, evita sia eccessiva sintesi sia dilatazione artificiale.'
+  ].join('\n');
+}
+
+function pickFirstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
 }
 
 function extractOpenAIText(data) {
