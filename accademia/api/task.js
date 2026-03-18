@@ -99,7 +99,7 @@ function getAnthropicMaxTokens(task) {
 
 
 function composeSystemPrompt(provider, task, input) {
-  const normalized = normalizeAcademicInput(input);
+  const normalized = normalizeAcademicInput(input, task);
   const providerPrompt = provider === 'anthropic' ? ANTHROPIC_PROVIDER_PROMPT : OPENAI_PROVIDER_PROMPT;
   const taskOverlay = getTaskSystemOverlay(task);
 
@@ -227,7 +227,7 @@ async function handleAnthropic({ task, input, res }) {
 }
 
 function buildUserPrompt(task, input) {
-  const normalized = normalizeAcademicInput(input);
+  const normalized = normalizeAcademicInput(input, task);
   const taskPrompt = getTaskPrompt(task);
 
   return [
@@ -238,6 +238,9 @@ function buildUserPrompt(task, input) {
     '',
     'POLITICA FONTI E CITAZIONI:',
     normalized.sourcePolicy,
+    '',
+    'POLITICA DI LUNGHEZZA E DENSITÀ:',
+    normalized.lengthPolicy,
     '',
     'FORMATO DI USCITA OBBLIGATORIO:',
     taskPrompt.outputFormat,
@@ -250,9 +253,6 @@ function buildUserPrompt(task, input) {
     '',
     'CONTINUITA EDITORIALE E MATERIALI DI SUPPORTO:',
     normalized.continuity,
-    '',
-    'VALIDAZIONE INPUT E FALLBACK ATTIVI:',
-    normalized.inputWarnings,
     '',
     'DATI OPERATIVI:',
     normalized.rawPayload
@@ -383,14 +383,13 @@ function getTaskPrompt(task) {
   };
 }
 
-function normalizeAcademicInput(input) {
+function normalizeAcademicInput(input, task = 'generic') {
   if (typeof input === 'string') {
     return {
       disciplinaryProfile: formatDisciplinaryProfile(inferDisciplinaryProfile({}, {})),
       context: formatContextBlock({}),
       sourcePolicy: formatSourcePolicy({}),
       continuity: formatContinuityBlock({}),
-      inputWarnings: formatInputWarnings(validateAcademicInput({}, {})),
       rawPayload: input
     };
   }
@@ -410,8 +409,6 @@ function normalizeAcademicInput(input) {
     bibliografiaPresente: detectBibliographyPresence(safe)
   };
 
-  const validation = validateAcademicInput(meta, safe);
-
   const continuity = {
     tesiCentrale: pickFirstString(safe.tesiCentrale, safe.mainThesis, safe.centralThesis),
     indiceApprovato: pickStructuredValue(safe.indiceApprovato, safe.approvedOutline, safe.outlineApproved),
@@ -427,70 +424,8 @@ function normalizeAcademicInput(input) {
     context: formatContextBlock(meta),
     sourcePolicy: formatSourcePolicy(meta),
     continuity: formatContinuityBlock(continuity),
-    inputWarnings: formatInputWarnings(validation),
     rawPayload: JSON.stringify(safe, null, 2)
   };
-}
-
-
-function validateAcademicInput(meta, safe) {
-  const warnings = [];
-  const fallbacks = [];
-
-  if (!meta.titolo) {
-    warnings.push('titolo o tema non specificato');
-    fallbacks.push('mantieni formulazioni neutre sul focus finché non emerge dai dati');
-  }
-
-  if (!meta.corsoDiLaurea && !safe.facolta && !safe.facoltà && !safe.faculty) {
-    warnings.push('facoltà o corso di laurea non specificati');
-    fallbacks.push('usa profilo accademico generale senza simulare convenzioni di settore non dichiarate');
-  }
-
-  if (!meta.livello) {
-    warnings.push('livello accademico non specificato');
-    fallbacks.push('mantieni un registro universitario medio-alto ma non iper-specialistico');
-  }
-
-  if (!meta.stileCitazionale) {
-    warnings.push('stile citazionale non specificato');
-    fallbacks.push('non forzare standard APA/Chicago o altri se non dichiarati');
-  }
-
-  if (!meta.targetLunghezza) {
-    warnings.push('target di lunghezza non specificato');
-    fallbacks.push('privilegia completezza proporzionata al task senza dilatazioni artificiali');
-  }
-
-  if (!meta.bibliografiaPresente) {
-    warnings.push('fonti o bibliografia non chiaramente presenti nei dati');
-    fallbacks.push('non inventare apparati bibliografici o attribuzioni per colmare lacune');
-  }
-
-  const hasContinuity = Boolean(
-    safe.tesiCentrale || safe.mainThesis || safe.centralThesis ||
-    safe.indiceApprovato || safe.approvedOutline || safe.outlineApproved ||
-    safe.sintesiCapitoliPrecedenti || safe.previousChaptersSummary || safe.chapterHistory
-  );
-
-  if (!hasContinuity) {
-    warnings.push('continuità editoriale limitata o assente');
-    fallbacks.push('mantieni coerenza locale del testo senza fingere allineamento con materiali non forniti');
-  }
-
-  return { warnings, fallbacks };
-}
-
-function formatInputWarnings(validation) {
-  const warningLines = validation.warnings.length
-    ? validation.warnings.map(item => `- Criticità input: ${item}`)
-    : ['- Criticità input: nessuna criticità strutturale evidente nei metadati ricevuti'];
-
-  const fallbackLines = validation.fallbacks.length
-    ? validation.fallbacks.map(item => `- Fallback operativo: ${item}`)
-    : ['- Fallback operativo: usa i metadati ricevuti senza aggiungere assunzioni ulteriori'];
-
-  return [...warningLines, ...fallbackLines].join('\n');
 }
 
 
@@ -604,6 +539,60 @@ function formatSourcePolicy(meta) {
     '- se le fonti nei dati sono assenti o insufficienti, non inventare riferimenti;',
     '- se citi autori o opere già presenti nei dati, mantieni coerenza formale e prudenza;',
     '- non costruire bibliografie fittizie per rendere il testo più accademico.'
+  ].join('\n');
+}
+
+
+function formatLengthPolicy(task, meta) {
+  const declaredTarget = meta.targetLunghezza || 'non specificato';
+
+  const defaults = {
+    outline_draft: {
+      focus: 'struttura completa ma asciutta, evitando articolazioni decorative',
+      target: 'estensione proporzionata a un indice universitario leggibile'
+    },
+    abstract_draft: {
+      focus: 'alta densità informativa e forte sintesi',
+      target: 'abstract breve o medio, salvo diverso target esplicito nei dati'
+    },
+    chapter_draft: {
+      focus: 'sviluppo argomentativo pieno, con paragrafi sostanziali e progressione logica continua',
+      target: 'lunghezza ampia e coerente con un vero capitolo di tesi, salvo target diverso nei dati'
+    },
+    outline_review: {
+      focus: 'diagnosi sintetica + struttura revisionata',
+      target: 'intervento concentrato, senza espansioni superflue'
+    },
+    abstract_review: {
+      focus: 'massima sintesi nelle criticità e revisione compatta',
+      target: 'output breve e operativo'
+    },
+    chapter_review: {
+      focus: 'diagnosi breve ma utile + testo revisionato completo quando richiesto',
+      target: 'output medio o ampio a seconda del testo ricevuto'
+    },
+    tutor_revision: {
+      focus: 'recepimento selettivo delle osservazioni con conservazione del testo',
+      target: 'output proporzionato al numero di modifiche richieste'
+    },
+    final_consistency_review: {
+      focus: 'controllo mirato, ordinato per priorità, con eventuale coerentizzazione minima',
+      target: 'output medio, salvo elaborati molto estesi'
+    },
+    generic: {
+      focus: 'completezza proporzionata e nessuna dilatazione artificiale',
+      target: 'lunghezza coerente con il task e con i dati disponibili'
+    }
+  };
+
+  const current = defaults[task] || defaults.generic;
+
+  return [
+    `- Target dichiarato nei dati: ${declaredTarget}`,
+    `- Criterio di profondità: ${current.focus}`,
+    `- Criterio di estensione: ${current.target}`,
+    '- evita sia il sottosviluppo sia l’espansione riempitiva;',
+    '- se il target dichiarato è assente, regola la lunghezza in funzione del task e della qualità dei dati, non della sola verbosità.'
   ].join('\n');
 }
 
