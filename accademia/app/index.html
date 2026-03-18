@@ -640,6 +640,7 @@ let thesis={
   indice:'',indiceVersions:[],
   abstract:'',abstractVersions:[],
   chapters:[],chapterTitles:[],currentChapterIdx:0,
+  approvedChapters:[],
   contextPacket:null
 };
 
@@ -980,7 +981,7 @@ async function startPhase1(){
   thesis.corso=document.getElementById('corso').value.trim();
   thesis.tipo=document.getElementById('tipoLaurea').value;
   thesis.metodologia=metodologia;
-  thesis.chapters=[];thesis.currentChapterIdx=0;
+  thesis.chapters=[];thesis.currentChapterIdx=0;thesis.approvedChapters=[];
   // Will be re-init after chapters count is known (at generateNextChapter)
   thesis.contextPacket={
     tipoLabel:tipoLaureaLabel(thesis.tipo),
@@ -1192,7 +1193,7 @@ async function generateNextChapter(){
 
   const cp=thesis.contextPacket;
   const title=thesis.chapterTitles[idx];
-  const lung={'triennale':{min:900,max:1100},'magistrale_2':{min:1400,max:1800},'magistrale_5':{min:1200,max:1600}}[thesis.tipo]||{min:900,max:1100};
+  const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const chRole=getChapterRole(idx,total,title,thesis.metodologia);
 
   // Previous chapters summary for coherence
@@ -1255,6 +1256,8 @@ Inquadra il capitolo nel framework teorico della tesi. Annuncia cosa svilupperà
 
 [SVILUPPO ARGOMENTATIVO] — corpo centrale con sottosezioni in **grassetto**
 ${chRole.body}
+Ogni sottosezione deve essere sviluppata con almeno 3 paragrafi pieni e contenere spiegazione, approfondimento e collegamento critico al tema.
+Nessun sottocapitolo può ridursi a definizioni brevi, elenchi o passaggi solo descrittivi.
 
 [ANALISI CRITICA] — ${cp.isMagistrale?'2-3 paragrafi obbligatori':'1-2 paragrafi'}
 ${cp.isMagistrale?'Confronta posizioni teoriche diverse. Identifica punti di forza, limiti e gap. Esprimi posizione argomentata con supporto bibliografico.':'Sintetizza punti chiave. Valuta criticamente le posizioni principali emerse.'}
@@ -1266,6 +1269,7 @@ ${idx<total-1?`Crea ponte argomentativo verso il capitolo successivo "${thesis.c
 PARAMETRI TECNICI
 ════════════════════════════════════════
 Lunghezza: ${lung.min}-${lung.max} parole
+Densità minima: ogni sottosezione deve essere sostanziale e non schematica
 Titoli sottosezioni: **in grassetto**
 Zero altro markdown
 Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
@@ -1306,11 +1310,11 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
         </div>
       </div>
       <div class="approval-row" id="chapApproval-${idx}" style="display:none">
-        <span class="hint">Capitolo ${idx+1} approvato?</span>
+        <span class="hint">Approva il Capitolo ${idx+1} per confermarlo definitivamente</span>
         <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
         ${idx<total-1
-          ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva → Cap. ${idx+2}</button>`
-          :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva e concludi</button>`}
+          ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}</button>`
+          :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva ultimo capitolo e concludi</button>`}
       </div>
     </div>`;
   area.appendChild(block);
@@ -1338,7 +1342,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       document.getElementById(`chapChip-${idx}`).innerHTML='✓ Completato';
       document.getElementById(`chapVerBadge-${idx}`).style.display='inline-flex';
       document.getElementById(`chapApproval-${idx}`).style.display='flex';
-      updateChapterProgressBar(idx,total,true);
+      updateChapterProgressBar(idx,total,false);
       renderRevCounter(idx);
     });
   }catch(e){showToast('Errore cap.'+(idx+1)+': '+e.message,true);}
@@ -1346,6 +1350,8 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
 
 function approveChapter(idx){
   document.getElementById(`chapApproval-${idx}`).style.display='none';
+  thesis.approvedChapters[idx]=true;
+  updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   thesis.currentChapterIdx=idx+1;
   const nc=document.getElementById('nextChapters');
   const nextTitle=thesis.chapterTitles[idx+1]||'';
@@ -1357,6 +1363,7 @@ function approveChapter(idx){
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
   document.getElementById(`chapApproval-${idx}`).style.display='none';
+  thesis.approvedChapters[idx]=true;
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   setStep(4);
@@ -1383,7 +1390,7 @@ async function reviseChapter(idx){
   document.getElementById(`chapChip-${idx}`).className='status-chip searching';
   document.getElementById(`chapChip-${idx}`).innerHTML='<span class="spinner-blue"></span>Ricerca aggiornata...';
   document.getElementById(`chapApproval-${idx}`).style.display='none';
-  const lung={'triennale':{min:900,max:1100},'magistrale_2':{min:1400,max:1800},'magistrale_5':{min:1200,max:1600}}[thesis.tipo]||{min:900,max:1100};
+  const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const prompt=`Revisiona Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
 
@@ -1397,6 +1404,7 @@ ISTRUZIONI:
 - Esegui web search per fonti aggiornate se le modifiche richiedono nuovi riferimenti
 - Riscrivi il capitolo COMPLETO incorporando le modifiche
 - Mantieni struttura: apertura contestuale + sviluppo + analisi critica + chiusura raccordo
+- Ogni sottosezione deve restare sostanziale, con almeno 3 paragrafi pieni
 - Coerenza con altri capitoli: ${thesis.chapterTitles.filter((_,i)=>i!==idx).join(' | ')}
 - Lunghezza: ${lung.min}-${lung.max} parole
 - NON inventare fonti. Solo testo del capitolo revisionato.`;
@@ -1446,12 +1454,14 @@ function updateChapterProgressBar(current,total,markDone){
     document.getElementById('chaptersArea').prepend(wrap);
   }
   const bar=document.getElementById('chProgressBar');
-  const done=markDone?current+1:current;
-  document.getElementById('chProgressLabel').textContent=`Avanzamento capitoli: ${done} / ${total}`;
+  const approvedCount=(thesis.approvedChapters||[]).filter(Boolean).length;
+  const done=markDone?Math.max(approvedCount,current+1):approvedCount;
+  document.getElementById('chProgressLabel').textContent=`Capitoli approvati: ${done} / ${total}`;
   bar.innerHTML='';
   for(let i=0;i<total;i++){
     const dot=document.createElement('div');dot.className='ch-dot';
-    if(i<done)dot.classList.add('done');else if(i===current&&!markDone)dot.classList.add('active');
+    if((thesis.approvedChapters||[])[i]) dot.classList.add('done');
+    else if(i===current) dot.classList.add('active');
     bar.appendChild(dot);
   }
 }
