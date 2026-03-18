@@ -196,6 +196,9 @@ function buildUserPrompt(task, input) {
     'CONTESTO GENERALE:',
     normalized.context,
     '',
+    'CONTINUITA EDITORIALE E MATERIALI DI SUPPORTO:',
+    normalized.continuity,
+    '',
     'DATI OPERATIVI:',
     normalized.rawPayload
   ].join('\n');
@@ -274,15 +277,17 @@ function getTaskPrompt(task) {
       ].join('\n')
     },
     chapter_review: {
-      objective: 'Revisiona criticamente il capitolo ricevuto sul piano logico, stilistico e argomentativo.',
+      objective: 'Revisiona criticamente il capitolo ricevuto sul piano logico, stilistico e argomentativo, intervenendo in modo conservativo e tracciabile.',
       instructions: [
         '- individua incoerenze, ripetizioni, salti logici o passaggi deboli;',
         '- migliora chiarezza e compattezza senza cambiare inutilmente il significato;',
+        '- non riscrivere da zero se il testo è già sostanzialmente valido;',
         '- conserva terminologia, tesi centrale e allineamento con i materiali già approvati, se presenti;',
         '- non inserire dati o riferimenti non presenti nei materiali ricevuti.'
       ].join('\n'),
       outputFormat: [
         '- prima scrivi “Criticità rilevate” con punti sintetici;',
+        '- poi scrivi “Interventi effettuati” con indicazione breve dei cambiamenti;',
         '- poi scrivi “Capitolo revisionato” e riporta il testo migliorato.'
       ].join('\n')
     },
@@ -295,7 +300,8 @@ function getTaskPrompt(task) {
         '- preserva la continuità con indice, capitoli e scelte lessicali già approvate, se disponibili.'
       ].join('\n'),
       outputFormat: [
-        '- prima scrivi “Modifiche applicate” con sintesi essenziale;',
+        '- prima scrivi “Osservazioni recepite” con sintesi essenziale;',
+        '- poi scrivi “Scelte conservative” indicando cosa è stato volutamente lasciato invariato, se rilevante;',
         '- poi scrivi “Testo aggiornato” e riporta la versione aggiornata.'
       ].join('\n')
     },
@@ -308,8 +314,9 @@ function getTaskPrompt(task) {
         '- non formulare controlli fattuali che richiedano fonti esterne non fornite.'
       ].join('\n'),
       outputFormat: [
-        '- scrivi le sezioni: “Incongruenze”, “Ripetizioni”, “Punti da rifinire”, “Versione coerentizzata se necessaria”;',
-        '- se il testo è già coerente, dichiaralo in modo sobrio e restituisci solo minimi aggiustamenti.'
+        '- scrivi le sezioni: “Incongruenze”, “Ripetizioni”, “Punti da rifinire”, “Priorita di intervento”, “Versione coerentizzata se necessaria”;',
+        '- se il testo è già coerente, dichiaralo in modo sobrio e restituisci solo minimi aggiustamenti;',
+        '- non trasformare il controllo finale in una riscrittura integrale salvo necessità evidente.'
       ].join('\n')
     }
   };
@@ -345,13 +352,39 @@ function normalizeAcademicInput(input) {
     bibliografiaPresente: detectBibliographyPresence(safe)
   };
 
+  const continuity = {
+    tesiCentrale: pickFirstString(safe.tesiCentrale, safe.mainThesis, safe.centralThesis),
+    indiceApprovato: pickStructuredValue(safe.indiceApprovato, safe.approvedOutline, safe.outlineApproved),
+    sintesiCapitoliPrecedenti: pickStructuredValue(safe.sintesiCapitoliPrecedenti, safe.previousChaptersSummary, safe.chapterHistory),
+    glossario: pickStructuredValue(safe.glossario, safe.glossary, safe.terminiChiave),
+    terminologiaStabile: pickStructuredValue(safe.terminologiaStabile, safe.fixedTerminology, safe.keyTerms),
+    osservazioniRelatore: pickStructuredValue(safe.osservazioniRelatore, safe.tutorNotes, safe.supervisorNotes),
+    testoDaRevisionare: pickStructuredValue(safe.testoDaRevisionare, safe.textToReview, safe.draftText)
+  };
+
   return {
     context: formatContextBlock(meta),
     sourcePolicy: formatSourcePolicy(meta),
+    continuity: formatContinuityBlock(continuity),
     rawPayload: JSON.stringify(safe, null, 2)
   };
 }
 
+function formatContinuityBlock(data) {
+  const rows = [
+    ['Tesi centrale', data.tesiCentrale],
+    ['Indice approvato', data.indiceApprovato],
+    ['Sintesi capitoli precedenti', data.sintesiCapitoliPrecedenti],
+    ['Glossario o termini chiave', data.glossario],
+    ['Terminologia stabile', data.terminologiaStabile],
+    ['Osservazioni relatore/tutor', data.osservazioniRelatore],
+    ['Testo da revisionare', data.testoDaRevisionare]
+  ];
+
+  return rows
+    .map(([label, value]) => `${label}:\n${value || 'non fornito'}`)
+    .join('\n\n');
+}
 
 function formatSourcePolicy(meta) {
   const citationStyle = meta.stileCitazionale || 'non specificato';
@@ -410,6 +443,15 @@ function formatContextBlock(meta) {
 function pickFirstString(...values) {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function pickStructuredValue(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (Array.isArray(value) && value.length) return JSON.stringify(value, null, 2);
+    if (value && typeof value === 'object' && Object.keys(value).length) return JSON.stringify(value, null, 2);
   }
   return '';
 }
