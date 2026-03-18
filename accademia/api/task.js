@@ -193,6 +193,9 @@ function buildUserPrompt(task, input) {
     'FORMATO DI USCITA OBBLIGATORIO:',
     taskPrompt.outputFormat,
     '',
+    'PROFILO DISCIPLINARE:',
+    normalized.disciplinaryProfile,
+    '',
     'CONTESTO GENERALE:',
     normalized.context,
     '',
@@ -331,8 +334,10 @@ function getTaskPrompt(task) {
 function normalizeAcademicInput(input) {
   if (typeof input === 'string') {
     return {
+      disciplinaryProfile: formatDisciplinaryProfile(inferDisciplinaryProfile({}, {})),
       context: formatContextBlock({}),
       sourcePolicy: formatSourcePolicy({}),
+      continuity: formatContinuityBlock({}),
       rawPayload: input
     };
   }
@@ -363,11 +368,95 @@ function normalizeAcademicInput(input) {
   };
 
   return {
+    disciplinaryProfile: formatDisciplinaryProfile(inferDisciplinaryProfile(meta, safe)),
     context: formatContextBlock(meta),
     sourcePolicy: formatSourcePolicy(meta),
     continuity: formatContinuityBlock(continuity),
     rawPayload: JSON.stringify(safe, null, 2)
   };
+}
+
+
+function inferDisciplinaryProfile(meta, safe) {
+  const facultyRaw = pickFirstString(
+    safe.facolta,
+    safe.facoltà,
+    safe.faculty,
+    safe.school,
+    safe.areaDidattica,
+    meta.corsoDiLaurea,
+    meta.disciplina
+  ).toLowerCase();
+
+  const profiles = [
+    {
+      match: ['giurisprudenza', 'law', 'diritto', 'giuridic'],
+      label: 'Area giuridica',
+      method: 'argomentazione normativa, interpretazione di fonti, distinzione tra principi, disciplina positiva e orientamenti',
+      style: 'registro sobrio, tecnico, preciso, con attenzione a definizioni, qualificazioni e nessi logico-giuridici',
+      priorities: 'evitare formule vaghe; distinguere dati, interpretazioni e conseguenze applicative; non simulare riferimenti normativi non forniti'
+    },
+    {
+      match: ['psicologia', 'psychology', 'psicologic'],
+      label: 'Area psicologica',
+      method: 'impianto concettuale chiaro, prudenza terminologica, distinzione tra modelli teorici, evidenze e limiti interpretativi',
+      style: 'lessico scientifico accessibile, evitando assolutizzazioni e semplificazioni non giustificate',
+      priorities: 'non presentare ipotesi come fatti acquisiti; non inventare studi, scale o risultati empirici'
+    },
+    {
+      match: ['economia', 'economics', 'econom', 'management', 'aziendal'],
+      label: 'Area economico-aziendale',
+      method: 'struttura analitica, definizione del problema, relazioni causali esplicite e chiarezza tra quadro teorico e applicazioni',
+      style: 'linguaggio lineare, tecnico e orientato alla leggibilità professionale',
+      priorities: 'non inventare dati quantitativi, benchmark o riferimenti di mercato'
+    },
+    {
+      match: ['lettere', 'filologia', 'storia', 'filosofia', 'humanities', 'umanist'],
+      label: 'Area umanistica',
+      method: 'analisi concettuale e testuale, ricostruzione coerente del contesto, attenzione alla precisione interpretativa',
+      style: 'registro formale ma non gonfio, con progressione argomentativa pulita',
+      priorities: 'evitare parafrasi decorative, generalizzazioni vaghe e attribuzioni testuali non fondate'
+    },
+    {
+      match: ['medicina', 'medicine', 'medic', 'sanitaria', 'infermier', 'biomed'],
+      label: 'Area medico-sanitaria',
+      method: 'massima prudenza fattuale, linguaggio tecnico controllato, distinzione chiara tra descrizione, evidenza e implicazioni',
+      style: 'scrittura accurata, precisa, senza semplificazioni rischiose',
+      priorities: 'non inventare linee guida, studi clinici, dati epidemiologici o indicazioni operative'
+    },
+    {
+      match: ['ingegneria', 'engineering', 'informatica', 'computer science', 'stem', 'matemat', 'fisica'],
+      label: 'Area tecnico-scientifica',
+      method: 'sequenza logica esplicita, definizioni operative chiare, attenzione a passaggi metodologici e assunzioni',
+      style: 'linguaggio preciso, asciutto, non retorico',
+      priorities: 'non inventare risultati sperimentali, formule, metriche o riferimenti tecnici non forniti'
+    },
+    {
+      match: ['scienze della formazione', 'pedagogia', 'education', 'didattic'],
+      label: 'Area pedagogico-formativa',
+      method: 'chiarezza concettuale, attenzione ai modelli educativi, legame tra teoria, contesto e implicazioni formative',
+      style: 'registro formale, leggibile e ben scandito',
+      priorities: 'evitare normatività astratta e riferimenti teorici non supportati dai dati'
+    }
+  ];
+
+  const found = profiles.find(profile => profile.match.some(token => facultyRaw.includes(token)));
+
+  return found || {
+    label: 'Profilo disciplinare non specificato',
+    method: 'impostazione accademica generale, con rigore logico e prudenza',
+    style: 'registro universitario chiaro, sobrio e coerente',
+    priorities: 'non inventare fonti o dati; evitare genericità e sovra-asserzioni'
+  };
+}
+
+function formatDisciplinaryProfile(profile) {
+  return [
+    `- Profilo riconosciuto: ${profile.label}`,
+    `- Metodo argomentativo da privilegiare: ${profile.method}`,
+    `- Registro da mantenere: ${profile.style}`,
+    `- Priorità critiche: ${profile.priorities}`
+  ].join('\n');
 }
 
 function formatContinuityBlock(data) {
