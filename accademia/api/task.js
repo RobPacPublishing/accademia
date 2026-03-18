@@ -239,6 +239,9 @@ function buildUserPrompt(task, input) {
     'POLITICA FONTI E CITAZIONI:',
     normalized.sourcePolicy,
     '',
+    'POLITICA DI COERENZA TERMINOLOGICA E CONSERVAZIONE:',
+    normalized.consistencyPolicy,
+    '',
     'POLITICA DI LUNGHEZZA E DENSITÀ:',
     normalized.lengthPolicy,
     '',
@@ -389,6 +392,7 @@ function normalizeAcademicInput(input, task = 'generic') {
       disciplinaryProfile: formatDisciplinaryProfile(inferDisciplinaryProfile({}, {})),
       context: formatContextBlock({}),
       sourcePolicy: formatSourcePolicy({}),
+      consistencyPolicy: formatConsistencyPolicy({}, task),
       continuity: formatContinuityBlock({}),
       rawPayload: input
     };
@@ -423,6 +427,7 @@ function normalizeAcademicInput(input, task = 'generic') {
     disciplinaryProfile: formatDisciplinaryProfile(inferDisciplinaryProfile(meta, safe)),
     context: formatContextBlock(meta),
     sourcePolicy: formatSourcePolicy(meta),
+    consistencyPolicy: formatConsistencyPolicy(continuity, task),
     continuity: formatContinuityBlock(continuity),
     rawPayload: JSON.stringify(safe, null, 2)
   };
@@ -594,6 +599,29 @@ function formatLengthPolicy(task, meta) {
     '- evita sia il sottosviluppo sia l’espansione riempitiva;',
     '- se il target dichiarato è assente, regola la lunghezza in funzione del task e della qualità dei dati, non della sola verbosità.'
   ].join('\n');
+}
+
+function formatConsistencyPolicy(continuity, task) {
+  const revisionTasks = new Set(['chapter_review', 'tutor_revision', 'final_consistency_review', 'abstract_review', 'outline_review']);
+  const hasStableTerms = !!continuity.terminologiaStabile || !!continuity.glossario;
+  const hasCentralThesis = !!continuity.tesiCentrale;
+
+  const lines = [
+    `- Task di revisione o controllo: ${revisionTasks.has(task) ? 'sì' : 'no'}`,
+    `- Tesi centrale disponibile: ${hasCentralThesis ? 'sì' : 'no'}`,
+    `- Terminologia stabile o glossario disponibile: ${hasStableTerms ? 'sì' : 'no'}`,
+    '- preserva la terminologia già stabile quando è presente nei dati;',
+    '- evita sinonimi impropri che spostino il significato teorico o metodologico;',
+    '- non modificare la tesi centrale, l’asse argomentativo o le definizioni chiave salvo richiesta esplicita o necessità logica evidente;',
+    '- se intervieni su passaggi deboli, fallo in modo conservativo e localizzato, senza rifondare il testo;',
+    '- se noti incoerenze terminologiche reali, uniformale scegliendo la forma più coerente con i materiali già forniti.'
+  ];
+
+  if (revisionTasks.has(task)) {
+    lines.push('- nelle revisioni distingui sempre tra miglioramento e alterazione: migliora la forma e la tenuta logica, non cambiare inutilmente l’impianto.');
+  }
+
+  return lines.join('\n');
 }
 
 function detectBibliographyPresence(safe) {
