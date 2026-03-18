@@ -245,6 +245,9 @@ function buildUserPrompt(task, input) {
     'POLITICA DI LUNGHEZZA E DENSITÀ:',
     normalized.lengthPolicy,
     '',
+    'RUBRICA DI QUALITÀ DEL TASK:',
+    getTaskQualityRubric(task),
+    '',
     'FORMATO DI USCITA OBBLIGATORIO:',
     taskPrompt.outputFormat,
     '',
@@ -393,6 +396,7 @@ function normalizeAcademicInput(input, task = 'generic') {
       context: formatContextBlock({}),
       sourcePolicy: formatSourcePolicy({}),
       consistencyPolicy: formatConsistencyPolicy({}, task),
+      lengthPolicy: formatLengthPolicy(task, {}),
       continuity: formatContinuityBlock({}),
       rawPayload: input
     };
@@ -428,6 +432,7 @@ function normalizeAcademicInput(input, task = 'generic') {
     context: formatContextBlock(meta),
     sourcePolicy: formatSourcePolicy(meta),
     consistencyPolicy: formatConsistencyPolicy(continuity, task),
+    lengthPolicy: formatLengthPolicy(task, meta),
     continuity: formatContinuityBlock(continuity),
     rawPayload: JSON.stringify(safe, null, 2)
   };
@@ -622,6 +627,53 @@ function formatConsistencyPolicy(continuity, task) {
   }
 
   return lines.join('\n');
+}
+
+
+function getTaskQualityRubric(task) {
+  const rubrics = {
+    outline_draft: [
+      '- i titoli devono essere specifici e non ornamentali;',
+      '- la progressione deve essere difendibile davanti a un relatore;',
+      '- ogni sezione deve avere una funzione riconoscibile nell'impianto.'
+    ],
+    abstract_draft: [
+      '- il testo deve rendere chiari oggetto, obiettivo e perimetro;',
+      '- nessuna promessa di risultati non presenti nei dati;',
+      '- ogni frase deve avere alta utilità informativa.'
+    ],
+    chapter_draft: [
+      '- ogni paragrafo deve far avanzare davvero l'argomentazione;',
+      '- le transizioni devono essere esplicite ma sobrie;',
+      '- evitare ripetizioni, digressioni e riempitivi pseudo-accademici.'
+    ],
+    outline_review: [
+      '- le criticità devono essere reali e non pretestuose;',
+      '- la revisione deve migliorare la difendibilità senza appesantire;'
+    ],
+    abstract_review: [
+      '- correggere vaghezze e ridondanze con interventi mirati;',
+      '- preservare il nucleo informativo già valido.'
+    ],
+    chapter_review: [
+      '- migliorare logica e stile senza rifondare inutilmente il testo;',
+      '- ogni intervento deve avere una giustificazione leggibile.'
+    ],
+    tutor_revision: [
+      '- le osservazioni del relatore hanno priorità alta;',
+      '- ogni modifica deve restare proporzionata alla richiesta.'
+    ],
+    final_consistency_review: [
+      '- segnalare solo incongruenze concrete e prioritarie;',
+      '- distinguere bene difetti sostanziali e semplici rifiniture.'
+    ],
+    generic: [
+      '- output sobrio, utile, coerente e privo di riempitivi.'
+    ]
+  };
+
+  const selected = rubrics[task] || rubrics.generic;
+  return selected.join('\n');
 }
 
 function detectBibliographyPresence(safe) {
