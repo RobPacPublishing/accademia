@@ -20,6 +20,17 @@ Vincoli permanenti:
 - restituisci solo l'output utile al task richiesto;
 - conserva, per quanto possibile, il significato del materiale fornito dall'utente senza alterarlo arbitrariamente.`;
 
+
+const OPENAI_PROVIDER_PROMPT = `Indicazioni operative per provider OpenAI:
+- privilegia chiarezza strutturale, aderenza al formato richiesto e buona organizzazione dell'output;
+- se il task richiede revisione, separa con precisione diagnosi e testo revisionato;
+- non aggiungere spiegazioni esterne al formato richiesto.`;
+
+const ANTHROPIC_PROVIDER_PROMPT = `Indicazioni operative per provider Anthropic:
+- privilegia profondità argomentativa, continuità logica e coerenza editoriale tra sezioni;
+- se il task riguarda capitoli o revisioni estese, mantieni forte conservazione della tesi centrale e del lessico stabile;
+- non trasformare una revisione in riscrittura integrale salvo necessità evidente.`;
+
 export default async function handler(req, res) {
   if (req.method === 'GET' && req.query?.config === 'supabase') {
     const url = process.env.SUPABASE_URL;
@@ -86,6 +97,44 @@ function getAnthropicMaxTokens(task) {
   return largeTasks.has(task) ? 7000 : 4000;
 }
 
+
+function composeSystemPrompt(provider, task, input) {
+  const normalized = normalizeAcademicInput(input);
+  const providerPrompt = provider === 'anthropic' ? ANTHROPIC_PROVIDER_PROMPT : OPENAI_PROVIDER_PROMPT;
+  const taskOverlay = getTaskSystemOverlay(task);
+
+  return [
+    GENERAL_SYSTEM_PROMPT,
+    '',
+    providerPrompt,
+    '',
+    'Vincoli del task corrente:',
+    taskOverlay,
+    '',
+    'Contesto disciplinare sintetico:',
+    normalized.disciplinaryProfile,
+    '',
+    'Politica fonti sintetica:',
+    normalized.sourcePolicy
+  ].join('
+');
+}
+
+function getTaskSystemOverlay(task) {
+  const overlays = {
+    outline_draft: '- costruisci una struttura difendibile e non decorativa.',
+    abstract_draft: '- concentra il testo su oggetto, obiettivo, metodo e perimetro reale dei dati.',
+    chapter_draft: '- sviluppa il testo con continuità argomentativa e densità accademica controllata.',
+    outline_review: '- correggi l'indice in modo conservativo ma netto dove necessario.',
+    abstract_review: '- migliora precisione e compattezza senza introdurre contenuti nuovi.',
+    chapter_review: '- distingui chiaramente criticità, interventi e testo revisionato.',
+    tutor_revision: '- applica le osservazioni in modo fedele, proporzionato e tracciabile.',
+    final_consistency_review: '- comportati come controllo finale redazionale, non come autore ex novo.'
+  };
+
+  return overlays[task] || '- resta aderente al task richiesto e ai dati forniti.';
+}
+
 async function handleOpenAI({ task, input, res }) {
   const openaiKey = process.env.OPENAI_API_KEY;
   const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
@@ -106,7 +155,7 @@ async function handleOpenAI({ task, input, res }) {
       },
       body: JSON.stringify({
         model: openaiModel,
-        instructions: GENERAL_SYSTEM_PROMPT,
+        instructions: composeSystemPrompt('openai', task, input),
         input: prompt
       })
     },
@@ -148,7 +197,7 @@ async function handleAnthropic({ task, input, res }) {
       },
       body: JSON.stringify({
         model: anthropicModel,
-        system: GENERAL_SYSTEM_PROMPT,
+        system: composeSystemPrompt('anthropic', task, input),
         max_tokens: getAnthropicMaxTokens(task),
         messages: [{ role: 'user', content: prompt }]
       })
