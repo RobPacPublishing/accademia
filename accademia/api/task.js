@@ -251,6 +251,9 @@ function buildUserPrompt(task, input) {
     'CONTINUITA EDITORIALE E MATERIALI DI SUPPORTO:',
     normalized.continuity,
     '',
+    'VALIDAZIONE INPUT E FALLBACK ATTIVI:',
+    normalized.inputWarnings,
+    '',
     'DATI OPERATIVI:',
     normalized.rawPayload
   ].join('\n');
@@ -387,6 +390,7 @@ function normalizeAcademicInput(input) {
       context: formatContextBlock({}),
       sourcePolicy: formatSourcePolicy({}),
       continuity: formatContinuityBlock({}),
+      inputWarnings: formatInputWarnings(validateAcademicInput({}, {})),
       rawPayload: input
     };
   }
@@ -406,6 +410,8 @@ function normalizeAcademicInput(input) {
     bibliografiaPresente: detectBibliographyPresence(safe)
   };
 
+  const validation = validateAcademicInput(meta, safe);
+
   const continuity = {
     tesiCentrale: pickFirstString(safe.tesiCentrale, safe.mainThesis, safe.centralThesis),
     indiceApprovato: pickStructuredValue(safe.indiceApprovato, safe.approvedOutline, safe.outlineApproved),
@@ -421,8 +427,70 @@ function normalizeAcademicInput(input) {
     context: formatContextBlock(meta),
     sourcePolicy: formatSourcePolicy(meta),
     continuity: formatContinuityBlock(continuity),
+    inputWarnings: formatInputWarnings(validation),
     rawPayload: JSON.stringify(safe, null, 2)
   };
+}
+
+
+function validateAcademicInput(meta, safe) {
+  const warnings = [];
+  const fallbacks = [];
+
+  if (!meta.titolo) {
+    warnings.push('titolo o tema non specificato');
+    fallbacks.push('mantieni formulazioni neutre sul focus finché non emerge dai dati');
+  }
+
+  if (!meta.corsoDiLaurea && !safe.facolta && !safe.facoltà && !safe.faculty) {
+    warnings.push('facoltà o corso di laurea non specificati');
+    fallbacks.push('usa profilo accademico generale senza simulare convenzioni di settore non dichiarate');
+  }
+
+  if (!meta.livello) {
+    warnings.push('livello accademico non specificato');
+    fallbacks.push('mantieni un registro universitario medio-alto ma non iper-specialistico');
+  }
+
+  if (!meta.stileCitazionale) {
+    warnings.push('stile citazionale non specificato');
+    fallbacks.push('non forzare standard APA/Chicago o altri se non dichiarati');
+  }
+
+  if (!meta.targetLunghezza) {
+    warnings.push('target di lunghezza non specificato');
+    fallbacks.push('privilegia completezza proporzionata al task senza dilatazioni artificiali');
+  }
+
+  if (!meta.bibliografiaPresente) {
+    warnings.push('fonti o bibliografia non chiaramente presenti nei dati');
+    fallbacks.push('non inventare apparati bibliografici o attribuzioni per colmare lacune');
+  }
+
+  const hasContinuity = Boolean(
+    safe.tesiCentrale || safe.mainThesis || safe.centralThesis ||
+    safe.indiceApprovato || safe.approvedOutline || safe.outlineApproved ||
+    safe.sintesiCapitoliPrecedenti || safe.previousChaptersSummary || safe.chapterHistory
+  );
+
+  if (!hasContinuity) {
+    warnings.push('continuità editoriale limitata o assente');
+    fallbacks.push('mantieni coerenza locale del testo senza fingere allineamento con materiali non forniti');
+  }
+
+  return { warnings, fallbacks };
+}
+
+function formatInputWarnings(validation) {
+  const warningLines = validation.warnings.length
+    ? validation.warnings.map(item => `- Criticità input: ${item}`)
+    : ['- Criticità input: nessuna criticità strutturale evidente nei metadati ricevuti'];
+
+  const fallbackLines = validation.fallbacks.length
+    ? validation.fallbacks.map(item => `- Fallback operativo: ${item}`)
+    : ['- Fallback operativo: usa i metadati ricevuti senza aggiungere assunzioni ulteriori'];
+
+  return [...warningLines, ...fallbackLines].join('\n');
 }
 
 
