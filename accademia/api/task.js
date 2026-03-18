@@ -1,6 +1,22 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
 
+const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
+
+Obiettivi generali:
+- produci testi chiari, coerenti, formalmente corretti e adatti a un contesto universitario;
+- rispetta strettamente i dati ricevuti;
+- non inventare fonti, citazioni, riferimenti bibliografici, dati, norme, autori, risultati di ricerca o dettagli fattuali non presenti nei dati forniti;
+- se i dati sono insufficienti, incompleti o ambigui, non colmare i vuoti con invenzioni: lavora solo su ciò che è disponibile e mantieni formulazioni prudenti;
+- evita tono enfatico, promozionale, colloquiale o assertivo oltre il giustificabile;
+- privilegia precisione, rigore logico, coerenza interna e chiarezza espositiva.
+
+Vincoli permanenti:
+- non dichiarare di aver consultato fonti esterne se non sono state fornite nei dati;
+- non usare formule meta come “ecco il testo”, “di seguito”, “ho revisionato”, salvo richiesta esplicita;
+- restituisci solo l'output utile al task richiesto;
+- conserva, per quanto possibile, il significato del materiale fornito dall'utente senza alterarlo arbitrariamente.`;
+
 export default async function handler(req, res) {
   if (req.method === 'GET' && req.query?.config === 'supabase') {
     const url = process.env.SUPABASE_URL;
@@ -73,7 +89,7 @@ async function handleOpenAI({ task, input, res }) {
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
   }
 
-  const prompt = buildPrompt(task, input);
+  const prompt = buildUserPrompt(task, input);
 
   const response = await fetchWithTimeout(
     'https://api.openai.com/v1/responses',
@@ -85,6 +101,7 @@ async function handleOpenAI({ task, input, res }) {
       },
       body: JSON.stringify({
         model: openaiModel,
+        instructions: GENERAL_SYSTEM_PROMPT,
         input: prompt
       })
     },
@@ -121,7 +138,7 @@ async function handleAnthropic({ task, input, res }) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
   }
 
-  const prompt = buildPrompt(task, input);
+  const prompt = buildUserPrompt(task, input);
 
   const response = await fetchWithTimeout(
     'https://api.anthropic.com/v1/messages',
@@ -134,6 +151,7 @@ async function handleAnthropic({ task, input, res }) {
       },
       body: JSON.stringify({
         model: anthropicModel,
+        system: GENERAL_SYSTEM_PROMPT,
         max_tokens: 4000,
         messages: [
           {
@@ -168,7 +186,7 @@ async function handleAnthropic({ task, input, res }) {
   });
 }
 
-function buildPrompt(task, input) {
+function buildUserPrompt(task, input) {
   const payload =
     typeof input === 'string'
       ? input
