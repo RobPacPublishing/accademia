@@ -644,6 +644,9 @@ let thesis={
   contextPacket:null
 };
 
+let currentStep=0;
+const STORAGE_KEY='accademia_workflow_v2';
+
 // ── REVISION SYSTEM STATE ──
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
@@ -777,6 +780,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   }else{
     if(overlay) overlay.style.display='none';
   }
+  restoreProgressOnLoad();
 });
 
 // ── GUIDA COLLASSABILE ──
@@ -858,6 +862,7 @@ async function applyUnlockCode(){
     revState.totalBudget = revState.totalBudget + 10;
     thesis.chapters.forEach((_,i)=>renderRevCounter(i));
     renderGlobalCounter();
+    saveProgress();
     closeModal('unlockModal');
     showToast('✦ Upgrade di piano attivato — +10 revisioni aggiunte!');
     return;
@@ -870,6 +875,7 @@ async function applyUnlockCode(){
       renderRevCounter(targetIdx);
     }
     renderGlobalCounter();
+    saveProgress();
     closeModal('unlockModal');
     showToast(`✦ Revisioni aggiuntive attivate — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
     return;
@@ -894,6 +900,166 @@ function ensureGlobalCounter(){
   renderGlobalCounter();
 }
 
+
+function captureFormState(){
+  return {
+    argomento:document.getElementById('argomento')?.value||'',
+    facolta:document.getElementById('facolta')?.value||'',
+    corso:document.getElementById('corso')?.value||'',
+    tipoLaurea:document.getElementById('tipoLaurea')?.value||'triennale',
+    indiceManuale:document.getElementById('indiceManuale')?.value||'',
+    numChapters:document.getElementById('numChapters')?.value||'4'
+  };
+}
+
+function applyFormState(form){
+  if(!form) return;
+  if(document.getElementById('argomento')) document.getElementById('argomento').value=form.argomento||'';
+  if(document.getElementById('facolta')) document.getElementById('facolta').value=form.facolta||'';
+  if(document.getElementById('corso')) document.getElementById('corso').value=form.corso||'';
+  if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=form.tipoLaurea||'triennale';
+  if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=form.indiceManuale||'';
+  if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
+}
+
+function saveProgress(){
+  try{
+    const payload={
+      thesis,
+      revState,
+      currentStep,
+      indiceMode,
+      metodologia,
+      chapterOverrideActive,
+      form:captureFormState(),
+      savedAt:new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }catch(e){console.warn('saveProgress failed',e);}
+}
+
+function loadProgress(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){
+    console.warn('loadProgress failed',e);
+    return null;
+  }
+}
+
+function renderSavedChapterBlock(idx,total){
+  const ch=thesis.chapters[idx];
+  if(!ch) return;
+  if(document.getElementById(`chap-${idx}`)) return;
+  const title=thesis.chapterTitles[idx]||ch.title||`Capitolo ${idx+1}`;
+  const area=document.getElementById('chaptersArea');
+  const block=document.createElement('div');
+  block.id=`chap-${idx}`;
+  block.innerHTML=`
+    <div class="output-block" id="chapOutput-${idx}">
+      <div class="output-block-header">
+        <div class="output-block-title">
+          📖 Capitolo ${idx+1}
+          <span class="status-chip done" id="chapChip-${idx}">✓ ${ (thesis.approvedChapters||[])[idx] ? 'Approvato' : 'Completato'}</span>
+          <span class="version-badge" id="chapVerBadge-${idx}" onclick="openVersionModal('chapter',${idx})">↺ v${(ch.currentVersion||0)+1}</span>
+        </div>
+        <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
+      </div>
+      <div class="output-block-body"><div class="content-text" id="chapText-${idx}">${escHtml(ch.content||'')}</div></div>
+      <div class="sources-bar" id="chapSources-${idx}"><span class="sources-label">🔍 Query ricercate</span></div>
+      <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica le citazioni prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (Google Scholar, JSTOR, ResearchGate).</div>
+      <div class="rev-counter-bar" id="revCounterBar-${idx}">
+        <div class="rev-counter-info">
+          <span>Revisioni capitolo:</span>
+          <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
+          <span>3 revisioni disponibili</span>
+        </div>
+        <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
+      </div>
+      <div class="revision-inline" id="chapRevision-${idx}">
+        <div class="revision-inline-row">
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
+          <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
+        </div>
+      </div>
+      <div class="approval-row" id="chapApproval-${idx}" style="display:${(thesis.approvedChapters||[])[idx]?'none':'flex'}">
+        <span class="hint">Approva il Capitolo ${idx+1} per confermarlo definitivamente</span>
+        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
+        ${idx<total-1
+          ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}</button>`
+          :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva ultimo capitolo e concludi</button>`}
+      </div>
+    </div>`;
+  area.appendChild(block);
+  renderRevCounter(idx);
+}
+
+function restoreProgressUI(){
+  applyFormState(loadProgress()?.form || {});
+  setIndiceMode(indiceMode);
+  const metodBtn=document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
+  if(metodBtn) setMetod(metodBtn, metodologia);
+  if(chapterOverrideActive){
+    const btn=document.getElementById('toggleOverride');
+    if(btn && !btn.classList.contains('active')) toggleChapterOverride();
+  } else {
+    document.getElementById('chapterOverride').style.display='none';
+  }
+
+  if(thesis.indice){
+    document.getElementById('indiceBlock').style.display='block';
+    document.getElementById('indiceText').textContent=thesis.indice;
+    document.getElementById('indiceChip').className='status-chip done';
+    document.getElementById('indiceChip').innerHTML='✓ Disponibile';
+    document.getElementById('indiceApproval').style.display=currentStep<2?'flex':'none';
+  }
+  if(currentStep>=2){
+    document.getElementById('nextAbstract').classList.toggle('visible', !thesis.abstract);
+  }
+  if(thesis.abstract){
+    document.getElementById('abstractBlock').style.display='block';
+    document.getElementById('abstractText').textContent=thesis.abstract;
+    document.getElementById('abstractChip').className='status-chip done';
+    document.getElementById('abstractChip').innerHTML='✓ Disponibile';
+    document.getElementById('abstractApproval').style.display=currentStep<3?'flex':'none';
+  }
+  if(currentStep>=3){
+    ensureGlobalCounter();
+    const total=thesis.chapterTitles.length;
+    thesis.chapters.forEach((_,idx)=>renderSavedChapterBlock(idx,total));
+    if(total>0) updateChapterProgressBar(Math.min(thesis.currentChapterIdx,total-1), total, false);
+    if(thesis.currentChapterIdx<total){
+      const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
+      document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
+      if(!thesis.chapters[thesis.currentChapterIdx]) document.getElementById('nextChapters').classList.add('visible');
+    }
+    thesis.chapters.forEach((_,idx)=>renderRevCounter(idx));
+    renderGlobalCounter();
+  }
+  if(currentStep>=4){
+    document.getElementById('downloadBar').style.display='flex';
+    updateWordCount();
+  }
+  setStep(currentStep||0);
+}
+
+function restoreProgressOnLoad(){
+  const saved=loadProgress();
+  if(!saved || !saved.thesis) return;
+  window.__restoringState=true;
+  thesis=saved.thesis;
+  revState=saved.revState||revState;
+  currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
+  indiceMode=saved.indiceMode||'ai';
+  metodologia=saved.metodologia||'teorica';
+  chapterOverrideActive=!!saved.chapterOverrideActive;
+  restoreProgressUI();
+  window.__restoringState=false;
+  showToast('Sessione ripristinata ✓');
+}
+
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
@@ -914,12 +1080,16 @@ function toggleChapterOverride(){
   document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
 }
 function setStep(n){
+  currentStep=n;
   for(let i=0;i<=4;i++){
     const el=document.getElementById('step-'+i);if(!el)continue;
     el.className='step-item';
-    if(i<n){el.classList.add('done');el.querySelector('.step-num').textContent='✓';}
+    const num=el.querySelector('.step-num');
+    if(num) num.textContent=String(i);
+    if(i<n){el.classList.add('done');if(num) num.textContent='✓';}
     else if(i===n)el.classList.add('active');
   }
+  if(!window.__restoringState) saveProgress();
 }
 function validateForm(){
   if(!document.getElementById('argomento').value.trim()){showToast('Inserisci l\'argomento',true);return false;}
@@ -1006,6 +1176,7 @@ async function startPhase1(){
     document.getElementById('nextAbstract').classList.add('visible');
     document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
     showToast('Indice del relatore acquisito ✓');
+    saveProgress();
     return;
   }
 
@@ -1054,6 +1225,7 @@ Bibliografia`;
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Completato';
       document.getElementById('indiceApproval').style.display='flex';
+      saveProgress();
     });
   }catch(e){showToast('Errore: '+e.message,true);document.getElementById('btnStep1').disabled=false;}
 }
@@ -1065,6 +1237,7 @@ function approveIndice(){
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
+  saveProgress();
 }
 
 async function reviseIndice(){
@@ -1093,6 +1266,7 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
       document.getElementById('indiceApproval').style.display='flex';
       document.getElementById('indiceRevision').classList.remove('open');
       document.getElementById('indiceRevInput').value='';
+      saveProgress();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1116,7 +1290,8 @@ REQUISITI:
 - Struttura in sequenza: (1) inquadramento problema e rilevanza, (2) obiettivo specifico, (3) metodologia adottata, (4) argomenti sviluppati per capitolo, ${cp.isMagistrale?'(5) contributo originale al dibattito, (6) conclusioni e implicazioni':'(5) conclusioni principali'}.
 - Stile: ${cp.dp.stile}
 - NON citare fonti nell'abstract
-- Chiudi con: "Parole chiave: [5-7 termini rilevanti separati da virgola]"
+- Inserisci una riga vuota prima della formula finale.
+- Chiudi andando a capo con: "Parole chiave: [5-7 termini rilevanti separati da virgola]"
 Inizia direttamente. Solo il testo dell'abstract.`;
   try{
     const t=await callClaude(prompt,'abstract_draft');
@@ -1126,6 +1301,7 @@ Inizia direttamente. Solo il testo dell'abstract.`;
       document.getElementById('abstractChip').className='status-chip done';
       document.getElementById('abstractChip').innerHTML='✓ Completato';
       document.getElementById('abstractApproval').style.display='flex';
+      saveProgress();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1136,6 +1312,7 @@ function approveAbstract(){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo 1 — ${escHtml(thesis.chapterTitles[0]||'')}</button>`;
   nc.classList.add('visible');setStep(3);
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  saveProgress();
 }
 
 async function reviseAbstract(){
@@ -1161,6 +1338,7 @@ Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
       document.getElementById('abstractApproval').style.display='flex';
       document.getElementById('abstractRevision').classList.remove('open');
       document.getElementById('abstractRevInput').value='';
+      saveProgress();
     });
   }catch(e){showToast('Errore: '+e.message,true);}
 }
@@ -1262,8 +1440,8 @@ Nessun sottocapitolo può ridursi a definizioni brevi, elenchi o passaggi solo d
 [ANALISI CRITICA] — ${cp.isMagistrale?'2-3 paragrafi obbligatori':'1-2 paragrafi'}
 ${cp.isMagistrale?'Confronta posizioni teoriche diverse. Identifica punti di forza, limiti e gap. Esprimi posizione argomentata con supporto bibliografico.':'Sintetizza punti chiave. Valuta criticamente le posizioni principali emerse.'}
 
-[CHIUSURA DI RACCORDO] — 1 paragrafo
-${idx<total-1?`Crea ponte argomentativo verso il capitolo successivo "${thesis.chapterTitles[idx+1]}".`:'Convergi le argomentazioni verso le conclusioni generali della tesi.'}
+[CHIUSURA DEL CAPITOLO] — 1 paragrafo
+Chiudi il capitolo in modo sobrio e accademico, senza titoli finali artificiali, senza formule meta, senza annunciare esplicitamente il capitolo successivo
 
 ════════════════════════════════════════
 PARAMETRI TECNICI
@@ -1344,6 +1522,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       document.getElementById(`chapApproval-${idx}`).style.display='flex';
       updateChapterProgressBar(idx,total,false);
       renderRevCounter(idx);
+      saveProgress();
     });
   }catch(e){showToast('Errore cap.'+(idx+1)+': '+e.message,true);}
 }
@@ -1358,6 +1537,7 @@ function approveChapter(idx){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
   nc.classList.add('visible');
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  saveProgress();
 }
 
 function approveLastChapter(){
@@ -1371,6 +1551,7 @@ function approveLastChapter(){
   updateWordCount();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
   showToast('🎓 Tesi completata!');
+  saveProgress();
 }
 
 async function reviseChapter(idx){
@@ -1403,7 +1584,7 @@ MODIFICHE RICHIESTE: "${fb}"
 ISTRUZIONI:
 - Esegui web search per fonti aggiornate se le modifiche richiedono nuovi riferimenti
 - Riscrivi il capitolo COMPLETO incorporando le modifiche
-- Mantieni struttura: apertura contestuale + sviluppo + analisi critica + chiusura raccordo
+- Mantieni struttura: apertura contestuale + sviluppo + analisi critica + chiusura sobria del capitolo
 - Ogni sottosezione deve restare sostanziale, con almeno 3 paragrafi pieni
 - Coerenza con altri capitoli: ${thesis.chapterTitles.filter((_,i)=>i!==idx).join(' | ')}
 - Lunghezza: ${lung.min}-${lung.max} parole
@@ -1438,6 +1619,7 @@ ISTRUZIONI:
         if(redoBtn){redoBtn.textContent='🔓 Sblocca revisioni';redoBtn.onclick=()=>openUnlockModal(idx);}
       }
     });
+    saveProgress();
     showToast('Capitolo revisionato ✓');
   }catch(e){showToast('Errore: '+e.message,true);}
   btn.disabled=false;
