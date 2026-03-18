@@ -296,7 +296,7 @@
           <span>Confermo di non utilizzare il Servizio per violare diritti di terzi, copyright, regolamenti universitari o regole di integrità accademica.</span>
         </label>
       </div>
-      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled onclick="acceptDisclaimer(); return false;">Accetto — Accedi ad AccademIA</button>
+      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Accetto — Accedi ad AccademIA</button>
     </div>
   </div>
 </div>
@@ -361,7 +361,11 @@
     <div class="form-grid">
       <div class="form-group full">
         <label>Argomento della tesi</label>
-        <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2"></textarea>
+        <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
+        <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
+          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
+          <div id="titleSuggestList" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
       </div>
       <div class="form-group">
         <label>Facoltà</label>
@@ -752,19 +756,12 @@ function checkDisclaimer(){
   btn.style.opacity=allChecked?'1':'0.4';
 }
 function acceptDisclaimer(){
-  try{ sessionStorage.setItem('_td_accepted','1'); }catch(e){}
-  try{ localStorage.setItem('_td_accepted_backup','1'); }catch(e){}
+  sessionStorage.setItem('_td_accepted','1');
   const overlay=document.getElementById('disclaimerOverlay');
   if(overlay){
     overlay.style.display='none';
-    overlay.style.visibility='hidden';
-    overlay.style.opacity='0';
-    overlay.style.pointerEvents='none';
     overlay.classList.remove('open');
-    setTimeout(()=>{ try{ overlay.remove(); }catch(e){} }, 0);
   }
-  document.body.style.overflow='auto';
-  return true;
 }
 // Mostra disclaimer se non già accettato + collega gli eventi in modo robusto
 window.addEventListener('DOMContentLoaded',()=>{
@@ -782,22 +779,12 @@ window.addEventListener('DOMContentLoaded',()=>{
     btn.addEventListener('click',acceptDisclaimer);
   }
   checkDisclaimer();
-  const accepted = (()=>{
-    try{
-      return sessionStorage.getItem('_td_accepted') || localStorage.getItem('_td_accepted_backup');
-    }catch(e){
-      return null;
-    }
-  })();
-  if(!accepted){
+  if(!sessionStorage.getItem('_td_accepted')){
     if(overlay) overlay.style.display='flex';
   }else{
-    if(overlay){
-      overlay.style.display='none';
-      overlay.style.pointerEvents='none';
-    }
+    if(overlay) overlay.style.display='none';
   }
-  try{ restoreProgressOnLoad(); }catch(e){ console.warn('restoreProgressOnLoad failed', e); }
+  restoreProgressOnLoad();
 });
 
 // ── GUIDA COLLASSABILE ──
@@ -937,6 +924,7 @@ function applyFormState(form){
   if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=form.tipoLaurea||'triennale';
   if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=form.indiceManuale||'';
   if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
+  renderTitleSuggestions();
 }
 
 function saveProgress(){
@@ -1728,11 +1716,94 @@ function formatChapterHtml(text){
 // ══════════════════════════════════════════════
 // API TASK — no search
 // ══════════════════════════════════════════════
+
+function summarizePreviousChaptersForPayload(){
+  return (thesis.chapters||[]).map((ch,idx)=>({
+    index:idx+1,
+    title:thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`,
+    approved:!!((thesis.approvedChapters||[])[idx]),
+    summary:(ch.content||'').replace(/\s+/g,' ').trim().slice(0,900)
+  })).filter(x=>x.summary);
+}
+
+function buildStructuredTaskInput(taskName,userPrompt,extra={}){
+  const argomento=(document.getElementById('argomento')?.value||thesis.argomento||'').trim();
+  const facolta=(document.getElementById('facolta')?.value||thesis.facolta||'').trim();
+  const corso=(document.getElementById('corso')?.value||thesis.corso||'').trim();
+  const tipo=(document.getElementById('tipoLaurea')?.value||thesis.tipo||'triennale').trim();
+  const chapterTitles=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[];
+  return {
+    prompt:userPrompt,
+    taskName,
+    theme:argomento,
+    faculty:facolta,
+    degreeCourse:corso,
+    degreeType:tipo,
+    methodology:metodologia||thesis.metodologia||'',
+    requestedChapters:Number(document.getElementById('numChapters')?.value||chapterTitles.length||0)||0,
+    approvedOutline:thesis.indice||'',
+    approvedAbstract:thesis.abstract||'',
+    chapterTitles,
+    approvedChapters:(thesis.approvedChapters||[]),
+    previousChapters:summarizePreviousChaptersForPayload(),
+    currentChapterIndex:typeof thesis.currentChapterIdx==='number'?thesis.currentChapterIdx:0,
+    currentChapterTitle:chapterTitles[thesis.currentChapterIdx]||'',
+    constraints:{
+      noInventedSources:true,
+      noArtificialTransitions:true,
+      preserveAcademicTone:true,
+      preferSobriety:true
+    },
+    extra
+  };
+}
+
+function normalizeTitleBase(topic){
+  return (topic||'').replace(/\s+/g,' ').trim().replace(/[\.;:!?]+$/,'');
+}
+
+function createTitleSuggestions(topic){
+  const base=normalizeTitleBase(topic);
+  if(!base || base.length<12) return [];
+  return [
+    base,
+    `${base}: analisi psicologica, implicazioni teoriche e prospettive applicative`,
+    `${base}: dinamiche, criticità e prospettive di approfondimento`
+  ].filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,3);
+}
+
+function renderTitleSuggestions(){
+  const topic=(document.getElementById('argomento')?.value||'').trim();
+  const wrap=document.getElementById('titleSuggestWrap');
+  const list=document.getElementById('titleSuggestList');
+  if(!wrap || !list) return;
+  const suggestions=createTitleSuggestions(topic);
+  if(!suggestions.length){
+    wrap.style.display='none';
+    list.innerHTML='';
+    return;
+  }
+  wrap.style.display='block';
+  list.innerHTML=suggestions.map(title=>`<button type="button" onclick="applySuggestedTitle(this)" style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer">${escHtml(title)}</button>`).join('');
+}
+
+function applySuggestedTitle(btn){
+  const el=document.getElementById('argomento');
+  if(!el || !btn) return;
+  el.value=btn.textContent.trim();
+  handleArgomentoInput();
+}
+
+function handleArgomentoInput(){
+  renderTitleSuggestions();
+  saveProgress();
+}
+
 async function callClaude(userPrompt, taskName='outline_draft'){
   const r=await fetch('/api/task',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:userPrompt})
+    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
   });
   const d=await r.json().catch(()=>({}));
   if(!r.ok){throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);}
@@ -1746,7 +1817,7 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft'){
   const r=await fetch('/api/task',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:userPrompt})
+    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
   });
   const d=await r.json().catch(()=>({}));
   if(!r.ok){throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);}
