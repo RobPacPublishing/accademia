@@ -184,9 +184,6 @@ function buildUserPrompt(task, input) {
     'ISTRUZIONI SPECIFICHE:',
     taskPrompt.instructions,
     '',
-    'PROFILO DISCIPLINARE:',
-    normalized.disciplineGuidance,
-    '',
     'FORMATO DI USCITA OBBLIGATORIO:',
     taskPrompt.outputFormat,
     '',
@@ -232,6 +229,7 @@ function getTaskPrompt(task) {
       objective: 'Scrivi il capitolo richiesto in stile accademico, con rigore argomentativo e coerenza interna.',
       instructions: [
         '- sviluppa il capitolo seguendo il perimetro dei dati forniti;',
+        '- mantieni coerenza con tesi centrale, indice approvato, lessico già impostato e materiali precedenti se presenti;',
         '- mantieni progressione logica tra paragrafi e transizioni pulite;',
         '- evita ripetizioni meccaniche e affermazioni apodittiche non sostenute dai dati;',
         '- non inventare riferimenti bibliografici o risultati di ricerca.'
@@ -272,6 +270,7 @@ function getTaskPrompt(task) {
       instructions: [
         '- individua incoerenze, ripetizioni, salti logici o passaggi deboli;',
         '- migliora chiarezza e compattezza senza cambiare inutilmente il significato;',
+        '- conserva terminologia, tesi centrale e allineamento con i materiali già approvati, se presenti;',
         '- non inserire dati o riferimenti non presenti nei materiali ricevuti.'
       ].join('\n'),
       outputFormat: [
@@ -284,7 +283,8 @@ function getTaskPrompt(task) {
       instructions: [
         '- recepisci le osservazioni in modo fedele e proporzionato;',
         '- evita riscritture invasive se non richieste;',
-        '- mantieni tono e coerenza del testo di partenza.'
+        '- mantieni tono, terminologia e coerenza del testo di partenza;',
+        '- preserva la continuità con indice, capitoli e scelte lessicali già approvate, se disponibili.'
       ].join('\n'),
       outputFormat: [
         '- prima scrivi “Modifiche applicate” con sintesi essenziale;',
@@ -295,6 +295,7 @@ function getTaskPrompt(task) {
       objective: 'Esegui un controllo finale di coerenza complessiva sull’elaborato ricevuto.',
       instructions: [
         '- verifica coerenza terminologica, continuità argomentativa, assenza di ripetizioni evidenti e allineamento tra le parti;',
+        '- controlla anche coerenza con tesi centrale, indice approvato e lessico stabile, se presenti nei dati;',
         '- segnala solo problemi reali e rilevanti;',
         '- non formulare controlli fattuali che richiedano fonti esterne non fornite.'
       ].join('\n'),
@@ -316,8 +317,7 @@ function normalizeAcademicInput(input) {
   if (typeof input === 'string') {
     return {
       context: formatContextBlock({}),
-      rawPayload: input,
-      disciplineGuidance: getDisciplineGuidance({})
+      rawPayload: input
     };
   }
 
@@ -336,79 +336,8 @@ function normalizeAcademicInput(input) {
 
   return {
     context: formatContextBlock(meta),
-    rawPayload: JSON.stringify(safe, null, 2),
-    disciplineGuidance: getDisciplineGuidance(meta)
+    rawPayload: JSON.stringify(safe, null, 2)
   };
-}
-
-
-function getDisciplineGuidance(meta) {
-  const faculty = normalizeFaculty(meta.corsoDiLaurea || meta.disciplina || '');
-  const style = meta.stileCitazionale?.trim() || inferCitationStyle(faculty);
-
-  const profiles = {
-    giurisprudenza: [
-      '- privilegia definizioni precise, distinzione tra piani normativi, interpretativi e applicativi;',
-      '- evita affermazioni su norme o orientamenti giurisprudenziali non presenti nei dati;',
-      `- usa, quando coerente con i dati, uno stile argomentativo compatibile con elaborati giuridici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    psicologia: [
-      '- privilegia chiarezza concettuale, rigore terminologico e cautela nell’uso di costrutti psicologici;',
-      '- distingui tra ipotesi, modelli teorici, evidenze e interpretazioni;',
-      `- mantieni un registro compatibile con elaborati di area psicologica; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    lettere: [
-      '- privilegia analisi testuale, contestualizzazione storico-culturale e precisione terminologica;',
-      '- evita generalizzazioni non supportate e letture arbitrarie dei testi;',
-      `- mantieni un registro critico-argomentativo compatibile con studi umanistici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    economia: [
-      '- privilegia chiarezza dei concetti, linearità espositiva e distinzione tra descrizione, analisi e implicazioni;',
-      '- evita dati quantitativi, indicatori o conclusioni empiriche non presenti nei materiali ricevuti;',
-      `- mantieni un registro tecnico ma leggibile, compatibile con elaborati economici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    pedagogia: [
-      '- privilegia chiarezza teorica, coerenza educativa e attenzione al lessico formativo;',
-      '- distingui bene tra quadro teorico, implicazioni didattiche e osservazioni applicative;',
-      `- mantieni un registro adatto a elaborati pedagogici; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    medicina: [
-      '- privilegia massima cautela, precisione terminologica e distinzione tra descrizione clinica, ipotesi e dato osservativo;',
-      '- non introdurre protocolli, dati clinici, linee guida o affermazioni sanitarie non presenti nei materiali forniti;',
-      `- mantieni un registro formale e sobrio, compatibile con area medico-sanitaria; stile citazionale di riferimento: ${style}.`
-    ].join('\n'),
-    default: [
-      '- adatta il registro alla disciplina indicata nei dati, senza simulare specializzazioni non supportate;',
-      '- privilegia coerenza argomentativa, precisione terminologica e prudenza metodologica;',
-      `- usa come riferimento citazionale: ${style}.`
-    ].join('\n')
-  };
-
-  return profiles[faculty] || profiles.default;
-}
-
-function normalizeFaculty(value) {
-  const v = String(value || '').toLowerCase();
-  if (v.includes('giuris')) return 'giurisprudenza';
-  if (v.includes('psicolog')) return 'psicologia';
-  if (v.includes('letter') || v.includes('filolog') || v.includes('umanist')) return 'lettere';
-  if (v.includes('econom')) return 'economia';
-  if (v.includes('pedagog') || v.includes('scienze della formazione')) return 'pedagogia';
-  if (v.includes('medic') || v.includes('infermier') || v.includes('sanitar')) return 'medicina';
-  return 'default';
-}
-
-function inferCitationStyle(faculty) {
-  const map = {
-    psicologia: 'APA',
-    medicina: 'Vancouver',
-    giurisprudenza: 'note e riferimenti giuridici coerenti con l’ateneo',
-    lettere: 'note a piè di pagina o standard umanistico coerente con l’ateneo',
-    economia: 'APA o Harvard coerente con l’ateneo',
-    pedagogia: 'APA o standard dell’ateneo'
-  };
-
-  return map[faculty] || 'standard coerente con l’ateneo';
 }
 
 function formatContextBlock(meta) {
