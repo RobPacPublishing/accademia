@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=IulSxRj-qi3xbwvt2O2dbEJTR51KEx58851dcrJKB6bMn5BCf5dZI6Osl5m7KFTBSAzy11S04c2LnZrdO66ettRSFHe8TX3OMs80zP3Nf9C4_sQoFK0rmsD9-sjPucm0_VcDrjVGpTemHZlfxCpi9a-yVMUWkxA1vSPr7R3Ku689vsdBs6Z4wtPw17tj4JnuP-rQwC2BIRCFkXbSq433mGbadmnOo0DsBFVktFpSKQkyjzfHewJj1WR0wAMPkhdBnAdSWOSweVuptCATIwYZgA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=isnu_lNtigWd-GeNVZQaZgk7pk8HATGEiFVX7nZGt5wZBQ43jGIompe7BRDeytNL18zFKGQIYDoGs4ITRc4W51TZ5CPld35AKXD12hm5NaaCScYwOgCclBXALpaDpdp99OoOhLykQ6xNOaIUNOfmzF-Oe7fnsY1a2jgCvqfwutmGxvimostF9hzPsPTsGtnd3JYxOVv1y4EYkoeDBZOqqB5wpm_BQj2_Y54PB7W2i_2SE7VdCgOrNMc3beJYzeULqCsc6DhP_qMomyObOqyrXw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -166,12 +166,6 @@
   .disclaimer-check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;}
   .disclaimer-check input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold);flex-shrink:0;margin-top:2px;cursor:pointer;}
   .disclaimer-check span{font-size:12px;color:var(--text2);line-height:1.5;}
-  .access-code-wrap{margin-bottom:16px;}
-  .access-code-msg{margin-top:8px;font-size:12px;color:var(--text3);min-height:18px;}
-  .access-code-msg.error{color:#ff8c8c;}
-  .access-code-msg.ok{color:#7bd89b;}
-  .logout-btn{margin-left:8px;}
-  body.gate-locked main.container{display:none!important;}
   .btn-accept-disclaimer{width:100%;padding:14px;background:linear-gradient(135deg,#b8922a,var(--gold));border:none;border-radius:var(--radius-sm);color:#0a0800;font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.5px;cursor:pointer;transition:all .2s;opacity:.4;pointer-events:none;}
   .btn-accept-disclaimer.enabled{opacity:1;pointer-events:auto;}
   .btn-accept-disclaimer.enabled:hover{box-shadow:0 6px 24px rgba(201,168,76,.3);}
@@ -248,7 +242,7 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini e Privacy</button>
-    <button class="nav-link logout-btn" id="btnLogout" style="display:none">🔒 Logout</button>
+    <button class="nav-link" id="accessLogoutBtn" type="button" style="display:none;" aria-label="Logout">🔒 Logout</button>
   </div>
 </header>
 
@@ -265,6 +259,13 @@
       <p style="font-size:11px;color:#7a7060;margin:0;">Versione 1.0 — Marzo 2025 — RobPac Publishing</p>
     </div>
     
+
+    <div class="access-gate-panel" style="margin:20px 32px 0;padding:18px;border:1px solid rgba(201,168,76,.22);border-radius:16px;background:rgba(201,168,76,.06);">
+      <label for="accessCodeInput" style="display:block;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#C9A84C;font-weight:700;margin-bottom:8px;">Chiave di accesso</label>
+      <input id="accessCodeInput" type="password" autocomplete="off" placeholder="Inserisci la chiave di accesso" style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid #3a3427;background:#111;color:#F5F0E8;font-size:15px;outline:none;box-sizing:border-box;">
+      <p id="accessCodeMsg" style="margin:10px 0 0;font-size:12px;color:#a89b83;min-height:18px;">Inserisci la chiave e poi conferma le tre caselle.</p>
+    </div>
+
 <div class="disclaimer-body">
       <h3>Art. 1 — Natura del Servizio</h3>
       <p>AccademIA è uno <strong>strumento di supporto</strong> per organizzare, sviluppare e revisionare materiali utili al percorso di tesi. Non sostituisce il giudizio del relatore, non sostituisce la valutazione dell'ateneo e non garantisce approvazione, punteggio, laurea, conformità regolamentare o assenza di contestazioni.</p>
@@ -288,11 +289,6 @@
       <p>I testi completi di <strong>Termini di Servizio</strong> e <strong>Privacy & Cookie</strong> sono consultabili qui: <a href="/termini.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Termini</a> · <a href="/privacy.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Privacy</a>.</p>
     </div>
     <div class="disclaimer-footer">
-      <div class="access-code-wrap">
-        <label for="accessCodeInput">Chiave di accesso</label>
-        <input type="password" id="accessCodeInput" placeholder="Inserisci la chiave di accesso" autocomplete="off">
-        <div class="access-code-msg" id="accessCodeMsg">Inserisci la chiave e spunta tutte le conferme per proseguire.</div>
-      </div>
       <div class="disclaimer-checks">
         <label class="disclaimer-check">
           <input type="checkbox" id="check1">
@@ -307,12 +303,12 @@
           <span>Confermo di non utilizzare il Servizio per violare diritti di terzi, copyright, regolamenti universitari o regole di integrità accademica.</span>
         </label>
       </div>
-      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Accetto — Accedi ad AccademIA</button>
+      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Verifica chiave e accedi ad AccademIA</button>
     </div>
   </div>
 </div>
 
-<main class="container">
+<main class="container" id="appContainer" style="display:none;">
   <div class="hero">
     <div class="hero-label">✦ Powered by Claude AI + Web Search accademico</div>
     <h1>La tua laurea,<br>con I.A.</h1>
@@ -752,91 +748,130 @@ function renderGlobalCounter(){
   el.innerHTML=`Budget totale: <strong>${rem} / ${revState.totalBudget}</strong> revisioni rimanenti`;
 }
 
-// ── DISCLAIMER + ACCESS GATE ──
+// ── DISCLAIMER ──
 const ACCESS_CODE = 'robpac-accademia-2026';
-const GATE_KEY = '_td_gate_v11';
+const ACCESS_SESSION_KEY = '_td_gate_v12';
 
-function setGateLocked(locked){
-  document.body.classList.toggle('gate-locked', locked);
-  const overlay=document.getElementById('disclaimerOverlay');
-  const logoutBtn=document.getElementById('btnLogout');
-  if(overlay) overlay.style.display = locked ? 'flex' : 'none';
-  if(logoutBtn) logoutBtn.style.display = locked ? 'none' : 'inline-flex';
+function getAccessElements(){
+  return {
+    c1: document.getElementById('check1'),
+    c2: document.getElementById('check2'),
+    c3: document.getElementById('check3'),
+    btn: document.getElementById('btnAcceptDisclaimer'),
+    overlay: document.getElementById('disclaimerOverlay'),
+    app: document.getElementById('appContainer'),
+    code: document.getElementById('accessCodeInput'),
+    msg: document.getElementById('accessCodeMsg'),
+    logout: document.getElementById('accessLogoutBtn')
+  };
 }
 
 function checkDisclaimer(){
-  const c1=document.getElementById('check1');
-  const c2=document.getElementById('check2');
-  const c3=document.getElementById('check3');
-  const codeInput=document.getElementById('accessCodeInput');
-  const msg=document.getElementById('accessCodeMsg');
-  const btn=document.getElementById('btnAcceptDisclaimer');
-  if(!c1||!c2||!c3||!btn||!codeInput||!msg) return;
-  const checksOk=!!(c1.checked&&c2.checked&&c3.checked);
-  const code=codeInput.value.trim();
-  const codeOk=code===ACCESS_CODE;
-  const ready=checksOk&&codeOk;
+  const {c1,c2,c3,btn,code,msg} = getAccessElements();
+  if(!c1||!c2||!c3||!btn||!code) return;
+  const allChecked = !!(c1.checked && c2.checked && c3.checked);
+  const hasCode = !!code.value.trim();
+  const enabled = allChecked && hasCode;
+  btn.disabled = !enabled;
+  btn.setAttribute('aria-disabled', String(!enabled));
+  btn.classList.toggle('enabled', enabled);
+  btn.style.pointerEvents = enabled ? 'auto' : 'none';
+  btn.style.opacity = enabled ? '1' : '0.4';
+  if(msg){
+    if(!hasCode){
+      msg.textContent = 'Inserisci la chiave di accesso.';
+      msg.style.color = '#a89b83';
+    } else if(!allChecked){
+      msg.textContent = 'Per continuare devi confermare tutte e tre le caselle.';
+      msg.style.color = '#a89b83';
+    } else {
+      msg.textContent = 'Pronto: puoi verificare la chiave e accedere.';
+      msg.style.color = '#C9A84C';
+    }
+  }
+}
 
-  btn.disabled=!ready;
-  btn.setAttribute('aria-disabled', String(!ready));
-  btn.classList.toggle('enabled', ready);
-  btn.style.pointerEvents=ready?'auto':'none';
-  btn.style.opacity=ready?'1':'0.4';
-
-  msg.classList.remove('error','ok');
-  if(!code){
-    msg.textContent='Inserisci la chiave e spunta tutte le conferme per proseguire.';
-  } else if(!codeOk){
-    msg.textContent='Chiave di accesso non valida.';
-    msg.classList.add('error');
-  } else if(!checksOk){
-    msg.textContent='Chiave valida. Completa anche tutte le conferme obbligatorie.';
-    msg.classList.add('ok');
-  } else {
-    msg.textContent='Chiave valida. Puoi entrare in AccademIA.';
-    msg.classList.add('ok');
+function applyAccessState(unlocked){
+  const {overlay,app,logout,code,msg,btn} = getAccessElements();
+  if(app) app.style.display = unlocked ? '' : 'none';
+  if(overlay) overlay.style.display = unlocked ? 'none' : 'flex';
+  if(logout) logout.style.display = unlocked ? 'inline-flex' : 'none';
+  if(!unlocked){
+    if(code) code.value = '';
+    ['check1','check2','check3'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.checked=false;
+    });
+    if(btn){
+      btn.disabled = true;
+      btn.style.pointerEvents = 'none';
+      btn.style.opacity = '0.4';
+      btn.classList.remove('enabled');
+    }
+    if(msg){
+      msg.textContent = 'Inserisci la chiave e poi conferma le tre caselle.';
+      msg.style.color = '#a89b83';
+    }
+    checkDisclaimer();
   }
 }
 
 function acceptDisclaimer(){
-  const codeInput=document.getElementById('accessCodeInput');
-  const code=(codeInput?.value||'').trim();
-  const allChecked = ['check1','check2','check3'].every(id=>document.getElementById(id)?.checked);
-  if(code!==ACCESS_CODE || !allChecked){
-    checkDisclaimer();
+  const {c1,c2,c3,code,msg} = getAccessElements();
+  if(!c1||!c2||!c3||!code) return;
+  const allChecked = !!(c1.checked && c2.checked && c3.checked);
+  const enteredCode = code.value.trim();
+  if(enteredCode !== ACCESS_CODE){
+    if(msg){
+      msg.textContent = 'Chiave di accesso non valida.';
+      msg.style.color = '#ff8a8a';
+    }
+    code.focus();
+    code.select();
     return;
   }
+  if(!allChecked){
+    if(msg){
+      msg.textContent = 'Devi confermare tutte e tre le caselle per accedere.';
+      msg.style.color = '#ffcc80';
+    }
+    return;
+  }
+  sessionStorage.setItem(ACCESS_SESSION_KEY,'1');
   sessionStorage.setItem('_td_accepted','1');
-  sessionStorage.setItem(GATE_KEY,'1');
-  setGateLocked(false);
+  applyAccessState(true);
 }
 
-function logoutGate(){
+function logoutAccess(){
+  sessionStorage.removeItem(ACCESS_SESSION_KEY);
   sessionStorage.removeItem('_td_accepted');
-  sessionStorage.removeItem(GATE_KEY);
-  location.reload();
+  applyAccessState(false);
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
-  const btn=document.getElementById('btnAcceptDisclaimer');
-  const logoutBtn=document.getElementById('btnLogout');
-  const codeInput=document.getElementById('accessCodeInput');
+  const {btn,code,logout} = getAccessElements();
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){
       el.addEventListener('change',checkDisclaimer);
       el.addEventListener('input',checkDisclaimer);
+      el.addEventListener('click',()=>setTimeout(checkDisclaimer,0));
     }
   });
-  if(codeInput){
-    codeInput.addEventListener('input',checkDisclaimer);
-    codeInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter' && !btn.disabled) acceptDisclaimer(); });
+  if(code){
+    code.addEventListener('input',checkDisclaimer);
+    code.addEventListener('keydown',(e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        acceptDisclaimer();
+      }
+    });
   }
   if(btn) btn.addEventListener('click',acceptDisclaimer);
-  if(logoutBtn) logoutBtn.addEventListener('click',logoutGate);
+  if(logout) logout.addEventListener('click',logoutAccess);
 
-  const unlocked = sessionStorage.getItem(GATE_KEY)==='1' && sessionStorage.getItem('_td_accepted')==='1';
-  setGateLocked(!unlocked);
+  const unlocked = sessionStorage.getItem(ACCESS_SESSION_KEY) === '1';
+  applyAccessState(unlocked);
   checkDisclaimer();
   restoreProgressOnLoad();
 });
