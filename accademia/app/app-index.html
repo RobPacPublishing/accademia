@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=yvIkXH3vnm_SLewRWEcrdHxo4MbVQocTmmmkZSpbDf3MjydHN4_mvoEAVbcCyvXF5xdfRRwV-m6sILFHTC_CwbzopEXMXzEG84aW89cY74VLjO0ZN_gTgFxEPoUi__LEeI4oId33fAGTFp-hICL9C4Ri74Fe8CGi8_GJHwqzh_YOeBLoBVG-bhNvmi9oSaZVcujhlIE_qVbVhMcrkqfMrXIHUAr5_xqpuy4soEDm6bj_CX2lIjqZNJZfGGDq9anSsXDn-VqLtqg5sz63Fn8nRw" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=6taG4sLf5fpy_Cp34lhxx-sIDfNZp9xzb_kBrLq-Wf35aDPrTjG5PvhBh2yyXAXJxrLyEPLTluwn8UUOL2F_FhrZCSrVKqSJaCMgs4l2ZaluHBZ6YkbvfaWZkpL9nKASdHmTDLlKHDNBi6-2wXsRCBWLs1twZYmlZsN8HusJwyA91UWZlKsfh9_G47X4N8DlScEtXqvUO18lT5lSj2zpPTX0cYay5Gk9w5WWxpmmDgtxDRmH3Je7bPLUEaQ4_Iw_ul5Ct6Dty1HH7VnWYCyRjQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UBCSK6MNmSSlA8u2V_Us40c_h10fXywfClOeq3PB9Bosv2Ey6rHPaPs-Vw2kIVPJIj6t6Z-CnbL9IhmXSLhI9PN9LLLwMO1pR4fpPvVaFBP1R88bkB7i12r5AsLgWbxO_0KdOTLyPjzCws4A5ArH_ZxMt7sBzAs1YKApvorLoIi-xPV75xajYJGdqg9fnLomOTYZcWktktCviSvs_SnUcdJoz12weeetftdfKM88Dyb2TNLLdVQ0FA0qVuYMyGsVpZG95rGvluEOxiPQHRXDeA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -169,6 +169,17 @@
   .btn-accept-disclaimer{width:100%;padding:14px;background:linear-gradient(135deg,#b8922a,var(--gold));border:none;border-radius:var(--radius-sm);color:#0a0800;font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.5px;cursor:pointer;transition:all .2s;opacity:.4;pointer-events:none;}
   .btn-accept-disclaimer.enabled{opacity:1;pointer-events:auto;}
   .btn-accept-disclaimer.enabled:hover{box-shadow:0 6px 24px rgba(201,168,76,.3);}
+  .disclaimer-input-wrap{margin-bottom:16px;}
+  .disclaimer-input-wrap label{display:block;font-size:12px;color:var(--text2);margin-bottom:8px;letter-spacing:.6px;text-transform:none;}
+  .disclaimer-input-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .disclaimer-input-wrap input{flex:1 1 260px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);}
+  .disclaimer-access-status{margin-top:8px;font-size:12px;min-height:18px;color:var(--text3);}
+  .disclaimer-access-status.ok{color:#7fd39d;}
+  .disclaimer-access-status.error{color:#ff8f8f;}
+  body.app-locked{overflow:hidden;}
+  body.app-locked > *:not(#disclaimerOverlay):not(#logoutAccessBtn):not(script):not(style){display:none !important;}
+  #logoutAccessBtn{position:fixed;top:18px;right:18px;z-index:9501;display:none;}
+
 
   /* ── HEADER NAV LINKS ── */
   .header-nav{display:flex;align-items:center;gap:6px;}
@@ -231,17 +242,6 @@
   .tos-section strong{color:var(--text2);}
   .tos-section em{color:var(--text3);font-style:italic;}
   .tos-date{font-size:11px;color:var(--text3);margin-bottom:20px;}
-
-  .disclaimer-input-wrap{margin-bottom:18px;}
-  .disclaimer-input-wrap label{display:block;font-size:12px;color:var(--text2);margin-bottom:8px;}
-  .disclaimer-input-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  .disclaimer-input-wrap input{flex:1 1 260px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);}
-  .disclaimer-access-status{margin-top:8px;font-size:12px;min-height:18px;color:var(--text3);}
-  .disclaimer-access-status.ok{color:#7fd39d;}
-  .disclaimer-access-status.error{color:#ff8f8f;}
-  body.app-locked header, body.app-locked main{display:none!important;}
-  #logoutAccessBtn{position:fixed;top:18px;right:18px;z-index:9501;display:none;}
-
 </style>
 </head>
 <body class="app-locked">
@@ -293,17 +293,14 @@
       <p>I testi completi di <strong>Termini di Servizio</strong> e <strong>Privacy & Cookie</strong> sono consultabili qui: <a href="/termini.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Termini</a> · <a href="/privacy.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Privacy</a>.</p>
     </div>
     <div class="disclaimer-footer">
-
       <div class="disclaimer-input-wrap">
         <label for="accessCodeInput">Codice di accesso</label>
         <div class="disclaimer-input-row">
           <input type="password" id="accessCodeInput" placeholder="Inserisci il codice di accesso" autocomplete="current-password" spellcheck="false">
-          <button type="button" id="verifyAccessCodeBtn" class="nav-link" style="min-width:160px;justify-content:center;">Verifica codice</button>
         </div>
-        <small style="display:block;margin-top:8px;color:var(--text3);font-size:11px;">L’accesso è riservato. Prima verifica il codice, poi seleziona le conferme.</small>
+        <small style="display:block;margin-top:8px;color:var(--text3);font-size:11px;">L’accesso è riservato. Inserisci il codice corretto, poi seleziona tutte le conferme.</small>
         <div class="disclaimer-access-status" id="accessCodeStatus"></div>
       </div>
-
       <div class="disclaimer-checks">
         <label class="disclaimer-check">
           <input type="checkbox" id="check1">
@@ -322,7 +319,6 @@
     </div>
   </div>
 </div>
-
 <button type="button" class="nav-link" id="logoutAccessBtn">↩ Logout</button>
 
 <main class="container">
@@ -766,10 +762,9 @@ function renderGlobalCounter(){
 }
 
 // ── DISCLAIMER + GATE ACCESSO ──
-const ACCESS_GATE_STORAGE_KEY = '_td_gate_v8';
-const DISCLAIMER_STORAGE_KEY = '_td_accepted_v8';
+const ACCESS_GATE_STORAGE_KEY = '_td_gate_v10';
+const DISCLAIMER_STORAGE_KEY = '_td_accepted_v10';
 const ACCESS_GATE_VALUE = 'robpac-accademia-2026';
-let accessCodeVerified = false;
 
 function hasValidGate(){
   return sessionStorage.getItem(ACCESS_GATE_STORAGE_KEY)==='1' && sessionStorage.getItem(DISCLAIMER_STORAGE_KEY)==='1';
@@ -783,56 +778,50 @@ function setAccessLockedState(locked){
   if(logoutBtn) logoutBtn.style.display = locked ? 'none' : 'inline-flex';
 }
 
-function setAccessStatus(message='',type=''){
+function setAccessStatus(message='', type=''){
   const status=document.getElementById('accessCodeStatus');
   if(!status) return;
-  status.textContent=message;
-  status.className='disclaimer-access-status'+(type?` ${type}`:'');
+  status.textContent = message;
+  status.className = 'disclaimer-access-status' + (type ? ` ${type}` : '');
 }
 
-function refreshGateButton(){
+function isCodeValid(){
+  const input=document.getElementById('accessCodeInput');
+  return ((input?.value || '').trim() === ACCESS_GATE_VALUE);
+}
+
+function areChecksValid(){
   const c1=document.getElementById('check1');
   const c2=document.getElementById('check2');
   const c3=document.getElementById('check3');
+  return !!(c1 && c2 && c3 && c1.checked && c2.checked && c3.checked);
+}
+
+function refreshGateButton(){
   const btn=document.getElementById('btnAcceptDisclaimer');
-  if(!c1||!c2||!c3||!btn) return;
-  const allChecked=!!(c1.checked&&c2.checked&&c3.checked);
-  const enabled = allChecked && accessCodeVerified;
-  btn.disabled=!enabled;
+  if(!btn) return;
+  const enabled = isCodeValid() && areChecksValid();
+  btn.disabled = !enabled;
   btn.setAttribute('aria-disabled', String(!enabled));
   btn.classList.toggle('enabled', enabled);
-  btn.style.pointerEvents=enabled?'auto':'none';
-  btn.style.opacity=enabled?'1':'0.4';
-}
-
-function verifyAccessCode(){
-  const input=document.getElementById('accessCodeInput');
-  const raw=(input?.value||'').trim();
-  accessCodeVerified = raw===ACCESS_GATE_VALUE;
-  if(accessCodeVerified){
-    setAccessStatus('Codice verificato. Ora seleziona tutte le conferme e accedi.','ok');
-  }else{
-    setAccessStatus('Codice non valido.','error');
-  }
-  refreshGateButton();
-}
-
-function resetAccessVerification(clearInput=false){
-  accessCodeVerified = false;
-  const input=document.getElementById('accessCodeInput');
-  if(input && clearInput) input.value='';
-  setAccessStatus('Verifica prima il codice di accesso.');
-  refreshGateButton();
+  btn.style.pointerEvents = enabled ? 'auto' : 'none';
+  btn.style.opacity = enabled ? '1' : '0.4';
 }
 
 function acceptDisclaimer(){
-  if(!accessCodeVerified){
-    setAccessStatus('Verifica prima il codice di accesso.','error');
+  if(!isCodeValid()){
+    setAccessStatus('Codice non valido.', 'error');
     refreshGateButton();
     return;
   }
-  sessionStorage.setItem(ACCESS_GATE_STORAGE_KEY,'1');
-  sessionStorage.setItem(DISCLAIMER_STORAGE_KEY,'1');
+  if(!areChecksValid()){
+    setAccessStatus('Seleziona tutte le conferme richieste.', 'error');
+    refreshGateButton();
+    return;
+  }
+  sessionStorage.setItem(ACCESS_GATE_STORAGE_KEY, '1');
+  sessionStorage.setItem(DISCLAIMER_STORAGE_KEY, '1');
+  setAccessStatus('');
   setAccessLockedState(false);
 }
 
@@ -842,51 +831,62 @@ function logoutAccademiaAccess(){
   sessionStorage.removeItem('_td_accepted');
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.checked=false;
+    if(el) el.checked = false;
   });
-  resetAccessVerification(true);
+  const input=document.getElementById('accessCodeInput');
+  if(input) input.value = '';
+  setAccessStatus('Inserisci il codice di accesso e seleziona tutte le conferme.');
+  refreshGateButton();
   setAccessLockedState(true);
-  window.scrollTo({top:0, behavior:'instant'});
+  window.scrollTo(0,0);
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('btnAcceptDisclaimer');
-  const verifyBtn=document.getElementById('verifyAccessCodeBtn');
   const accessInput=document.getElementById('accessCodeInput');
   const logoutBtn=document.getElementById('logoutAccessBtn');
 
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){
-      el.addEventListener('change',refreshGateButton);
-      el.addEventListener('input',refreshGateButton);
-      el.addEventListener('click',()=>setTimeout(refreshGateButton,0));
+      el.addEventListener('change', refreshGateButton);
+      el.addEventListener('input', refreshGateButton);
+      el.addEventListener('click', ()=>setTimeout(refreshGateButton,0));
     }
   });
 
   if(accessInput){
-    accessInput.addEventListener('input',()=>resetAccessVerification(false));
+    accessInput.addEventListener('input', ()=>{
+      const raw = (accessInput.value || '').trim();
+      if(!raw){
+        setAccessStatus('Inserisci il codice di accesso e seleziona tutte le conferme.');
+      }else if(raw === ACCESS_GATE_VALUE){
+        setAccessStatus('Codice corretto. Ora seleziona tutte le conferme e accedi.', 'ok');
+      }else{
+        setAccessStatus('Codice non valido.', 'error');
+      }
+      refreshGateButton();
+    });
     accessInput.addEventListener('keydown',(e)=>{
       if(e.key==='Enter'){
         e.preventDefault();
-        verifyAccessCode();
+        acceptDisclaimer();
       }
     });
   }
 
-  if(verifyBtn) verifyBtn.addEventListener('click',verifyAccessCode);
-  if(btn) btn.addEventListener('click',acceptDisclaimer);
-  if(logoutBtn) logoutBtn.addEventListener('click',logoutAccademiaAccess);
+  if(btn) btn.addEventListener('click', acceptDisclaimer);
+  if(logoutBtn) logoutBtn.addEventListener('click', logoutAccademiaAccess);
 
   if(hasValidGate()){
-    accessCodeVerified = true;
-    setAccessStatus('Accesso autorizzato in questa sessione.','ok');
     setAccessLockedState(false);
+    setAccessStatus('');
   }else{
-    resetAccessVerification(false);
     setAccessLockedState(true);
+    setAccessStatus('Inserisci il codice di accesso e seleziona tutte le conferme.');
   }
 
+  refreshGateButton();
   restoreProgressOnLoad();
 });
 
@@ -1865,138 +1865,14 @@ function normalizeTitleBase(topic){
   return (topic||'').replace(/\s+/g,' ').trim().replace(/[\.;:!?]+$/,'');
 }
 
-function normalizeTitleComparison(value){
-  return normalizeTitleBase(value)
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^a-z0-9\s]/gi,' ')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-
-function significantTitleTokens(value){
-  const stopwords=new Set([
-    'il','lo','la','i','gli','le','un','uno','una','l','di','del','della','dello','dei','degli','delle',
-    'a','ad','da','dal','dalla','dallo','dei','degli','in','nel','nella','nei','nelle','su','sul','sulla',
-    'sui','sulle','con','per','tra','fra','e','ed','o','al','allo','alla','agli','alle','dell','all','oggi'
-  ]);
-  return normalizeTitleComparison(value)
-    .split(' ')
-    .filter(token=>token && token.length>2 && !stopwords.has(token));
-}
-
-function titleSimilarity(a,b){
-  const ta=[...new Set(significantTitleTokens(a))];
-  const tb=[...new Set(significantTitleTokens(b))];
-  if(!ta.length || !tb.length) return normalizeTitleComparison(a)===normalizeTitleComparison(b)?1:0;
-  const setB=new Set(tb);
-  const overlap=ta.filter(token=>setB.has(token)).length;
-  return overlap/Math.max(ta.length,tb.length);
-}
-
-function capitalizeFirst(value){
-  if(!value) return '';
-  return value.charAt(0).toUpperCase()+value.slice(1);
-}
-
-function cleanTopicSegment(value){
-  return normalizeTitleBase(value)
-    .replace(/^['"“”‘’]+|['"“”‘’]+$/g,'')
-    .replace(/^(analisi|studio|ricerca|valutazione|esame|approfondimento)\s+(di|del|della|dell['’]|dello|dei|degli|delle)\s+/i,'')
-    .replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i,'')
-    .replace(/^l['’](?=[aeiouàèéìòóù])/i,'')
-    .trim();
-}
-
-function parseTopicForTitleSuggestions(topic){
-  const base=normalizeTitleBase(topic);
-  if(!base) return {mode:'generic',focus:''};
-
-  let m=base.match(/^(?:l['’]|il |lo |la |i |gli |le )?(?:impatto|influenza|effetti?|ruolo|incidenza|contributo|rapporto)\s+(?:di|del|della|dell['’]|dello|dei|degli|delle)\s*(.+?)\s+(?:su|sul|sulla|sui|sulle|nel|nella|nei|nelle|in|rispetto a|all'interno di)\s+(.+)$/i);
-  if(m){
-    return {mode:'relation',left:cleanTopicSegment(m[1]),right:normalizeTitleBase(m[2])};
-  }
-
-  m=base.match(/^(.+?)\s+(?:e|ed)\s+(.+)$/i);
-  if(m){
-    return {mode:'pair',left:cleanTopicSegment(m[1]),right:cleanTopicSegment(m[2])};
-  }
-
-  m=base.match(/^(.+?)\s+(?:nel|nella|nei|nelle|in|durante|tra|fra)\s+(.+)$/i);
-  if(m){
-    return {mode:'context',focus:cleanTopicSegment(m[1]),context:normalizeTitleBase(m[2])};
-  }
-
-  return {mode:'generic',focus:cleanTopicSegment(base)};
-}
-
-function buildTitleCandidates(base,parsed){
-  if(parsed.mode==='relation'){
-    const left=parsed.left;
-    const right=parsed.right;
-    return [
-      `Tra ${right} e ${left}: quadro teorico, trasformazioni e questioni aperte`,
-      `${capitalizeFirst(right)} di fronte a ${left}: interpretazioni, impatti e prospettive`,
-      `Ripensare ${right} attraverso ${left}: modelli di analisi e applicazioni`,
-      `Oltre il rapporto tra ${left} e ${right}: nodi critici e sviluppi`,
-      `${capitalizeFirst(left)} e ${right}: un'indagine critica tra teoria e casi`
-    ];
-  }
-
-  if(parsed.mode==='pair'){
-    const left=parsed.left;
-    const right=parsed.right;
-    return [
-      `Tra ${left} e ${right}: convergenze, tensioni e sviluppi teorici`,
-      `Ripensare ${left} e ${right}: modelli interpretativi e problemi aperti`,
-      `Oltre la dicotomia tra ${left} e ${right}: letture critiche e applicazioni`,
-      `${capitalizeFirst(left)} e ${right}: un percorso di analisi tra teoria e metodo`,
-      `Questioni aperte intorno a ${left} e ${right}: prospettive, limiti e trasformazioni`
-    ];
-  }
-
-  if(parsed.mode==='context'){
-    const focus=parsed.focus;
-    const context=parsed.context;
-    return [
-      `${capitalizeFirst(focus)} e ${context}: quadri teorici, problemi aperti e sviluppi`,
-      `Ripensare ${context} attraverso ${focus}: modelli interpretativi e implicazioni`,
-      `Oltre ${focus} in ${context}: nodi critici e prospettive di ricerca`,
-      `Interpretare ${context} alla luce di ${focus}: approcci, limiti e applicazioni`,
-      `Percorsi di ricerca su ${focus} in ${context}: tra teoria, metodo e casi`
-    ];
-  }
-
-  const focus=parsed.focus||base;
-  return [
-    `Ripensare ${focus}: quadro teorico, nodi critici e prospettive di ricerca`,
-    `Oltre ${focus}: interpretazioni, trasformazioni e applicazioni`,
-    `Questioni aperte intorno a ${focus}: approcci, limiti e sviluppi`,
-    `Interpretare ${focus} oggi: modelli di analisi e problemi emergenti`,
-    `Percorsi di ricerca su ${focus}: tra teoria, metodo e casi`
-  ];
-}
-
 function createTitleSuggestions(topic){
   const base=normalizeTitleBase(topic);
   if(!base || base.length<12) return [];
-  const parsed=parseTopicForTitleSuggestions(base);
-  const baseNorm=normalizeTitleComparison(base);
-  const unique=[];
-
-  buildTitleCandidates(base,parsed).forEach(candidate=>{
-    const cleaned=normalizeTitleBase(candidate);
-    const cleanedNorm=normalizeTitleComparison(cleaned);
-    if(!cleaned || cleaned.length<16) return;
-    if(cleanedNorm===baseNorm) return;
-    if(cleanedNorm.startsWith(baseNorm)) return;
-    if(titleSimilarity(cleaned,base)>=0.82) return;
-    if(unique.some(existing=>normalizeTitleComparison(existing)===cleanedNorm)) return;
-    if(unique.some(existing=>titleSimilarity(existing,cleaned)>=0.9)) return;
-    unique.push(cleaned);
-  });
-
-  return unique.slice(0,5);
+  return [
+    base,
+    `${base}: analisi psicologica, implicazioni teoriche e prospettive applicative`,
+    `${base}: dinamiche, criticità e prospettive di approfondimento`
+  ].filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,3);
 }
 
 function renderTitleSuggestions(){
