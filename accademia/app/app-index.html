@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=YMGDK2k0hM-8i-ut7GAjQy68ggHqezRnqrtdCstkeR3t7SFFweLlP7XfYe1p42vjRjcJlgi0IyYsSU7razm1D9HTYUhCl64u3Hgt0Gvzd_mDKgc2DR6B0WejUoqOpQoF39l6f7iFya3bOoVGxLMwYsJcwltSKy0ToD2EkdEO_lBM2qxfy4bagi5eAsCtR97wdDMOnqN-gsEM8ASvO85mo-m6xBCqEt7O-WM7OwS-q7yNPiGAvJKsFT3FJBIOWqrNhGAd4rHh85m_PdIOyg8Olg" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=3HeSVmC7wlSEFDosrbjbP8rJdWMqlWX3jxOWi_5A07RSaO6G9WrOTReh9oO4H8xZsTLlcpTXiHwXLbv7tSYMvcKcrIU9-JkAygCJ4sTwj_RvcTgZAsMcw8z8Uae5HAgU5v0osxsQCZMO1LBZr42KdMxfPjEwxVtPdphEZ_wEEYA4itbMoQdEKmosOWVs3zMO213PrWRzVPXZgOJFlOtXlJVFyjn8mFcMtMIKTCKYm76yHWAtwRGoD5nU0lvhBQD24R7a0Ydz_gZ2eTF3WNHyGQ" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -425,6 +425,7 @@
         <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
         <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
           <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
+          <div id="titleSuggestStatus" style="display:none;margin-bottom:8px;font-size:12px;color:var(--text3)"></div>
           <div id="titleSuggestList" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -1851,8 +1852,50 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
   };
 }
 
+
 function normalizeTitleBase(topic){
   return (topic||'').replace(/\s+/g,' ').trim().replace(/[\.;:!?]+$/,'');
+}
+
+function normalizeTitleComparison(text){
+  return normalizeTitleBase(text)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function firstWords(text,count=4){
+  return normalizeTitleComparison(text).split(' ').filter(Boolean).slice(0,count).join(' ');
+}
+
+function titleSimilarity(a,b){
+  const aa=new Set(normalizeTitleComparison(a).split(' ').filter(w=>w.length>2));
+  const bb=new Set(normalizeTitleComparison(b).split(' ').filter(w=>w.length>2));
+  if(!aa.size || !bb.size) return 0;
+  let inter=0;
+  aa.forEach(w=>{if(bb.has(w)) inter++;});
+  return inter / new Set([...aa,...bb]).size;
+}
+
+function compactAcademicFocus(topic){
+  let t=normalizeTitleBase(topic);
+  t=t.replace(/^(?:indagare|analizzare|studiare|esaminare|valutare|comprendere|approfondire|esplorare|riflettere|investigare|osservare|considerare|descrivere|interpretare|ricostruire|confrontare|verificare)\s+(?:su|sul|sulla|sullo|sui|sugli|sulle|il|la|lo|i|gli|le|l'|del|della|dello|dei|degli|delle|dell')\s*/i,'');
+  t=t.replace(/^(?:studio|analisi|indagine|ricerca)\s+(?:su|sul|sulla|sullo|sui|sugli|sulle|di|del|della|dello|dei|degli|delle|dell')\s*/i,'');
+  t=t.replace(/^gli stereotipi sulla\s+/i,'gli stereotipi e le rappresentazioni di ');
+  t=t.replace(/^gli stereotipi sui\s+/i,'gli stereotipi e le rappresentazioni dei ');
+  t=t.replace(/^gli stereotipi sugli\s+/i,'gli stereotipi e le rappresentazioni degli ');
+  t=t.replace(/^gli stereotipi sulle\s+/i,'gli stereotipi e le rappresentazioni delle ');
+  t=t.replace(/^gli stereotipi del(?:la|lo|l')?\s+/i,'gli stereotipi e le rappresentazioni del ');
+  t=t.replace(/^stereotipi sulla\s+/i,'stereotipi e rappresentazioni di ');
+  t=t.replace(/^stereotipi sui\s+/i,'stereotipi e rappresentazioni dei ');
+  t=t.replace(/^stereotipi sugli\s+/i,'stereotipi e rappresentazioni degli ');
+  t=t.replace(/^stereotipi sulle\s+/i,'stereotipi e rappresentazioni delle ');
+  t=t.replace(/^\s+/,'');
+  if(!t) return normalizeTitleBase(topic);
+  return t.charAt(0).toUpperCase()+t.slice(1);
 }
 
 function methodologyLabel(v){
@@ -1867,28 +1910,28 @@ function methodologyLabel(v){
 
 function methodologyFrame(v){
   return ({
-    teorica:{study:'lettura teorico-critica', question:'quadri teorici, nodi concettuali e implicazioni interpretative'},
-    empirica:{study:'indagine empirica', question:'variabili, evidenze e implicazioni applicative'},
-    caso_studio:{study:'studio di caso', question:'analisi del caso, risultati e trasferibilità delle evidenze'},
-    revisione_sistematica:{study:'revisione sistematica della letteratura', question:'stato dell’arte, convergenze e lacune della ricerca'},
-    comparativa:{study:'analisi comparativa', question:'confronto tra modelli, contesti e risultati'}
-  })[v]||{study:'analisi accademica', question:'quadro teorico e sviluppi di ricerca'};
+    teorica:{study:'lettura teorico-critica', question:'quadri teorici, nodi concettuali e implicazioni interpretative', lead:'Prospettive teoriche su'},
+    empirica:{study:'indagine empirica', question:'variabili, evidenze e implicazioni applicative', lead:'Evidenze empiriche su'},
+    caso_studio:{study:'studio di caso', question:'analisi del caso, risultati e trasferibilità delle evidenze', lead:'Uno studio di caso su'},
+    revisione_sistematica:{study:'revisione sistematica della letteratura', question:'stato dell’arte, convergenze e lacune della ricerca', lead:'Lo stato della ricerca su'},
+    comparativa:{study:'analisi comparativa', question:'confronto tra modelli, contesti e risultati', lead:'Un confronto tra modelli di'}
+  })[v]||{study:'analisi accademica', question:'quadro teorico e sviluppi di ricerca', lead:'Una lettura accademica di'};
 }
 
 function facultyTitleProfile(facolta){
   const name=(facolta||'').toLowerCase();
-  if(name.includes('psicologia')) return {adj:'psicologici', a:'determinanti psicologiche', b:'ricadute sul benessere e sul comportamento', c:'processi cognitivi', d:'regolazione emotiva', app:'prospettive di intervento'};
-  if(name.includes('giurisprudenza')) return {adj:'giuridici', a:'profili normativi', b:'orientamenti giurisprudenziali', c:'criticità interpretative', d:'tutela degli interessi coinvolti', app:'implicazioni applicative'};
-  if(name.includes('economia')) return {adj:'economici', a:'determinanti economiche', b:'ricadute organizzative e manageriali', c:'governance', d:'performance e sostenibilità', app:'prospettive operative'};
-  if(name.includes('ingegneria') || name.includes('informatica')) return {adj:'tecnico-progettuali', a:'modelli architetturali', b:'ricadute operative', c:'ottimizzazione dei processi', d:'scalabilità e affidabilità', app:'sviluppi progettuali'};
-  if(name.includes('medicina') || name.includes('farmacia') || name.includes('biologia') || name.includes('biotecnologie') || name.includes('veterinaria')) return {adj:'clinico-scientifici', a:'evidenze scientifiche', b:'implicazioni cliniche o assistenziali', c:'prevenzione', d:'gestione del rischio', app:'ricadute professionali'};
-  if(name.includes('educazione') || name.includes('formazione')) return {adj:'pedagogici', a:'processi educativi', b:'ricadute formative', c:'strategie didattiche', d:'contesti di apprendimento', app:'prospettive educative'};
-  if(name.includes('comunicazione')) return {adj:'comunicativi', a:'dinamiche comunicative', b:'implicazioni mediatiche e strategiche', c:'narrazioni digitali', d:'processi persuasivi', app:'sviluppi applicativi'};
-  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali', b:'implicazioni istituzionali', c:'trasformazioni culturali', d:'politiche pubbliche', app:'sviluppi di policy'};
-  if(name.includes('lettere') || name.includes('lingue') || name.includes('filosofia') || name.includes('storia')) return {adj:'storico-critici', a:'quadri teorici', b:'linee interpretative', c:'genealogie concettuali', d:'letture critiche', app:'prospettive ermeneutiche'};
-  if(name.includes('architettura') || name.includes('design') || name.includes('beni culturali') || name.includes('turismo')) return {adj:'progettuali', a:'criteri progettuali', b:'ricadute fruitive e operative', c:'valorizzazione', d:'sostenibilità', app:'sviluppi operativi'};
-  if(name.includes('teologia')) return {adj:'teologico-pastorali', a:'fondamenti teologici', b:'ricadute ecclesiali e pastorali', c:'ermeneutica', d:'prassi pastorale', app:'prospettive pastorali'};
-  return {adj:'disciplinari', a:'fondamenti teorici', b:'implicazioni applicative', c:'quadri interpretativi', d:'questioni aperte', app:'sviluppi di ricerca'};
+  if(name.includes('psicologia')) return {adj:'psicologici', a:'determinanti psicologiche', b:'ricadute sul benessere e sul comportamento', c:'processi cognitivi', d:'regolazione emotiva', app:'prospettive di intervento', lens:'Psicologia Sociale'};
+  if(name.includes('giurisprudenza')) return {adj:'giuridici', a:'profili normativi', b:'orientamenti giurisprudenziali', c:'criticità interpretative', d:'tutela degli interessi coinvolti', app:'implicazioni applicative', lens:'diritto contemporaneo'};
+  if(name.includes('economia')) return {adj:'economici', a:'determinanti economiche', b:'ricadute organizzative e manageriali', c:'governance', d:'performance e sostenibilità', app:'prospettive operative', lens:'economia applicata'};
+  if(name.includes('ingegneria') || name.includes('informatica')) return {adj:'tecnico-progettuali', a:'modelli architetturali', b:'ricadute operative', c:'ottimizzazione dei processi', d:'scalabilità e affidabilità', app:'sviluppi progettuali', lens:'progettazione dei sistemi'};
+  if(name.includes('medicina') || name.includes('farmacia') || name.includes('biologia') || name.includes('biotecnologie') || name.includes('veterinaria')) return {adj:'clinico-scientifici', a:'evidenze scientifiche', b:'implicazioni cliniche o assistenziali', c:'prevenzione', d:'gestione del rischio', app:'ricadute professionali', lens:'area clinico-scientifica'};
+  if(name.includes('educazione') || name.includes('formazione')) return {adj:'pedagogici', a:'processi educativi', b:'ricadute formative', c:'strategie didattiche', d:'contesti di apprendimento', app:'prospettive educative', lens:'scienze dell’educazione'};
+  if(name.includes('comunicazione')) return {adj:'comunicativi', a:'dinamiche comunicative', b:'implicazioni mediatiche e strategiche', c:'narrazioni digitali', d:'processi persuasivi', app:'sviluppi applicativi', lens:'comunicazione contemporanea'};
+  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali', b:'implicazioni istituzionali', c:'trasformazioni culturali', d:'politiche pubbliche', app:'sviluppi di policy', lens:'scienze sociali'};
+  if(name.includes('lettere') || name.includes('lingue') || name.includes('filosofia') || name.includes('storia')) return {adj:'storico-critici', a:'quadri teorici', b:'linee interpretative', c:'genealogie concettuali', d:'letture critiche', app:'prospettive ermeneutiche', lens:'analisi storico-critica'};
+  if(name.includes('architettura') || name.includes('design') || name.includes('beni culturali') || name.includes('turismo')) return {adj:'progettuali', a:'criteri progettuali', b:'ricadute fruitive e operative', c:'valorizzazione', d:'sostenibilità', app:'sviluppi operativi', lens:'progettazione e valorizzazione'};
+  if(name.includes('teologia')) return {adj:'teologico-pastorali', a:'fondamenti teologici', b:'ricadute ecclesiali e pastorali', c:'ermeneutica', d:'prassi pastorale', app:'prospettive pastorali', lens:'riflessione teologico-pastorale'};
+  return {adj:'disciplinari', a:'fondamenti teorici', b:'implicazioni applicative', c:'quadri interpretativi', d:'questioni aperte', app:'sviluppi di ricerca', lens:'analisi disciplinare'};
 }
 
 function degreeFrame(tipo){
@@ -1914,37 +1957,167 @@ function getTitleSuggestionContext(){
   return {topic,tipo,facolta,corso,approccio,missing,ready:missing.length===0};
 }
 
+function dedupeTitleSuggestions(candidates, context){
+  const base=normalizeTitleBase(context.topic);
+  const baseNorm=normalizeTitleComparison(base);
+  const firstBaseWords=firstWords(base,4);
+  const unique=[];
+  (candidates||[]).forEach(candidate=>{
+    const cleaned=normalizeTitleBase(String(candidate||''));
+    const cleanedNorm=normalizeTitleComparison(cleaned);
+    if(!cleaned || cleaned.length<18) return;
+    if(cleanedNorm===baseNorm) return;
+    if(firstBaseWords && cleanedNorm.startsWith(firstBaseWords)) return;
+    if(titleSimilarity(cleaned, base)>=0.82) return;
+    if(unique.some(existing=>normalizeTitleComparison(existing)===cleanedNorm)) return;
+    if(unique.some(existing=>titleSimilarity(existing, cleaned)>=0.9)) return;
+    unique.push(cleaned);
+  });
+  return unique.slice(0,5);
+}
+
 function createTitleSuggestions(context){
   if(!context || !context.ready) return [];
-  const base=normalizeTitleBase(context.topic);
+  const focus=compactAcademicFocus(context.topic);
   const faculty=facultyTitleProfile(context.facolta);
   const method=methodologyFrame(context.approccio);
   const degree=degreeFrame(context.tipo);
   const approachLabel=methodologyLabel(context.approccio);
   const course=context.corso;
   const titles=[
-    `${base}: ${faculty.a}, ${faculty.b} e ${faculty.app}`,
-    `${base}: una ${method.study} in ${course}`,
-    `${base}: ${faculty.c}, ${faculty.d} e ${degree.x}`,
-    `${base}: profili ${faculty.adj}, ${method.question} e ${degree.y}`,
-    `${base}: prospettiva ${approachLabel} e implicazioni per ${course}`
+    `${faculty.lens} e ${focus}: ${faculty.a}, ${faculty.b} e ${faculty.app}`,
+    `${method.lead} ${focus}: una prospettiva ${approachLabel} in ${course}`,
+    `${focus} tra ${faculty.c}, ${faculty.d} e ${degree.x}`,
+    `Oltre il senso comune: ${focus} tra profili ${faculty.adj} e ${degree.y}`,
+    `${course}: ${focus} come oggetto di analisi ${approachLabel}`
   ];
-  return titles.map(t=>t.replace(/\s+/g,' ').trim()).filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,5);
+  return dedupeTitleSuggestions(titles, context);
 }
 
-function renderTitleSuggestions(){
+let titleSuggestTimer=null;
+let titleSuggestSeq=0;
+const titleSuggestCache=new Map();
+
+function currentTitleSuggestionCacheKey(context){
+  return JSON.stringify([
+    normalizeTitleBase(context.topic),
+    normalizeTitleBase(context.tipo),
+    normalizeTitleBase(context.facolta),
+    normalizeTitleBase(context.corso),
+    normalizeTitleBase(context.approccio)
+  ]);
+}
+
+function setTitleSuggestionStatus(message,error=false){
+  const status=document.getElementById('titleSuggestStatus');
+  if(!status) return;
+  if(!message){
+    status.style.display='none';
+    status.textContent='';
+    status.style.color='var(--text3)';
+    return;
+  }
+  status.style.display='block';
+  status.textContent=message;
+  status.style.color=error ? '#d98989' : 'var(--text3)';
+}
+
+function renderTitleSuggestionsList(suggestions){
   const wrap=document.getElementById('titleSuggestWrap');
   const list=document.getElementById('titleSuggestList');
   if(!wrap || !list) return;
-  const context=getTitleSuggestionContext();
-  const suggestions=createTitleSuggestions(context);
   if(!suggestions.length){
     wrap.style.display='none';
     list.innerHTML='';
+    setTitleSuggestionStatus('');
     return;
   }
   wrap.style.display='block';
   list.innerHTML=suggestions.map(title=>`<button type="button" onclick="applySuggestedTitle(this)" style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer">${escHtml(title)}</button>`).join('');
+}
+
+function extractTitleSuggestionsFromAI(text, context){
+  const raw=(text||'')
+    .replace(/```[\s\S]*?```/g,' ')
+    .split(/\n+/)
+    .map(line=>line.replace(/^\s*(?:[-*•]|\d+[\.)])\s*/,'').trim())
+    .filter(Boolean)
+    .flatMap(line=>line.split(/\s*\|\s*/))
+    .map(line=>line.replace(/^Titolo\s*:?/i,'').trim())
+    .filter(Boolean);
+  return dedupeTitleSuggestions(raw, context);
+}
+
+async function requestTitleSuggestionsFromAI(context){
+  const cacheKey=currentTitleSuggestionCacheKey(context);
+  if(titleSuggestCache.has(cacheKey)) return titleSuggestCache.get(cacheKey);
+
+  const degreeLabel=tipoLaureaLabel(context.tipo || 'triennale');
+  const prompt=[
+    'Genera 5 possibili titoli di tesi in italiano.',
+    'Devono essere professionali, credibili, sobri e adatti a una vera tesi di laurea.',
+    'Usa in modo vincolante i dati sotto riportati.',
+    `Tipo di laurea: ${degreeLabel}`,
+    `Facoltà: ${context.facolta}`,
+    `Corso di laurea: ${context.corso}`,
+    `Approccio metodologico: ${methodologyLabel(context.approccio)}`,
+    `Argomento di partenza: ${normalizeTitleBase(context.topic)}`,
+    'Regole obbligatorie:',
+    '1. Non ripetere pedissequamente l’argomento iniziale.',
+    '2. Nessun titolo deve iniziare con le stesse prime quattro parole dell’argomento di partenza.',
+    '3. I titoli devono riformulare il tema in chiave accademica, con angolazioni realmente diverse tra loro.',
+    '4. Evita formule gonfiate, slogan, titoli vaghi o troppo creativi.',
+    '5. Restituisci solo 5 righe, una per titolo, senza numeri, senza trattini e senza commenti.'
+  ].join('\n');
+
+  const result=await callClaude(prompt,'outline_draft');
+  const parsed=extractTitleSuggestionsFromAI(result, context);
+  const finalSuggestions=parsed.length>=3 ? parsed : createTitleSuggestions(context);
+  titleSuggestCache.set(cacheKey, finalSuggestions);
+  return finalSuggestions;
+}
+
+async function refreshTitleSuggestions(force=false){
+  const context=getTitleSuggestionContext();
+  if(!context.ready){
+    renderTitleSuggestionsList([]);
+    return;
+  }
+
+  const localSuggestions=createTitleSuggestions(context);
+  renderTitleSuggestionsList(localSuggestions);
+
+  if(!force && normalizeTitleBase(context.topic).length<18){
+    setTitleSuggestionStatus('');
+    return;
+  }
+
+  setTitleSuggestionStatus('Sto affinando i titoli in base a facoltà, corso e approccio...');
+  const seq=++titleSuggestSeq;
+
+  try{
+    const suggestions=await requestTitleSuggestionsFromAI(context);
+    if(seq!==titleSuggestSeq) return;
+    renderTitleSuggestionsList(suggestions.length ? suggestions : localSuggestions);
+    setTitleSuggestionStatus('Titoli riformulati in base al profilo accademico selezionato.');
+  }catch(err){
+    if(seq!==titleSuggestSeq) return;
+    renderTitleSuggestionsList(localSuggestions);
+    setTitleSuggestionStatus('Mostro una riformulazione locale provvisoria dei titoli.', true);
+  }
+}
+
+function queueTitleSuggestions(force=false){
+  clearTimeout(titleSuggestTimer);
+  if(force){
+    refreshTitleSuggestions(true);
+    return;
+  }
+  titleSuggestTimer=setTimeout(()=>refreshTitleSuggestions(false), 450);
+}
+
+function renderTitleSuggestions(){
+  queueTitleSuggestions(false);
 }
 
 function applySuggestedTitle(btn){
@@ -1955,12 +2128,12 @@ function applySuggestedTitle(btn){
 }
 
 function handleProjectStructureChange(){
-  renderTitleSuggestions();
+  queueTitleSuggestions(true);
   saveProgress();
 }
 
 function handleArgomentoInput(){
-  renderTitleSuggestions();
+  queueTitleSuggestions(false);
   saveProgress();
 }
 
