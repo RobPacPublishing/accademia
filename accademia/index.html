@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=NAMR_eFUlXOaLWldueF0Vysk4faBLnv9WFIssNFToeyMAck6m6A1-BmDSlEINmsY3wkiiPrNb_EiUSyHNZpwz06pc_O9TOE_-53pTzl9kkrVyWhxjfHHYD5Pkgy7MBXdNqSE-rtdkzyF3Zgf_jUp740RBu89dVatJTsytSqXm_bCyhYIO5mfHBkDwXnnS2bv750uzRzL8TXziPXnrnMjiFDa9g1rIXhQCpDQ797dncjxX550pSsWYQS6Q-zc4NzuMyI79wPxzcfV2WuomNOXgw" charset="UTF-8"></script><style>
+  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=vFADCNWgl8LPLawb7sZMnTfmPpCT5w_6Sd-HJQtI__tWJhMX_zy3kYMLG9z09I6MNMZ9vnrs7Lln6Uycl7gVDcO1V-Y-xJVNesyUlamy5HDXPtZkHsXk3li7GjS5ojsNU5stKgYn2H9JITboEg8xCALwbCEtQNzHI6knBjY0htyD_b6Qe4RDZPwxjBiHLLycWtHLNorxppsSJLtBpghQpVX5KozB5oIAcoPrINEoNWY2mFEFg-Cjr3Bqy-poft55go531bnjJjqmqoVkNWhnZA" charset="UTF-8"></script><style>
     :root {
       --bg:#050505;
       --bg2:#0e0e0e;
@@ -602,9 +602,16 @@
         padding:26px 20px;
       }
     }
-  </style>
+  
+  .maintenance-banner{position:sticky;top:0;z-index:120;background:linear-gradient(90deg,rgba(214,174,74,.18),rgba(214,174,74,.08));border-bottom:1px solid rgba(214,174,74,.28);backdrop-filter:blur(10px)}
+  .maintenance-banner .container{padding:10px 24px;font-size:13px;line-height:1.5;color:var(--text1)}
+  .maintenance-banner strong{color:var(--gold)}
+</style>
 </head>
 <body>
+  <div class="maintenance-banner">
+    <div class="container"><strong>Avviso:</strong> AccademIA è in fase di ristrutturazione e miglioramento. Alcune funzionalità possono essere aggiornate progressivamente.</div>
+  </div>
   <header>
     <div class="container nav">
       <a class="brand" href="https://www.accademia-tesi.it/">
@@ -615,7 +622,7 @@
         <a class="nav-link" href="#vantaggi">Vantaggi</a>
         <a class="nav-link" href="#piani">Piani</a>
         <a class="nav-link" href="#faq">FAQ</a>
-        <a class="nav-cta" href="app/index.html">Accedi all'app</a>
+        <a class="nav-cta" href="/app/index.html" data-app-link="1">Accedi all'app</a>
       </div>
     </div>
   </header>
@@ -625,7 +632,7 @@
       <div class="container hero-grid">
         <div class="hero-copy">
           <span class="kicker">Per laureandi triennale e magistrale</span>
-          <h1>Più ordine, meno dispersione, <span class="gold">più continuità</span> nella tua tesi.</h1>
+          <h1>Più metodo, più chiarezza, <span class="gold">più supporto</span> per la tua tesi.</h1>
           <p class="lead">AccademIA ti supporta concretamente nello sviluppo della tesi: ti aiuta a organizzare il lavoro, accelerare la stesura e gestire con maggiore chiarezza anche correzioni e indicazioni del relatore.</p>
           <ul class="hero-points">
             <li>Strutturi indice, abstract e capitoli in un flusso chiaro e progressivo.</li>
@@ -634,7 +641,7 @@
             <li>Riduci tempi morti, dispersione e blocchi nella fase di scrittura e revisione.</li>
           </ul>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="app/index.html">Accedi all'app</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Accedi all'app</a>
             <a class="btn btn-secondary" href="#piani">Scegli il piano</a>
             <a class="btn btn-secondary" href="#come-funziona">Come funziona</a>
           </div>
@@ -773,7 +780,7 @@
               <li>2 revisioni incluse</li>
               <li>Ripresa del lavoro dopo login</li>
             </ul>
-            <a class="btn btn-primary" href="app/index.html">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Scegli il piano</a>
           </article>
 
           <article class="plan featured">
@@ -791,7 +798,7 @@
               <li>5 revisioni incluse</li>
               <li>Maggiore continuità tra sviluppo e correzioni</li>
             </ul>
-            <a class="btn btn-primary" href="app/index.html">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Scegli il piano</a>
           </article>
 
           <article class="plan">
@@ -808,7 +815,7 @@
               <li>15 revisioni incluse</li>
               <li>Possibilità di attivare pacchetti aggiuntivi in seguito</li>
             </ul>
-            <a class="btn btn-primary" href="app/index.html">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Scegli il piano</a>
           </article>
         </div>
       </div>
@@ -830,7 +837,7 @@
               <span class="old-price">39 €</span>
               <span class="new-price">29 €</span>
             </div>
-            <a class="btn btn-primary" href="app/index.html">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Scegli il piano</a>
           </article>
 
           <article class="extra-card">
@@ -840,7 +847,7 @@
               <span class="new-price">Da 30 €</span>
             </div>
             <div class="extra-note">Da Start a Pro: 30 € · da Pro a Premium: 40 € · da Start a Premium: 70 €</div>
-            <a class="btn btn-primary" href="app/index.html">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Scegli il piano</a>
           </article>
         </div>
       </div>
@@ -889,7 +896,7 @@
           <h2>Inizia a lavorare sulla tua tesi con più ordine e continuità.</h2>
           <p>Scegli il piano più adatto e inizia subito a lavorare sulla tua tesi in modo più semplice ed efficace.</p>
           <div class="final-actions">
-            <a class="btn btn-primary" href="app/index.html">Accedi all'app</a>
+            <a class="btn btn-primary" href="/app/index.html" data-app-link="1">Accedi all'app</a>
             <a class="btn btn-secondary" href="#piani">Scegli il piano</a>
           </div>
           <div class="legal-note">AccademIA offre un supporto strutturato al percorso di tesi. Ogni contenuto deve essere verificato, adattato e validato prima di qualsiasi utilizzo accademico.</div>
@@ -911,5 +918,18 @@
       </div>
     </div>
   </footer>
+
+<script>
+  (function(){
+    const APP_URL = window.location.origin + "/app/index.html";
+    document.querySelectorAll('[data-app-link="1"]').forEach((link) => {
+      link.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.assign(APP_URL);
+      });
+    });
+  })();
+</script>
 </body>
 </html>
