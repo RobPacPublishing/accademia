@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=isnu_lNtigWd-GeNVZQaZgk7pk8HATGEiFVX7nZGt5wZBQ43jGIompe7BRDeytNL18zFKGQIYDoGs4ITRc4W51TZ5CPld35AKXD12hm5NaaCScYwOgCclBXALpaDpdp99OoOhLykQ6xNOaIUNOfmzF-Oe7fnsY1a2jgCvqfwutmGxvimostF9hzPsPTsGtnd3JYxOVv1y4EYkoeDBZOqqB5wpm_BQj2_Y54PB7W2i_2SE7VdCgOrNMc3beJYzeULqCsc6DhP_qMomyObOqyrXw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=kOqEbaXbqRJ31IjaFjgJEGELwDyql7Okb11z9PcNy1g_Nt9R2gDo0K_g-Q0yQCY4KQ57UN4HgPAU_R3OHV9YHHQej0lqEztpJ9VMiKtbzvWvNiUECvfU6AVBJDQn7NvaNS4wZUo1OiBCFg3c2cDnXaT56-6n2bzYOYw0zvx633Ws9MwDWRbamKMUJDrnFlKet0_981Gfoq_bsgh9THz7vUDWLWPHm06MyD3pXx2fu6dan9fRvJnpY16L9VVTXtYZNrA2Q01xHW1t8rWXimFNGQ" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -371,6 +371,7 @@
         <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
         <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
           <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
+          <div id="titleSuggestStatus" style="display:none;margin-bottom:8px;font-size:12px;color:var(--text3)"></div>
           <div id="titleSuggestList" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -992,7 +993,6 @@ function ensureGlobalCounter(){
   document.getElementById('chaptersArea').prepend(wrap);
   renderGlobalCounter();
 }
-
 
 function captureFormState(){
   return {
@@ -1851,29 +1851,278 @@ function normalizeTitleBase(topic){
   return (topic||'').replace(/\s+/g,' ').trim().replace(/[\.;:!?]+$/,'');
 }
 
+function normalizeTitleComparison(value){
+  return normalizeTitleBase(value)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s]/gi,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function significantTitleTokens(value){
+  const stopwords=new Set([
+    'il','lo','la','i','gli','le','un','uno','una','l','di','del','della','dello','dei','degli','delle',
+    'a','ad','da','dal','dalla','dallo','in','nel','nella','nei','nelle','su','sul','sulla',
+    'sui','sulle','con','per','tra','fra','e','ed','o','al','allo','alla','agli','alle','dell','all','oggi',
+    'tesi','studio','ricerca','analisi'
+  ]);
+  return normalizeTitleComparison(value)
+    .split(' ')
+    .filter(token=>token && token.length>2 && !stopwords.has(token));
+}
+
+function titleSimilarity(a,b){
+  const ta=[...new Set(significantTitleTokens(a))];
+  const tb=[...new Set(significantTitleTokens(b))];
+  if(!ta.length || !tb.length) return normalizeTitleComparison(a)===normalizeTitleComparison(b)?1:0;
+  const setB=new Set(tb);
+  const overlap=ta.filter(token=>setB.has(token)).length;
+  return overlap/Math.max(ta.length,tb.length);
+}
+
+function capitalizeFirst(value){
+  if(!value) return '';
+  return value.charAt(0).toUpperCase()+value.slice(1);
+}
+
+function cleanTopicSegment(value){
+  return normalizeTitleBase(value)
+    .replace(/^['"“”‘’]+|['"“”‘’]+$/g,'')
+    .replace(/^(analisi|studio|ricerca|valutazione|esame|approfondimento)\s+(di|del|della|dell['’]|dello|dei|degli|delle)\s+/i,'')
+    .replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i,'')
+    .replace(/^l['’](?=[aeiouàèéìòóù])/i,'')
+    .trim();
+}
+
+function parseTopicForTitleSuggestions(topic){
+  const base=normalizeTitleBase(topic);
+  if(!base) return {mode:'generic',focus:''};
+
+  let m=base.match(/^(?:l['’]|il |lo |la |i |gli |le )?(?:impatto|influenza|effetti?|ruolo|incidenza|contributo|rapporto)\s+(?:di|del|della|dell['’]|dello|dei|degli|delle)\s*(.+?)\s+(?:su|sul|sulla|sui|sulle|nel|nella|nei|nelle|in|rispetto a|all'interno di)\s+(.+)$/i);
+  if(m){
+    return {mode:'relation',left:cleanTopicSegment(m[1]),right:normalizeTitleBase(m[2])};
+  }
+
+  m=base.match(/^(.+?)\s+(?:e|ed)\s+(.+)$/i);
+  if(m){
+    return {mode:'pair',left:cleanTopicSegment(m[1]),right:cleanTopicSegment(m[2])};
+  }
+
+  m=base.match(/^(.+?)\s+(?:nel|nella|nei|nelle|in|durante|tra|fra)\s+(.+)$/i);
+  if(m){
+    return {mode:'context',focus:cleanTopicSegment(m[1]),context:normalizeTitleBase(m[2])};
+  }
+
+  return {mode:'generic',focus:cleanTopicSegment(base)};
+}
+
+function buildTitleCandidates(base,parsed){
+  if(parsed.mode==='relation'){
+    const left=parsed.left;
+    const right=parsed.right;
+    return [
+      `Tra ${right} e ${left}: quadro teorico, trasformazioni e questioni aperte`,
+      `${capitalizeFirst(right)} di fronte a ${left}: interpretazioni, impatti e prospettive`,
+      `Ripensare ${right} attraverso ${left}: modelli di analisi e applicazioni`,
+      `Oltre il rapporto tra ${left} e ${right}: nodi critici e sviluppi`,
+      `${capitalizeFirst(left)} e ${right}: un'indagine critica tra teoria e casi`
+    ];
+  }
+
+  if(parsed.mode==='pair'){
+    const left=parsed.left;
+    const right=parsed.right;
+    return [
+      `Tra ${left} e ${right}: convergenze, tensioni e sviluppi teorici`,
+      `Ripensare ${left} e ${right}: modelli interpretativi e problemi aperti`,
+      `Oltre la dicotomia tra ${left} e ${right}: letture critiche e applicazioni`,
+      `${capitalizeFirst(left)} e ${right}: un percorso di analisi tra teoria e metodo`,
+      `Questioni aperte intorno a ${left} e ${right}: prospettive, limiti e trasformazioni`
+    ];
+  }
+
+  if(parsed.mode==='context'){
+    const focus=parsed.focus;
+    const context=parsed.context;
+    return [
+      `${capitalizeFirst(focus)} e ${context}: quadri teorici, problemi aperti e sviluppi`,
+      `Ripensare ${context} attraverso ${focus}: modelli interpretativi e implicazioni`,
+      `Oltre ${focus} in ${context}: nodi critici e prospettive di ricerca`,
+      `Interpretare ${context} alla luce di ${focus}: approcci, limiti e applicazioni`,
+      `Percorsi di ricerca su ${focus} in ${context}: tra teoria, metodo e casi`
+    ];
+  }
+
+  const focus=parsed.focus||base;
+  return [
+    `Ripensare ${focus}: quadro teorico, nodi critici e prospettive di ricerca`,
+    `Oltre ${focus}: interpretazioni, trasformazioni e applicazioni`,
+    `Questioni aperte intorno a ${focus}: approcci, limiti e sviluppi`,
+    `Interpretare ${focus} oggi: modelli di analisi e problemi emergenti`,
+    `Percorsi di ricerca su ${focus}: tra teoria, metodo e casi`
+  ];
+}
+
+function dedupeAndRankTitleSuggestions(candidates,topic){
+  const base=normalizeTitleBase(topic);
+  const baseNorm=normalizeTitleComparison(base);
+  const unique=[];
+
+  (candidates||[]).forEach(candidate=>{
+    const cleaned=normalizeTitleBase(String(candidate||''));
+    const cleanedNorm=normalizeTitleComparison(cleaned);
+    if(!cleaned || cleaned.length<16) return;
+    if(cleanedNorm===baseNorm) return;
+    if(cleanedNorm.startsWith(baseNorm)) return;
+    if(titleSimilarity(cleaned,base)>=0.86) return;
+    if(unique.some(existing=>normalizeTitleComparison(existing)===cleanedNorm)) return;
+    if(unique.some(existing=>titleSimilarity(existing,cleaned)>=0.9)) return;
+    unique.push(cleaned);
+  });
+
+  return unique.slice(0,5);
+}
+
 function createTitleSuggestions(topic){
   const base=normalizeTitleBase(topic);
   if(!base || base.length<12) return [];
-  return [
-    base,
-    `${base}: analisi psicologica, implicazioni teoriche e prospettive applicative`,
-    `${base}: dinamiche, criticità e prospettive di approfondimento`
-  ].filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,3);
+  const parsed=parseTopicForTitleSuggestions(base);
+  return dedupeAndRankTitleSuggestions(buildTitleCandidates(base,parsed), base);
 }
 
-function renderTitleSuggestions(){
-  const topic=(document.getElementById('argomento')?.value||'').trim();
+let titleSuggestTimer=null;
+let titleSuggestSeq=0;
+const titleSuggestCache=new Map();
+
+function currentTitleSuggestionContext(){
+  return {
+    topic:(document.getElementById('argomento')?.value||'').trim(),
+    faculty:(document.getElementById('facolta')?.value||'').trim(),
+    degreeCourse:(document.getElementById('corso')?.value||'').trim(),
+    degreeType:(document.getElementById('tipoLaurea')?.value||'').trim()
+  };
+}
+
+function currentTitleSuggestionCacheKey(ctx){
+  return JSON.stringify([
+    normalizeTitleBase(ctx.topic),
+    normalizeTitleBase(ctx.faculty),
+    normalizeTitleBase(ctx.degreeCourse),
+    normalizeTitleBase(ctx.degreeType)
+  ]);
+}
+
+function setTitleSuggestionStatus(message,error=false){
+  const status=document.getElementById('titleSuggestStatus');
+  if(!status) return;
+  if(!message){
+    status.style.display='none';
+    status.textContent='';
+    status.style.color='var(--text3)';
+    return;
+  }
+  status.style.display='block';
+  status.textContent=message;
+  status.style.color=error ? '#d98989' : 'var(--text3)';
+}
+
+function renderTitleSuggestionsList(suggestions){
   const wrap=document.getElementById('titleSuggestWrap');
   const list=document.getElementById('titleSuggestList');
   if(!wrap || !list) return;
-  const suggestions=createTitleSuggestions(topic);
   if(!suggestions.length){
     wrap.style.display='none';
     list.innerHTML='';
+    setTitleSuggestionStatus('');
     return;
   }
   wrap.style.display='block';
   list.innerHTML=suggestions.map(title=>`<button type="button" onclick="applySuggestedTitle(this)" style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer">${escHtml(title)}</button>`).join('');
+}
+
+function extractTitleSuggestionsFromAI(text,topic){
+  const raw=(text||'')
+    .replace(/```[\s\S]*?```/g,' ')
+    .split(/\n+/)
+    .map(line=>line.replace(/^\s*(?:[-*•]|\d+[\.)])\s*/,'').trim())
+    .filter(Boolean)
+    .flatMap(line=>line.split(/\s*\|\s*/))
+    .map(line=>line.replace(/^Titolo\s*:?/i,'').trim())
+    .filter(Boolean);
+
+  return dedupeAndRankTitleSuggestions(raw, topic);
+}
+
+async function requestTitleSuggestionsFromAI(context){
+  const topic=normalizeTitleBase(context.topic);
+  if(!topic || topic.length<18) return createTitleSuggestions(topic);
+
+  const cacheKey=currentTitleSuggestionCacheKey(context);
+  if(titleSuggestCache.has(cacheKey)) return titleSuggestCache.get(cacheKey);
+
+  const degreeLabel=tipoLaureaLabel(context.degreeType||'triennale');
+  const prompt=[
+    'Genera 5 possibili titoli di tesi in italiano.',
+    'Devono essere professionali, credibili, adatti a una tesi di laurea e realmente differenziati tra loro.',
+    'Non limitarti a parafrasare l\'argomento: proponi angolazioni diverse ma coerenti con il tema.',
+    'Tieni conto dei dati seguenti.',
+    `Argomento: ${topic}`,
+    `Facoltà: ${context.faculty || 'non specificata'}`,
+    `Corso di laurea: ${context.degreeCourse || 'non specificato'}`,
+    `Tipo di laurea: ${degreeLabel}`,
+    'Regole obbligatorie:',
+    '1. Ogni titolo deve essere autonomo e non iniziare semplicemente con l\'argomento originale.',
+    '2. Evita titoli generici o gonfiati.',
+    '3. Evita due punti in tutti i titoli, salvo stretta necessità.',
+    '4. Restituisci solo 5 righe, una per titolo, senza commenti, senza numerazione, senza introduzioni finali.'
+  ].join('\n');
+
+  const result=await callClaude(prompt,'outline_draft');
+  const parsed=extractTitleSuggestionsFromAI(result.text||'', topic);
+  const finalSuggestions=parsed.length>=3 ? parsed : createTitleSuggestions(topic);
+  titleSuggestCache.set(cacheKey, finalSuggestions);
+  return finalSuggestions;
+}
+
+async function refreshTitleSuggestions(force=false){
+  const wrap=document.getElementById('titleSuggestWrap');
+  const list=document.getElementById('titleSuggestList');
+  if(!wrap || !list) return;
+
+  const context=currentTitleSuggestionContext();
+  const topic=normalizeTitleBase(context.topic);
+
+  if(!topic || topic.length<12){
+    renderTitleSuggestionsList([]);
+    return;
+  }
+
+  const localSuggestions=createTitleSuggestions(topic);
+  renderTitleSuggestionsList(localSuggestions);
+  setTitleSuggestionStatus('Elaborazione suggerimenti in corso...');
+
+  const seq=++titleSuggestSeq;
+  try{
+    const suggestions=await requestTitleSuggestionsFromAI(context);
+    if(seq!==titleSuggestSeq) return;
+    const finalSuggestions=suggestions.length ? suggestions : localSuggestions;
+    renderTitleSuggestionsList(finalSuggestions);
+    setTitleSuggestionStatus(finalSuggestions.length ? 'Suggerimenti calibrati su argomento, facoltà, corso e tipo di laurea.' : '');
+  }catch(err){
+    if(seq!==titleSuggestSeq) return;
+    renderTitleSuggestionsList(localSuggestions);
+    setTitleSuggestionStatus('Suggerimenti avanzati non disponibili al momento. Mostro una versione locale provvisoria.', true);
+  }
+}
+
+function queueTitleSuggestions(force=false){
+  clearTimeout(titleSuggestTimer);
+  if(force){
+    refreshTitleSuggestions(true);
+    return;
+  }
+  titleSuggestTimer=setTimeout(()=>refreshTitleSuggestions(false), 550);
 }
 
 function applySuggestedTitle(btn){
@@ -1884,10 +2133,9 @@ function applySuggestedTitle(btn){
 }
 
 function handleArgomentoInput(){
-  renderTitleSuggestions();
+  queueTitleSuggestions(false);
   saveProgress();
 }
-
 async function callClaude(userPrompt, taskName='outline_draft'){
   const r=await fetch('/api/task',{
     method:'POST',
