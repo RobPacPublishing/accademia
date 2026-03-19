@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UBCSK6MNmSSlA8u2V_Us40c_h10fXywfClOeq3PB9Bosv2Ey6rHPaPs-Vw2kIVPJIj6t6Z-CnbL9IhmXSLhI9PN9LLLwMO1pR4fpPvVaFBP1R88bkB7i12r5AsLgWbxO_0KdOTLyPjzCws4A5ArH_ZxMt7sBzAs1YKApvorLoIi-xPV75xajYJGdqg9fnLomOTYZcWktktCviSvs_SnUcdJoz12weeetftdfKM88Dyb2TNLLdVQ0FA0qVuYMyGsVpZG95rGvluEOxiPQHRXDeA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=w6Fd-xcoeTPXo5obp7rzjRjKQVGMLwpKk6wBU1F4e7Vnc1nxHuUUb8jxM_KXuNUhOfJovzadpnbREaZymASPoNl5DaeeC2I-NVzlPr8CY1_FWE-Jm_uxgjuO5xEPIJe7y2jhFNRSTzjWpmFfCdg_FXCtk5mEeODZN3qA9suhzPO6BUwn-bvuiYBbbTjkRc3CJdhQP0l3jzGXYT2-C3bHzguC-F-R-fQwTKX82trFyB6pQ19WNiiBuOqJjXSd92bQaZkZ7qhAcWPucNkO7YK7gA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -169,17 +169,17 @@
   .btn-accept-disclaimer{width:100%;padding:14px;background:linear-gradient(135deg,#b8922a,var(--gold));border:none;border-radius:var(--radius-sm);color:#0a0800;font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;letter-spacing:.5px;cursor:pointer;transition:all .2s;opacity:.4;pointer-events:none;}
   .btn-accept-disclaimer.enabled{opacity:1;pointer-events:auto;}
   .btn-accept-disclaimer.enabled:hover{box-shadow:0 6px 24px rgba(201,168,76,.3);}
-  .disclaimer-input-wrap{margin-bottom:16px;}
-  .disclaimer-input-wrap label{display:block;font-size:12px;color:var(--text2);margin-bottom:8px;letter-spacing:.6px;text-transform:none;}
-  .disclaimer-input-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  .disclaimer-input-wrap input{flex:1 1 260px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);}
-  .disclaimer-access-status{margin-top:8px;font-size:12px;min-height:18px;color:var(--text3);}
-  .disclaimer-access-status.ok{color:#7fd39d;}
-  .disclaimer-access-status.error{color:#ff8f8f;}
-  body.app-locked{overflow:hidden;}
-  body.app-locked > *:not(#disclaimerOverlay):not(#logoutAccessBtn):not(script):not(style){display:none !important;}
-  #logoutAccessBtn{position:fixed;top:18px;right:18px;z-index:9501;display:none;}
-
+  .disclaimer-access{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;padding:14px 16px;background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius-sm);}
+  .disclaimer-access label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);}
+  .disclaimer-access-note{font-size:11px;color:var(--text3);line-height:1.5;}
+  .disclaimer-access-status{font-size:12px;min-height:16px;}
+  .disclaimer-access-status.error{color:var(--red);}
+  .disclaimer-access-status.ok{color:var(--green);}
+  body.app-locked header, body.app-locked main.container{display:none !important;}
+  body.app-unlocked header{display:flex !important;}
+  body.app-unlocked main.container{display:block !important;}
+  .logout-btn{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:8px 12px;border-radius:var(--radius-sm);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;transition:all .2s;}
+  .logout-btn:hover{border-color:var(--gold);color:var(--gold);}
 
   /* ── HEADER NAV LINKS ── */
   .header-nav{display:flex;align-items:center;gap:6px;}
@@ -293,12 +293,10 @@
       <p>I testi completi di <strong>Termini di Servizio</strong> e <strong>Privacy & Cookie</strong> sono consultabili qui: <a href="/termini.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Termini</a> · <a href="/privacy.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Privacy</a>.</p>
     </div>
     <div class="disclaimer-footer">
-      <div class="disclaimer-input-wrap">
+      <div class="disclaimer-access">
         <label for="accessCodeInput">Codice di accesso</label>
-        <div class="disclaimer-input-row">
-          <input type="password" id="accessCodeInput" placeholder="Inserisci il codice di accesso" autocomplete="current-password" spellcheck="false">
-        </div>
-        <small style="display:block;margin-top:8px;color:var(--text3);font-size:11px;">L’accesso è riservato. Inserisci il codice corretto, poi seleziona tutte le conferme.</small>
+        <input type="password" id="accessCodeInput" placeholder="Inserisci il codice di accesso" autocomplete="current-password" spellcheck="false">
+        <div class="disclaimer-access-note">L'accesso alla webapp richiede un codice valido oltre all'accettazione delle condizioni d'uso.</div>
         <div class="disclaimer-access-status" id="accessCodeStatus"></div>
       </div>
       <div class="disclaimer-checks">
@@ -315,11 +313,10 @@
           <span>Confermo di non utilizzare il Servizio per violare diritti di terzi, copyright, regolamenti universitari o regole di integrità accademica.</span>
         </label>
       </div>
-      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Accetto — Accedi ad AccademIA</button>
+      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Verifica codice e accedi ad AccademIA</button>
     </div>
   </div>
 </div>
-<button type="button" class="nav-link" id="logoutAccessBtn">↩ Logout</button>
 
 <main class="container">
   <div class="hero">
@@ -761,132 +758,95 @@ function renderGlobalCounter(){
   el.innerHTML=`Budget totale: <strong>${rem} / ${revState.totalBudget}</strong> revisioni rimanenti`;
 }
 
-// ── DISCLAIMER + GATE ACCESSO ──
-const ACCESS_GATE_STORAGE_KEY = '_td_gate_v10';
-const DISCLAIMER_STORAGE_KEY = '_td_accepted_v10';
-const ACCESS_GATE_VALUE = 'robpac-accademia-2026';
+// ── ACCESS GATE + DISCLAIMER ──
+const ACCESS_CODE='robpac-accademia-2026';
+const GATE_KEY='_td_gate_v11';
+const ACCEPT_KEY='_td_accepted_v11';
 
-function hasValidGate(){
-  return sessionStorage.getItem(ACCESS_GATE_STORAGE_KEY)==='1' && sessionStorage.getItem(DISCLAIMER_STORAGE_KEY)==='1';
-}
-
-function setAccessLockedState(locked){
-  document.body.classList.toggle('app-locked', locked);
-  const overlay=document.getElementById('disclaimerOverlay');
-  const logoutBtn=document.getElementById('logoutAccessBtn');
-  if(overlay) overlay.style.display = locked ? 'flex' : 'none';
-  if(logoutBtn) logoutBtn.style.display = locked ? 'none' : 'inline-flex';
-}
-
-function setAccessStatus(message='', type=''){
-  const status=document.getElementById('accessCodeStatus');
-  if(!status) return;
-  status.textContent = message;
-  status.className = 'disclaimer-access-status' + (type ? ` ${type}` : '');
-}
-
-function isCodeValid(){
-  const input=document.getElementById('accessCodeInput');
-  return ((input?.value || '').trim() === ACCESS_GATE_VALUE);
-}
-
-function areChecksValid(){
+function updateAccessButtonState(){
   const c1=document.getElementById('check1');
   const c2=document.getElementById('check2');
   const c3=document.getElementById('check3');
-  return !!(c1 && c2 && c3 && c1.checked && c2.checked && c3.checked);
+  const code=document.getElementById('accessCodeInput');
+  const btn=document.getElementById('btnAcceptDisclaimer');
+  if(!c1||!c2||!c3||!code||!btn) return;
+  const ready=!!(c1.checked&&c2.checked&&c3.checked&&code.value.trim());
+  btn.disabled=!ready;
+  btn.setAttribute('aria-disabled', String(!ready));
+  btn.classList.toggle('enabled', ready);
+  btn.style.pointerEvents=ready?'auto':'none';
+  btn.style.opacity=ready?'1':'0.4';
 }
 
-function refreshGateButton(){
-  const btn=document.getElementById('btnAcceptDisclaimer');
-  if(!btn) return;
-  const enabled = isCodeValid() && areChecksValid();
-  btn.disabled = !enabled;
-  btn.setAttribute('aria-disabled', String(!enabled));
-  btn.classList.toggle('enabled', enabled);
-  btn.style.pointerEvents = enabled ? 'auto' : 'none';
-  btn.style.opacity = enabled ? '1' : '0.4';
+function applyAccessState(isUnlocked){
+  const overlay=document.getElementById('disclaimerOverlay');
+  document.body.classList.toggle('app-locked', !isUnlocked);
+  document.body.classList.toggle('app-unlocked', isUnlocked);
+  if(overlay){
+    overlay.style.display=isUnlocked?'none':'flex';
+    overlay.classList.toggle('open', !isUnlocked);
+  }
 }
 
 function acceptDisclaimer(){
-  if(!isCodeValid()){
-    setAccessStatus('Codice non valido.', 'error');
-    refreshGateButton();
+  const code=document.getElementById('accessCodeInput');
+  const status=document.getElementById('accessCodeStatus');
+  const c1=document.getElementById('check1');
+  const c2=document.getElementById('check2');
+  const c3=document.getElementById('check3');
+  if(!code||!status||!c1||!c2||!c3) return;
+  const entered=code.value.trim();
+  const checksOk=!!(c1.checked&&c2.checked&&c3.checked);
+  if(entered!==ACCESS_CODE){
+    status.textContent='Codice di accesso non valido.';
+    status.className='disclaimer-access-status error';
+    applyAccessState(false);
     return;
   }
-  if(!areChecksValid()){
-    setAccessStatus('Seleziona tutte le conferme richieste.', 'error');
-    refreshGateButton();
+  if(!checksOk){
+    status.textContent='Devi confermare tutte e tre le caselle prima di accedere.';
+    status.className='disclaimer-access-status error';
+    applyAccessState(false);
     return;
   }
-  sessionStorage.setItem(ACCESS_GATE_STORAGE_KEY, '1');
-  sessionStorage.setItem(DISCLAIMER_STORAGE_KEY, '1');
-  setAccessStatus('');
-  setAccessLockedState(false);
+  sessionStorage.setItem(GATE_KEY,'1');
+  sessionStorage.setItem(ACCEPT_KEY,'1');
+  status.textContent='Accesso autorizzato.';
+  status.className='disclaimer-access-status ok';
+  applyAccessState(true);
 }
 
-function logoutAccademiaAccess(){
-  sessionStorage.removeItem(ACCESS_GATE_STORAGE_KEY);
-  sessionStorage.removeItem(DISCLAIMER_STORAGE_KEY);
-  sessionStorage.removeItem('_td_accepted');
-  ['check1','check2','check3'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.checked = false;
-  });
-  const input=document.getElementById('accessCodeInput');
-  if(input) input.value = '';
-  setAccessStatus('Inserisci il codice di accesso e seleziona tutte le conferme.');
-  refreshGateButton();
-  setAccessLockedState(true);
-  window.scrollTo(0,0);
+function logoutAccess(){
+  sessionStorage.removeItem(GATE_KEY);
+  sessionStorage.removeItem(ACCEPT_KEY);
+  const code=document.getElementById('accessCodeInput');
+  const status=document.getElementById('accessCodeStatus');
+  ['check1','check2','check3'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+  if(code) code.value='';
+  if(status){ status.textContent=''; status.className='disclaimer-access-status'; }
+  updateAccessButtonState();
+  applyAccessState(false);
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('btnAcceptDisclaimer');
-  const accessInput=document.getElementById('accessCodeInput');
-  const logoutBtn=document.getElementById('logoutAccessBtn');
-
+  const code=document.getElementById('accessCodeInput');
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el){
-      el.addEventListener('change', refreshGateButton);
-      el.addEventListener('input', refreshGateButton);
-      el.addEventListener('click', ()=>setTimeout(refreshGateButton,0));
-    }
+    if(el) el.addEventListener('change',updateAccessButtonState);
   });
-
-  if(accessInput){
-    accessInput.addEventListener('input', ()=>{
-      const raw = (accessInput.value || '').trim();
-      if(!raw){
-        setAccessStatus('Inserisci il codice di accesso e seleziona tutte le conferme.');
-      }else if(raw === ACCESS_GATE_VALUE){
-        setAccessStatus('Codice corretto. Ora seleziona tutte le conferme e accedi.', 'ok');
-      }else{
-        setAccessStatus('Codice non valido.', 'error');
-      }
-      refreshGateButton();
+  if(code){
+    code.addEventListener('input',()=>{
+      const status=document.getElementById('accessCodeStatus');
+      if(status){ status.textContent=''; status.className='disclaimer-access-status'; }
+      updateAccessButtonState();
     });
-    accessInput.addEventListener('keydown',(e)=>{
-      if(e.key==='Enter'){
-        e.preventDefault();
-        acceptDisclaimer();
-      }
-    });
+    code.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); if(btn && !btn.disabled) acceptDisclaimer(); } });
   }
-
-  if(btn) btn.addEventListener('click', acceptDisclaimer);
-  if(logoutBtn) logoutBtn.addEventListener('click', logoutAccademiaAccess);
-
-  if(hasValidGate()){
-    setAccessLockedState(false);
-    setAccessStatus('');
-  }else{
-    setAccessLockedState(true);
-    setAccessStatus('Inserisci il codice di accesso e seleziona tutte le conferme.');
-  }
-
-  refreshGateButton();
+  if(btn) btn.addEventListener('click',acceptDisclaimer);
+  const unlocked=sessionStorage.getItem(GATE_KEY)==='1' && sessionStorage.getItem(ACCEPT_KEY)==='1';
+  applyAccessState(unlocked);
+  updateAccessButtonState();
   restoreProgressOnLoad();
 });
 
