@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=1hBM1Bp7OxLLaBRLlI29t-JGMgt-8xTHKMfcHXBiFAEWX1khRFlol9qMq82AbP6gSMxrkXykJwm0xnu2l-5CQsOmBKGq4bgy7kemkARA1FpPShl3ihqmn80p_-ECoY82IryvMKYQ_jk680EUqcgBP5vBiEHS-C6a0JX59cSfuUd2joiaszPosQ-IcUJ4sAkhX_x8fS3Bqdx_-LMiW6cv8X3sLlR91m9qBQAtdzsTbTNWNvyJTKrsMar5XMOgCtS5n4MKFpTkve4anSBMRaAtZw" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=6taG4sLf5fpy_Cp34lhxx-sIDfNZp9xzb_kBrLq-Wf35aDPrTjG5PvhBh2yyXAXJxrLyEPLTluwn8UUOL2F_FhrZCSrVKqSJaCMgs4l2ZaluHBZ6YkbvfaWZkpL9nKASdHmTDLlKHDNBi6-2wXsRCBWLs1twZYmlZsN8HusJwyA91UWZlKsfh9_G47X4N8DlScEtXqvUO18lT5lSj2zpPTX0cYay5Gk9w5WWxpmmDgtxDRmH3Je7bPLUEaQ4_Iw_ul5Ct6Dty1HH7VnWYCyRjQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=bIfHXLu33Et6-Cd3gGc9Ni9_n1SRkB3gOr7XzHPqB8W_3l5opz59_lVfeYhYauExP34hu_JMgaJRDTe0ia6FMkqqvHqa2qqcnLsTYOrytYC7zi_3KeLLtmoXKK0cD-P97HCEyhghxuC1loMERTH2F609BygMna5B3FrT9ZGZKaS9bqb6fBFNn_ABRyb0BdpK1Ok3yg2rATU2gUBqtnDB_GZ0Jhsl4SaeyPxO2BjrrCaWJ23BIJHFbV7zYOtpQ-0ExzdXV1Kr-FwmIQdhhtn6JQ" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -151,6 +151,12 @@
 
   /* ── DISCLAIMER MODALE OBBLIGATORIO ── */
   .disclaimer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);backdrop-filter:blur(16px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
+  body.app-locked header,
+  body.app-locked main{display:none!important;}
+  body.app-unlocked header,
+  body.app-unlocked main{display:block;}
+  body.app-locked .disclaimer-overlay{display:flex!important;}
+
   .disclaimer-box{background:var(--bg2);border:1px solid rgba(201,168,76,.3);border-radius:20px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;position:relative;overflow:hidden;}
   .disclaimer-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .disclaimer-header{padding:28px 32px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
@@ -243,7 +249,7 @@
 
 </style>
 </head>
-<body>
+<body class="app-locked">
 
 <header>
   <a class="logo" href="#">
@@ -759,11 +765,13 @@ function renderGlobalCounter(){
 }
 
 // ── DISCLAIMER + GATE ACCESSO ──
-const ACCESS_GATE_STORAGE_KEY = '_td_gate_v4';
+const ACCESS_GATE_STORAGE_KEY = '_td_gate_v5';
+const ACCESS_DISCLAIMER_STORAGE_KEY = '_td_disclaimer_v5';
 const ACCESS_GATE_VALUE = 'robpac-accademia-2026';
 
 function hasValidGate(){
-  return sessionStorage.getItem(ACCESS_GATE_STORAGE_KEY)==='1';
+  return sessionStorage.getItem(ACCESS_GATE_STORAGE_KEY)==='1'
+    && sessionStorage.getItem(ACCESS_DISCLAIMER_STORAGE_KEY)==='1';
 }
 
 function updateLogoutButtonVisibility(){
@@ -783,84 +791,129 @@ function isAccessCodeValid(){
   return !!(input && input.value.trim()===ACCESS_GATE_VALUE);
 }
 
-function checkDisclaimer(){
+function updateGateButtonState(){
   const c1=document.getElementById('check1');
   const c2=document.getElementById('check2');
   const c3=document.getElementById('check3');
   const btn=document.getElementById('btnAcceptDisclaimer');
   if(!c1||!c2||!c3||!btn) return;
-  const allChecked=!!(c1.checked&&c2.checked&&c3.checked);
-  const codeOk = hasValidGate() || isAccessCodeValid();
+  const allChecked = !!(c1.checked && c2.checked && c3.checked);
+  const codeOk = isAccessCodeValid();
   const enabled = allChecked && codeOk;
-  btn.disabled=!enabled;
+  btn.disabled = !enabled;
   btn.setAttribute('aria-disabled', String(!enabled));
   btn.classList.toggle('enabled', enabled);
-  btn.style.pointerEvents=enabled?'auto':'none';
-  btn.style.opacity=enabled?'1':'0.4';
+  btn.style.pointerEvents = enabled ? 'auto' : 'none';
+  btn.style.opacity = enabled ? '1' : '0.4';
 
-  if(hasValidGate()){
-    setAccessStatus('Accesso autorizzato in questa sessione.','ok');
+  const raw=document.getElementById('accessCodeInput')?.value.trim() || '';
+  if(!raw){
+    setAccessStatus('');
+  }else if(codeOk){
+    setAccessStatus('Codice corretto. Puoi entrare dopo aver selezionato tutte le conferme.','ok');
   }else{
-    const raw=document.getElementById('accessCodeInput')?.value.trim() || '';
-    if(!raw){
-      setAccessStatus('');
-    }else if(codeOk){
-      setAccessStatus('Codice corretto. Puoi entrare dopo aver selezionato tutte le conferme.','ok');
-    }else{
-      setAccessStatus('Codice non valido.','error');
-    }
+    setAccessStatus('Codice non valido.','error');
   }
 }
-function acceptDisclaimer(){
-  if(!hasValidGate() && !isAccessCodeValid()){
-    setAccessStatus('Codice non valido.','error');
-    checkDisclaimer();
-    return;
-  }
-  sessionStorage.setItem(ACCESS_GATE_STORAGE_KEY,'1');
-  sessionStorage.setItem('_td_accepted','1');
+
+function lockAccademiaApp(){
   const overlay=document.getElementById('disclaimerOverlay');
+  document.body.classList.add('app-locked');
+  document.body.classList.remove('app-unlocked');
+  if(overlay){
+    overlay.style.display='flex';
+    overlay.classList.add('open');
+  }
+  updateLogoutButtonVisibility();
+}
+
+function unlockAccademiaApp(){
+  const overlay=document.getElementById('disclaimerOverlay');
+  document.body.classList.remove('app-locked');
+  document.body.classList.add('app-unlocked');
   if(overlay){
     overlay.style.display='none';
     overlay.classList.remove('open');
   }
   updateLogoutButtonVisibility();
 }
+
+function acceptDisclaimer(){
+  if(!isAccessCodeValid()){
+    setAccessStatus('Codice non valido.','error');
+    updateGateButtonState();
+    return;
+  }
+  const c1=document.getElementById('check1');
+  const c2=document.getElementById('check2');
+  const c3=document.getElementById('check3');
+  if(!(c1?.checked && c2?.checked && c3?.checked)){
+    updateGateButtonState();
+    return;
+  }
+  sessionStorage.setItem(ACCESS_GATE_STORAGE_KEY,'1');
+  sessionStorage.setItem(ACCESS_DISCLAIMER_STORAGE_KEY,'1');
+  unlockAccademiaApp();
+}
+
 function logoutAccademiaAccess(){
   sessionStorage.removeItem(ACCESS_GATE_STORAGE_KEY);
+  sessionStorage.removeItem(ACCESS_DISCLAIMER_STORAGE_KEY);
+  sessionStorage.removeItem('_td_gate_v4');
   sessionStorage.removeItem('_td_accepted');
-  window.location.reload();
+  const accessInput=document.getElementById('accessCodeInput');
+  if(accessInput) accessInput.value='';
+  ['check1','check2','check3'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.checked=false;
+  });
+  setAccessStatus('');
+  updateGateButtonState();
+  lockAccademiaApp();
+  window.scrollTo({top:0,behavior:'auto'});
 }
-// Mostra disclaimer se non già accettato + collega gli eventi in modo robusto
+
 window.addEventListener('DOMContentLoaded',()=>{
   const overlay=document.getElementById('disclaimerOverlay');
   const btn=document.getElementById('btnAcceptDisclaimer');
   const accessInput=document.getElementById('accessCodeInput');
+
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){
-      el.addEventListener('change',checkDisclaimer);
-      el.addEventListener('input',checkDisclaimer);
-      el.addEventListener('click',()=>setTimeout(checkDisclaimer,0));
+      el.addEventListener('change',updateGateButtonState);
+      el.addEventListener('input',updateGateButtonState);
+      el.addEventListener('click',()=>setTimeout(updateGateButtonState,0));
     }
   });
+
   if(accessInput){
-    accessInput.addEventListener('input',checkDisclaimer);
+    accessInput.value='';
+    accessInput.addEventListener('input',updateGateButtonState);
     accessInput.addEventListener('keydown',(e)=>{
-      if(e.key==='Enter' && btn && !btn.disabled){
+      if(e.key==='Enter'){
         e.preventDefault();
-        acceptDisclaimer();
+        if(btn && !btn.disabled) acceptDisclaimer();
       }
     });
   }
+
   if(btn){
     btn.addEventListener('click',acceptDisclaimer);
   }
-  checkDisclaimer();
-  const unlocked = hasValidGate() && sessionStorage.getItem('_td_accepted')==='1';
-  if(overlay) overlay.style.display = unlocked ? 'none' : 'flex';
-  updateLogoutButtonVisibility();
+
+  if(overlay){
+    overlay.style.display='flex';
+    overlay.classList.add('open');
+  }
+
   restoreProgressOnLoad();
+  if(hasValidGate()){
+    unlockAccademiaApp();
+  }else{
+    lockAccademiaApp();
+    updateGateButtonState();
+  }
 });
 
 // ── GUIDA COLLASSABILE ──
