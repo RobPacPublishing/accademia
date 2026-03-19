@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=bIfHXLu33Et6-Cd3gGc9Ni9_n1SRkB3gOr7XzHPqB8W_3l5opz59_lVfeYhYauExP34hu_JMgaJRDTe0ia6FMkqqvHqa2qqcnLsTYOrytYC7zi_3KeLLtmoXKK0cD-P97HCEyhghxuC1loMERTH2F609BygMna5B3FrT9ZGZKaS9bqb6fBFNn_ABRyb0BdpK1Ok3yg2rATU2gUBqtnDB_GZ0Jhsl4SaeyPxO2BjrrCaWJ23BIJHFbV7zYOtpQ-0ExzdXV1Kr-FwmIQdhhtn6JQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=nqRy3OtIu1eT_-gnpgKv8aHAtwA9jiH4WymcW65B7yk7UteV4iwJkq8du0toPU94lZg7UCJOQDcZEWkiY0sjtsHJgd4yI758t-pMG7WF_OIKf4cnXF75j90UV7wekzbm11ng-jh2JYH5UlZkPssEcwk6i5wp5DWNwwFer0gX8i4B45uqupjAAHbiTFYPK8FqPiT1fJ4rhxfT4L-23xbdZhUrPFalsPGuXfUX8I2dRsbqTyT110pIOrtetpoH_ZJk3mW_uPrc8-K2Ab0x52c99Q" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -151,12 +151,6 @@
 
   /* ── DISCLAIMER MODALE OBBLIGATORIO ── */
   .disclaimer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);backdrop-filter:blur(16px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
-  body.app-locked header,
-  body.app-locked main{display:none!important;}
-  body.app-unlocked header,
-  body.app-unlocked main{display:block;}
-  body.app-locked .disclaimer-overlay{display:flex!important;}
-
   .disclaimer-box{background:var(--bg2);border:1px solid rgba(201,168,76,.3);border-radius:20px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;position:relative;overflow:hidden;}
   .disclaimer-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .disclaimer-header{padding:28px 32px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
@@ -238,14 +232,14 @@
   .tos-section em{color:var(--text3);font-style:italic;}
   .tos-date{font-size:11px;color:var(--text3);margin-bottom:20px;}
 
-  .disclaimer-access{margin-bottom:16px;padding:14px 16px;background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius-sm);}
-  .disclaimer-access label{display:block;font-size:11px;color:var(--text3);margin-bottom:8px;letter-spacing:.4px;text-transform:uppercase;}
-  .disclaimer-access input{width:100%;padding:12px 14px;background:#0f1318;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s, box-shadow .2s;}
-  .disclaimer-access input:focus{border-color:rgba(201,168,76,.55);box-shadow:0 0 0 3px rgba(201,168,76,.12);}
-  .disclaimer-access-note{margin-top:8px;font-size:11px;color:var(--text3);line-height:1.5;}
-  .disclaimer-access-status{min-height:18px;margin-top:8px;font-size:11px;color:var(--text3);}
-  .disclaimer-access-status.error{color:#d98989;}
-  .disclaimer-access-status.ok{color:#9cc79c;}
+  body.app-locked header,
+  body.app-locked main{display:none!important;}
+  body.app-ready header,
+  body.app-ready main{display:block;}
+  .header-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .disclaimer-input-wrap{margin-bottom:18px;}
+  .disclaimer-input-wrap input{margin-top:8px;}
+  .access-error{min-height:18px;margin-top:8px;font-size:12px;color:var(--red);}
 
 </style>
 </head>
@@ -259,7 +253,6 @@
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini e Privacy</button>
     <button class="nav-link" id="logoutAccessBtn" onclick="logoutAccademiaAccess()" style="display:none;">↩ Logout</button>
-
   </div>
 </header>
 
@@ -299,11 +292,10 @@
       <p>I testi completi di <strong>Termini di Servizio</strong> e <strong>Privacy & Cookie</strong> sono consultabili qui: <a href="/termini.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Termini</a> · <a href="/privacy.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Privacy</a>.</p>
     </div>
     <div class="disclaimer-footer">
-      <div class="disclaimer-access">
+      <div class="disclaimer-input-wrap">
         <label for="accessCodeInput">Codice di accesso</label>
         <input type="password" id="accessCodeInput" placeholder="Inserisci il codice di accesso" autocomplete="current-password" spellcheck="false">
-        <div class="disclaimer-access-note">L'accesso alla webapp richiede un codice valido oltre all'accettazione delle condizioni d'uso.</div>
-        <div class="disclaimer-access-status" id="accessCodeStatus"></div>
+        <div class="access-error" id="accessError"></div>
       </div>
       <div class="disclaimer-checks">
         <label class="disclaimer-check">
@@ -319,7 +311,7 @@
           <span>Confermo di non utilizzare il Servizio per violare diritti di terzi, copyright, regolamenti universitari o regole di integrità accademica.</span>
         </label>
       </div>
-      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Accetto — Accedi ad AccademIA</button>
+      <button type="button" class="btn-accept-disclaimer" id="btnAcceptDisclaimer" disabled>Sblocca e accedi ad AccademIA</button>
     </div>
   </div>
 </div>
@@ -764,156 +756,91 @@ function renderGlobalCounter(){
   el.innerHTML=`Budget totale: <strong>${rem} / ${revState.totalBudget}</strong> revisioni rimanenti`;
 }
 
-// ── DISCLAIMER + GATE ACCESSO ──
-const ACCESS_GATE_STORAGE_KEY = '_td_gate_v5';
-const ACCESS_DISCLAIMER_STORAGE_KEY = '_td_disclaimer_v5';
-const ACCESS_GATE_VALUE = 'robpac-accademia-2026';
+// ── ACCESS GATE + DISCLAIMER ──
+const ACCESS_CODE = 'robpac-accademia-2026';
+const ACCESS_SESSION_KEY = '_td_gate_v5';
+const DISCLAIMER_SESSION_KEY = '_td_accepted_v5';
 
-function hasValidGate(){
-  return sessionStorage.getItem(ACCESS_GATE_STORAGE_KEY)==='1'
-    && sessionStorage.getItem(ACCESS_DISCLAIMER_STORAGE_KEY)==='1';
+function setAppLockedState(locked){
+  document.body.classList.toggle('app-locked', locked);
+  document.body.classList.toggle('app-ready', !locked);
+  const overlay=document.getElementById('disclaimerOverlay');
+  const logoutBtn=document.getElementById('logoutAccessBtn');
+  if(overlay) overlay.style.display = locked ? 'flex' : 'none';
+  if(logoutBtn) logoutBtn.style.display = locked ? 'none' : 'inline-flex';
 }
 
-function updateLogoutButtonVisibility(){
-  const btn=document.getElementById('logoutAccessBtn');
-  if(btn) btn.style.display = hasValidGate() ? 'inline-flex' : 'none';
+function isAccessUnlocked(){
+  return sessionStorage.getItem(ACCESS_SESSION_KEY)==='1' && sessionStorage.getItem(DISCLAIMER_SESSION_KEY)==='1';
 }
 
-function setAccessStatus(message='',type=''){
-  const status=document.getElementById('accessCodeStatus');
-  if(!status) return;
-  status.textContent=message;
-  status.className='disclaimer-access-status'+(type?` ${type}`:'');
-}
-
-function isAccessCodeValid(){
-  const input=document.getElementById('accessCodeInput');
-  return !!(input && input.value.trim()===ACCESS_GATE_VALUE);
-}
-
-function updateGateButtonState(){
+function checkDisclaimer(){
   const c1=document.getElementById('check1');
   const c2=document.getElementById('check2');
   const c3=document.getElementById('check3');
   const btn=document.getElementById('btnAcceptDisclaimer');
-  if(!c1||!c2||!c3||!btn) return;
-  const allChecked = !!(c1.checked && c2.checked && c3.checked);
-  const codeOk = isAccessCodeValid();
-  const enabled = allChecked && codeOk;
-  btn.disabled = !enabled;
-  btn.setAttribute('aria-disabled', String(!enabled));
-  btn.classList.toggle('enabled', enabled);
-  btn.style.pointerEvents = enabled ? 'auto' : 'none';
-  btn.style.opacity = enabled ? '1' : '0.4';
-
-  const raw=document.getElementById('accessCodeInput')?.value.trim() || '';
-  if(!raw){
-    setAccessStatus('');
-  }else if(codeOk){
-    setAccessStatus('Codice corretto. Puoi entrare dopo aver selezionato tutte le conferme.','ok');
-  }else{
-    setAccessStatus('Codice non valido.','error');
-  }
-}
-
-function lockAccademiaApp(){
-  const overlay=document.getElementById('disclaimerOverlay');
-  document.body.classList.add('app-locked');
-  document.body.classList.remove('app-unlocked');
-  if(overlay){
-    overlay.style.display='flex';
-    overlay.classList.add('open');
-  }
-  updateLogoutButtonVisibility();
-}
-
-function unlockAccademiaApp(){
-  const overlay=document.getElementById('disclaimerOverlay');
-  document.body.classList.remove('app-locked');
-  document.body.classList.add('app-unlocked');
-  if(overlay){
-    overlay.style.display='none';
-    overlay.classList.remove('open');
-  }
-  updateLogoutButtonVisibility();
+  const input=document.getElementById('accessCodeInput');
+  const error=document.getElementById('accessError');
+  if(!c1||!c2||!c3||!btn||!input) return;
+  const allChecked=!!(c1.checked&&c2.checked&&c3.checked);
+  const hasCode=input.value.trim().length>0;
+  btn.disabled=!(allChecked&&hasCode);
+  btn.setAttribute('aria-disabled', String(btn.disabled));
+  btn.classList.toggle('enabled', !btn.disabled);
+  btn.style.pointerEvents=btn.disabled?'none':'auto';
+  btn.style.opacity=btn.disabled?'0.4':'1';
+  if(error && input.value.trim()) error.textContent='';
 }
 
 function acceptDisclaimer(){
-  if(!isAccessCodeValid()){
-    setAccessStatus('Codice non valido.','error');
-    updateGateButtonState();
+  const input=document.getElementById('accessCodeInput');
+  const error=document.getElementById('accessError');
+  const raw=(input?.value||'').trim();
+  if(raw!==ACCESS_CODE){
+    if(error) error.textContent='Codice di accesso non valido.';
+    setAppLockedState(true);
     return;
   }
-  const c1=document.getElementById('check1');
-  const c2=document.getElementById('check2');
-  const c3=document.getElementById('check3');
-  if(!(c1?.checked && c2?.checked && c3?.checked)){
-    updateGateButtonState();
-    return;
-  }
-  sessionStorage.setItem(ACCESS_GATE_STORAGE_KEY,'1');
-  sessionStorage.setItem(ACCESS_DISCLAIMER_STORAGE_KEY,'1');
-  unlockAccademiaApp();
+  sessionStorage.setItem(ACCESS_SESSION_KEY,'1');
+  sessionStorage.setItem(DISCLAIMER_SESSION_KEY,'1');
+  if(error) error.textContent='';
+  setAppLockedState(false);
+  restoreProgressOnLoad();
 }
 
 function logoutAccademiaAccess(){
-  sessionStorage.removeItem(ACCESS_GATE_STORAGE_KEY);
-  sessionStorage.removeItem(ACCESS_DISCLAIMER_STORAGE_KEY);
-  sessionStorage.removeItem('_td_gate_v4');
+  sessionStorage.removeItem(ACCESS_SESSION_KEY);
+  sessionStorage.removeItem(DISCLAIMER_SESSION_KEY);
   sessionStorage.removeItem('_td_accepted');
-  const accessInput=document.getElementById('accessCodeInput');
-  if(accessInput) accessInput.value='';
-  ['check1','check2','check3'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.checked=false;
-  });
-  setAccessStatus('');
-  updateGateButtonState();
-  lockAccademiaApp();
-  window.scrollTo({top:0,behavior:'auto'});
+  const input=document.getElementById('accessCodeInput');
+  const error=document.getElementById('accessError');
+  ['check1','check2','check3'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+  if(input) input.value='';
+  if(error) error.textContent='';
+  checkDisclaimer();
+  setAppLockedState(true);
+  window.scrollTo({top:0, behavior:'instant'});
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
-  const overlay=document.getElementById('disclaimerOverlay');
   const btn=document.getElementById('btnAcceptDisclaimer');
-  const accessInput=document.getElementById('accessCodeInput');
-
+  const input=document.getElementById('accessCodeInput');
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){
-      el.addEventListener('change',updateGateButtonState);
-      el.addEventListener('input',updateGateButtonState);
-      el.addEventListener('click',()=>setTimeout(updateGateButtonState,0));
+      el.addEventListener('change',checkDisclaimer);
+      el.addEventListener('input',checkDisclaimer);
+      el.addEventListener('click',()=>setTimeout(checkDisclaimer,0));
     }
   });
-
-  if(accessInput){
-    accessInput.value='';
-    accessInput.addEventListener('input',updateGateButtonState);
-    accessInput.addEventListener('keydown',(e)=>{
-      if(e.key==='Enter'){
-        e.preventDefault();
-        if(btn && !btn.disabled) acceptDisclaimer();
-      }
-    });
+  if(input){
+    input.addEventListener('input',checkDisclaimer);
+    input.addEventListener('keydown',(e)=>{ if(e.key==='Enter' && !btn.disabled) acceptDisclaimer(); });
   }
-
-  if(btn){
-    btn.addEventListener('click',acceptDisclaimer);
-  }
-
-  if(overlay){
-    overlay.style.display='flex';
-    overlay.classList.add('open');
-  }
-
-  restoreProgressOnLoad();
-  if(hasValidGate()){
-    unlockAccademiaApp();
-  }else{
-    lockAccademiaApp();
-    updateGateButtonState();
-  }
+  if(btn) btn.addEventListener('click',acceptDisclaimer);
+  checkDisclaimer();
+  setAppLockedState(!isAccessUnlocked());
+  if(isAccessUnlocked()) restoreProgressOnLoad();
 });
 
 // ── GUIDA COLLASSABILE ──
@@ -1831,17 +1758,7 @@ function buildWordHTML(){
   thesis.chapters.forEach((ch,i)=>{
     b+=`<div style="page-break-before:always"><h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title)}</h2><div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(ch.content)}</div></div><br>`;
   });
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}@page{margin:3cm 2.5cm}
-  .disclaimer-access{margin-bottom:16px;padding:14px 16px;background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius-sm);}
-  .disclaimer-access label{display:block;font-size:11px;color:var(--text3);margin-bottom:8px;letter-spacing:.4px;text-transform:uppercase;}
-  .disclaimer-access input{width:100%;padding:12px 14px;background:#0f1318;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s, box-shadow .2s;}
-  .disclaimer-access input:focus{border-color:rgba(201,168,76,.55);box-shadow:0 0 0 3px rgba(201,168,76,.12);}
-  .disclaimer-access-note{margin-top:8px;font-size:11px;color:var(--text3);line-height:1.5;}
-  .disclaimer-access-status{min-height:18px;margin-top:8px;font-size:11px;color:var(--text3);}
-  .disclaimer-access-status.error{color:#d98989;}
-  .disclaimer-access-status.ok{color:#9cc79c;}
-
-</style></head><body>${b}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}@page{margin:3cm 2.5cm}</style></head><body>${b}</body></html>`;
 }
 function formatChapterHtml(text){
   return text.split('\n').map(line=>{
@@ -1901,138 +1818,14 @@ function normalizeTitleBase(topic){
   return (topic||'').replace(/\s+/g,' ').trim().replace(/[\.;:!?]+$/,'');
 }
 
-function normalizeTitleComparison(value){
-  return normalizeTitleBase(value)
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^a-z0-9\s]/gi,' ')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-
-function significantTitleTokens(value){
-  const stopwords=new Set([
-    'il','lo','la','i','gli','le','un','uno','una','l','di','del','della','dello','dei','degli','delle',
-    'a','ad','da','dal','dalla','dallo','dei','degli','in','nel','nella','nei','nelle','su','sul','sulla',
-    'sui','sulle','con','per','tra','fra','e','ed','o','al','allo','alla','agli','alle','dell','all','oggi'
-  ]);
-  return normalizeTitleComparison(value)
-    .split(' ')
-    .filter(token=>token && token.length>2 && !stopwords.has(token));
-}
-
-function titleSimilarity(a,b){
-  const ta=[...new Set(significantTitleTokens(a))];
-  const tb=[...new Set(significantTitleTokens(b))];
-  if(!ta.length || !tb.length) return normalizeTitleComparison(a)===normalizeTitleComparison(b)?1:0;
-  const setB=new Set(tb);
-  const overlap=ta.filter(token=>setB.has(token)).length;
-  return overlap/Math.max(ta.length,tb.length);
-}
-
-function capitalizeFirst(value){
-  if(!value) return '';
-  return value.charAt(0).toUpperCase()+value.slice(1);
-}
-
-function cleanTopicSegment(value){
-  return normalizeTitleBase(value)
-    .replace(/^['"“”‘’]+|['"“”‘’]+$/g,'')
-    .replace(/^(analisi|studio|ricerca|valutazione|esame|approfondimento)\s+(di|del|della|dell['’]|dello|dei|degli|delle)\s+/i,'')
-    .replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i,'')
-    .replace(/^l['’](?=[aeiouàèéìòóù])/i,'')
-    .trim();
-}
-
-function parseTopicForTitleSuggestions(topic){
-  const base=normalizeTitleBase(topic);
-  if(!base) return {mode:'generic',focus:''};
-
-  let m=base.match(/^(?:l['’]|il |lo |la |i |gli |le )?(?:impatto|influenza|effetti?|ruolo|incidenza|contributo|rapporto)\s+(?:di|del|della|dell['’]|dello|dei|degli|delle)\s*(.+?)\s+(?:su|sul|sulla|sui|sulle|nel|nella|nei|nelle|in|rispetto a|all'interno di)\s+(.+)$/i);
-  if(m){
-    return {mode:'relation',left:cleanTopicSegment(m[1]),right:normalizeTitleBase(m[2])};
-  }
-
-  m=base.match(/^(.+?)\s+(?:e|ed)\s+(.+)$/i);
-  if(m){
-    return {mode:'pair',left:cleanTopicSegment(m[1]),right:cleanTopicSegment(m[2])};
-  }
-
-  m=base.match(/^(.+?)\s+(?:nel|nella|nei|nelle|in|durante|tra|fra)\s+(.+)$/i);
-  if(m){
-    return {mode:'context',focus:cleanTopicSegment(m[1]),context:normalizeTitleBase(m[2])};
-  }
-
-  return {mode:'generic',focus:cleanTopicSegment(base)};
-}
-
-function buildTitleCandidates(base,parsed){
-  if(parsed.mode==='relation'){
-    const left=parsed.left;
-    const right=parsed.right;
-    return [
-      `Tra ${right} e ${left}: quadro teorico, trasformazioni e questioni aperte`,
-      `${capitalizeFirst(right)} di fronte a ${left}: interpretazioni, impatti e prospettive`,
-      `Ripensare ${right} attraverso ${left}: modelli di analisi e applicazioni`,
-      `Oltre il rapporto tra ${left} e ${right}: nodi critici e sviluppi`,
-      `${capitalizeFirst(left)} e ${right}: un'indagine critica tra teoria e casi`
-    ];
-  }
-
-  if(parsed.mode==='pair'){
-    const left=parsed.left;
-    const right=parsed.right;
-    return [
-      `Tra ${left} e ${right}: convergenze, tensioni e sviluppi teorici`,
-      `Ripensare ${left} e ${right}: modelli interpretativi e problemi aperti`,
-      `Oltre la dicotomia tra ${left} e ${right}: letture critiche e applicazioni`,
-      `${capitalizeFirst(left)} e ${right}: un percorso di analisi tra teoria e metodo`,
-      `Questioni aperte intorno a ${left} e ${right}: prospettive, limiti e trasformazioni`
-    ];
-  }
-
-  if(parsed.mode==='context'){
-    const focus=parsed.focus;
-    const context=parsed.context;
-    return [
-      `${capitalizeFirst(focus)} e ${context}: quadri teorici, problemi aperti e sviluppi`,
-      `Ripensare ${context} attraverso ${focus}: modelli interpretativi e implicazioni`,
-      `Oltre ${focus} in ${context}: nodi critici e prospettive di ricerca`,
-      `Interpretare ${context} alla luce di ${focus}: approcci, limiti e applicazioni`,
-      `Percorsi di ricerca su ${focus} in ${context}: tra teoria, metodo e casi`
-    ];
-  }
-
-  const focus=parsed.focus||base;
-  return [
-    `Ripensare ${focus}: quadro teorico, nodi critici e prospettive di ricerca`,
-    `Oltre ${focus}: interpretazioni, trasformazioni e applicazioni`,
-    `Questioni aperte intorno a ${focus}: approcci, limiti e sviluppi`,
-    `Interpretare ${focus} oggi: modelli di analisi e problemi emergenti`,
-    `Percorsi di ricerca su ${focus}: tra teoria, metodo e casi`
-  ];
-}
-
 function createTitleSuggestions(topic){
   const base=normalizeTitleBase(topic);
   if(!base || base.length<12) return [];
-  const parsed=parseTopicForTitleSuggestions(base);
-  const baseNorm=normalizeTitleComparison(base);
-  const unique=[];
-
-  buildTitleCandidates(base,parsed).forEach(candidate=>{
-    const cleaned=normalizeTitleBase(candidate);
-    const cleanedNorm=normalizeTitleComparison(cleaned);
-    if(!cleaned || cleaned.length<16) return;
-    if(cleanedNorm===baseNorm) return;
-    if(cleanedNorm.startsWith(baseNorm)) return;
-    if(titleSimilarity(cleaned,base)>=0.82) return;
-    if(unique.some(existing=>normalizeTitleComparison(existing)===cleanedNorm)) return;
-    if(unique.some(existing=>titleSimilarity(existing,cleaned)>=0.9)) return;
-    unique.push(cleaned);
-  });
-
-  return unique.slice(0,5);
+  return [
+    base,
+    `${base}: analisi psicologica, implicazioni teoriche e prospettive applicative`,
+    `${base}: dinamiche, criticità e prospettive di approfondimento`
+  ].filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,3);
 }
 
 function renderTitleSuggestions(){
