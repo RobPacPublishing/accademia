@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=kOqEbaXbqRJ31IjaFjgJEGELwDyql7Okb11z9PcNy1g_Nt9R2gDo0K_g-Q0yQCY4KQ57UN4HgPAU_R3OHV9YHHQej0lqEztpJ9VMiKtbzvWvNiUECvfU6AVBJDQn7NvaNS4wZUo1OiBCFg3c2cDnXaT56-6n2bzYOYw0zvx633Ws9MwDWRbamKMUJDrnFlKet0_981Gfoq_bsgh9THz7vUDWLWPHm06MyD3pXx2fu6dan9fRvJnpY16L9VVTXtYZNrA2Q01xHW1t8rWXimFNGQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=YMGDK2k0hM-8i-ut7GAjQy68ggHqezRnqrtdCstkeR3t7SFFweLlP7XfYe1p42vjRjcJlgi0IyYsSU7razm1D9HTYUhCl64u3Hgt0Gvzd_mDKgc2DR6B0WejUoqOpQoF39l6f7iFya3bOoVGxLMwYsJcwltSKy0ToD2EkdEO_lBM2qxfy4bagi5eAsCtR97wdDMOnqN-gsEM8ASvO85mo-m6xBCqEt7O-WM7OwS-q7yNPiGAvJKsFT3FJBIOWqrNhGAd4rHh85m_PdIOyg8Olg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -325,7 +325,7 @@
       <div class="guide-steps">
         <div class="guide-step">
           <div class="guide-step-num">1</div>
-          <div class="guide-step-text"><strong>Inserisci i dati del tuo progetto</strong><span>Argomento, facoltà, corso, tipo di laurea e approccio metodologico. Se il tuo relatore ti ha già fornito un indice, seleziona "Ho già un indice" e incollalo.</span></div>
+          <div class="guide-step-text"><strong>Inserisci i dati del tuo progetto</strong><span>Tipo di laurea, facoltà, corso, approccio metodologico e solo dopo argomento. Se il tuo relatore ti ha già fornito un indice, seleziona "Ho già un indice" e incollalo.</span></div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">2</div>
@@ -366,18 +366,18 @@
   <div class="form-card" id="formCard">
     <div class="form-card-title">Dettagli del tuo progetto</div>
     <div class="form-grid">
-      <div class="form-group full">
-        <label>Argomento della tesi</label>
-        <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
-        <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
-          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
-          <div id="titleSuggestStatus" style="display:none;margin-bottom:8px;font-size:12px;color:var(--text3)"></div>
-          <div id="titleSuggestList" style="display:flex;flex-direction:column;gap:8px"></div>
-        </div>
+      <div class="form-group">
+        <label>Tipo di laurea</label>
+        <select id="tipoLaurea" onchange="handleProjectStructureChange()">
+          <option value="">— Seleziona —</option>
+          <option value="triennale">Triennale (3 anni)</option>
+          <option value="magistrale_2">Magistrale (2 anni post-triennale)</option>
+          <option value="magistrale_5">Magistrale a ciclo unico (5 anni)</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Facoltà</label>
-        <select id="facolta">
+        <select id="facolta" onchange="handleProjectStructureChange()">
           <option value="">— Seleziona —</option>
           <option>Agraria e Scienze Forestali</option><option>Architettura</option>
           <option>Beni Culturali e Turismo</option><option>Biotecnologie</option>
@@ -402,22 +402,14 @@
           <option>Storia</option><option>Teologia</option>
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group full">
         <label>Corso di laurea</label>
-        <input type="text" id="corso" placeholder="Es: Marketing e Comunicazione d'Impresa">
+        <input type="text" id="corso" placeholder="Es: Marketing e Comunicazione d'Impresa" oninput="handleProjectStructureChange()">
       </div>
-      <div class="form-group">
-        <label>Tipo di laurea</label>
-        <select id="tipoLaurea">
-          <option value="triennale">Triennale (3 anni)</option>
-          <option value="magistrale_2">Magistrale (2 anni post-triennale)</option>
-          <option value="magistrale_5">Magistrale a ciclo unico (5 anni)</option>
-        </select>
-      </div>
-      <div class="form-group">
+      <div class="form-group full">
         <label>Approccio metodologico</label>
         <div class="metod-row" id="metodRow">
-          <div class="metod-chip active" onclick="setMetod(this,'teorica')">Teorica</div>
+          <div class="metod-chip" onclick="setMetod(this,'teorica')">Teorica</div>
           <div class="metod-chip" onclick="setMetod(this,'empirica')">Empirica</div>
           <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio</div>
           <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
@@ -426,6 +418,14 @@
         <div id="empiricaWarning" style="display:none;margin-top:10px;background:rgba(224,85,85,.07);border:1px solid rgba(224,85,85,.25);border-left:3px solid var(--red);border-radius:var(--radius-sm);padding:10px 14px;gap:8px;align-items:flex-start;">
           <span style="font-size:15px;flex-shrink:0">⚠️</span>
           <span style="font-size:12px;color:var(--text3);line-height:1.6;"><strong style="color:#e07070">Approccio empirico — importante:</strong> AccademIA genera la struttura metodologica e il testo descrittivo, ma <strong style="color:#e07070">non raccoglie dati reali, non esegue analisi statistiche e non compila strumenti</strong> (questionari, griglie, scale). I capitoli di risultati e discussione saranno fondati su letteratura esistente, non su dati primari tuoi.</span>
+        </div>
+      </div>
+      <div class="form-group full">
+        <label>Argomento della tesi</label>
+        <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
+        <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
+          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
+          <div id="titleSuggestList" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
       <div class="form-group full">
@@ -627,7 +627,7 @@
     <button class="modal-close" onclick="closeModal('guideModal')">✕</button>
     <h2>📖 Come funziona AccademIA</h2>
     <div class="guide-steps" style="margin-top:4px">
-      <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Inserisci argomento, facoltà, corso, tipo laurea e approccio metodologico. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Compila tipo di laurea, facoltà, corso, approccio metodologico e poi argomento. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade di piano</strong> (+10 rev. totali sulla tesi). Inserisci poi il codice per sbloccare.</span></div></div>
@@ -646,7 +646,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let chapterOverrideActive=false, indiceMode='ai', metodologia='teorica';
+let chapterOverrideActive=false, indiceMode='ai', metodologia='';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -994,12 +994,13 @@ function ensureGlobalCounter(){
   renderGlobalCounter();
 }
 
+
 function captureFormState(){
   return {
     argomento:document.getElementById('argomento')?.value||'',
     facolta:document.getElementById('facolta')?.value||'',
     corso:document.getElementById('corso')?.value||'',
-    tipoLaurea:document.getElementById('tipoLaurea')?.value||'triennale',
+    tipoLaurea:document.getElementById('tipoLaurea')?.value||'',
     indiceManuale:document.getElementById('indiceManuale')?.value||'',
     numChapters:document.getElementById('numChapters')?.value||'4'
   };
@@ -1010,7 +1011,7 @@ function applyFormState(form){
   if(document.getElementById('argomento')) document.getElementById('argomento').value=form.argomento||'';
   if(document.getElementById('facolta')) document.getElementById('facolta').value=form.facolta||'';
   if(document.getElementById('corso')) document.getElementById('corso').value=form.corso||'';
-  if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=form.tipoLaurea||'triennale';
+  if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=form.tipoLaurea||'';
   if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=form.indiceManuale||'';
   if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
   renderTitleSuggestions();
@@ -1095,6 +1096,7 @@ function restoreProgressUI(){
   setIndiceMode(indiceMode);
   const metodBtn=document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
   if(metodBtn) setMetod(metodBtn, metodologia);
+  else {document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active')); const warn=document.getElementById('empiricaWarning'); if(warn) warn.style.display='none';}
   if(chapterOverrideActive){
     const btn=document.getElementById('toggleOverride');
     if(btn && !btn.classList.contains('active')) toggleChapterOverride();
@@ -1147,7 +1149,7 @@ function restoreProgressOnLoad(){
   revState=saved.revState||revState;
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   indiceMode=saved.indiceMode||'ai';
-  metodologia=saved.metodologia||'teorica';
+  metodologia=saved.metodologia||'';
   chapterOverrideActive=!!saved.chapterOverrideActive;
   restoreProgressUI();
   window.__restoringState=false;
@@ -1157,7 +1159,7 @@ function restoreProgressOnLoad(){
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');metodologia=val;document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';}
+function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';renderTitleSuggestions();if(!window.__restoringState) saveProgress();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -1186,10 +1188,12 @@ function setStep(n){
   if(!window.__restoringState) saveProgress();
 }
 function validateForm(){
-  if(!document.getElementById('argomento').value.trim()){showToast('Inserisci l\'argomento',true);return false;}
+  if(!document.getElementById('tipoLaurea').value){showToast('Seleziona il tipo di laurea',true);return false;}
   if(!document.getElementById('facolta').value){showToast('Seleziona la facoltà',true);return false;}
   if(!document.getElementById('corso').value.trim()){showToast('Inserisci il corso di laurea',true);return false;}
-  if(indiceMode==='manual'&&!document.getElementById('indiceManuale').value.trim()){showToast('Incolla l\'indice del relatore',true);return false;}
+  if(!metodologia){showToast("Seleziona l'approccio metodologico",true);return false;}
+  if(!document.getElementById('argomento').value.trim()){showToast("Inserisci l'argomento",true);return false;}
+  if(indiceMode==='manual'&&!document.getElementById('indiceManuale').value.trim()){showToast("Incolla l'indice del relatore",true);return false;}
   return true;
 }
 
@@ -1819,7 +1823,7 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
   const argomento=(document.getElementById('argomento')?.value||thesis.argomento||'').trim();
   const facolta=(document.getElementById('facolta')?.value||thesis.facolta||'').trim();
   const corso=(document.getElementById('corso')?.value||thesis.corso||'').trim();
-  const tipo=(document.getElementById('tipoLaurea')?.value||thesis.tipo||'triennale').trim();
+  const tipo=(document.getElementById('tipoLaurea')?.value||thesis.tipo||'').trim();
   const chapterTitles=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[];
   return {
     prompt:userPrompt,
@@ -1851,278 +1855,96 @@ function normalizeTitleBase(topic){
   return (topic||'').replace(/\s+/g,' ').trim().replace(/[\.;:!?]+$/,'');
 }
 
-function normalizeTitleComparison(value){
-  return normalizeTitleBase(value)
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9\s]/gi,' ')
-    .replace(/\s+/g,' ')
-    .trim();
+function methodologyLabel(v){
+  return ({
+    teorica:'teorico-critica',
+    empirica:'empirica',
+    caso_studio:'basata su studio di caso',
+    revisione_sistematica:'di revisione sistematica della letteratura',
+    comparativa:'comparativa'
+  })[v]||'';
 }
 
-function significantTitleTokens(value){
-  const stopwords=new Set([
-    'il','lo','la','i','gli','le','un','uno','una','l','di','del','della','dello','dei','degli','delle',
-    'a','ad','da','dal','dalla','dallo','in','nel','nella','nei','nelle','su','sul','sulla',
-    'sui','sulle','con','per','tra','fra','e','ed','o','al','allo','alla','agli','alle','dell','all','oggi',
-    'tesi','studio','ricerca','analisi'
-  ]);
-  return normalizeTitleComparison(value)
-    .split(' ')
-    .filter(token=>token && token.length>2 && !stopwords.has(token));
+function methodologyFrame(v){
+  return ({
+    teorica:{study:'lettura teorico-critica', question:'quadri teorici, nodi concettuali e implicazioni interpretative'},
+    empirica:{study:'indagine empirica', question:'variabili, evidenze e implicazioni applicative'},
+    caso_studio:{study:'studio di caso', question:'analisi del caso, risultati e trasferibilità delle evidenze'},
+    revisione_sistematica:{study:'revisione sistematica della letteratura', question:'stato dell’arte, convergenze e lacune della ricerca'},
+    comparativa:{study:'analisi comparativa', question:'confronto tra modelli, contesti e risultati'}
+  })[v]||{study:'analisi accademica', question:'quadro teorico e sviluppi di ricerca'};
 }
 
-function titleSimilarity(a,b){
-  const ta=[...new Set(significantTitleTokens(a))];
-  const tb=[...new Set(significantTitleTokens(b))];
-  if(!ta.length || !tb.length) return normalizeTitleComparison(a)===normalizeTitleComparison(b)?1:0;
-  const setB=new Set(tb);
-  const overlap=ta.filter(token=>setB.has(token)).length;
-  return overlap/Math.max(ta.length,tb.length);
+function facultyTitleProfile(facolta){
+  const name=(facolta||'').toLowerCase();
+  if(name.includes('psicologia')) return {adj:'psicologici', a:'determinanti psicologiche', b:'ricadute sul benessere e sul comportamento', c:'processi cognitivi', d:'regolazione emotiva', app:'prospettive di intervento'};
+  if(name.includes('giurisprudenza')) return {adj:'giuridici', a:'profili normativi', b:'orientamenti giurisprudenziali', c:'criticità interpretative', d:'tutela degli interessi coinvolti', app:'implicazioni applicative'};
+  if(name.includes('economia')) return {adj:'economici', a:'determinanti economiche', b:'ricadute organizzative e manageriali', c:'governance', d:'performance e sostenibilità', app:'prospettive operative'};
+  if(name.includes('ingegneria') || name.includes('informatica')) return {adj:'tecnico-progettuali', a:'modelli architetturali', b:'ricadute operative', c:'ottimizzazione dei processi', d:'scalabilità e affidabilità', app:'sviluppi progettuali'};
+  if(name.includes('medicina') || name.includes('farmacia') || name.includes('biologia') || name.includes('biotecnologie') || name.includes('veterinaria')) return {adj:'clinico-scientifici', a:'evidenze scientifiche', b:'implicazioni cliniche o assistenziali', c:'prevenzione', d:'gestione del rischio', app:'ricadute professionali'};
+  if(name.includes('educazione') || name.includes('formazione')) return {adj:'pedagogici', a:'processi educativi', b:'ricadute formative', c:'strategie didattiche', d:'contesti di apprendimento', app:'prospettive educative'};
+  if(name.includes('comunicazione')) return {adj:'comunicativi', a:'dinamiche comunicative', b:'implicazioni mediatiche e strategiche', c:'narrazioni digitali', d:'processi persuasivi', app:'sviluppi applicativi'};
+  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali', b:'implicazioni istituzionali', c:'trasformazioni culturali', d:'politiche pubbliche', app:'sviluppi di policy'};
+  if(name.includes('lettere') || name.includes('lingue') || name.includes('filosofia') || name.includes('storia')) return {adj:'storico-critici', a:'quadri teorici', b:'linee interpretative', c:'genealogie concettuali', d:'letture critiche', app:'prospettive ermeneutiche'};
+  if(name.includes('architettura') || name.includes('design') || name.includes('beni culturali') || name.includes('turismo')) return {adj:'progettuali', a:'criteri progettuali', b:'ricadute fruitive e operative', c:'valorizzazione', d:'sostenibilità', app:'sviluppi operativi'};
+  if(name.includes('teologia')) return {adj:'teologico-pastorali', a:'fondamenti teologici', b:'ricadute ecclesiali e pastorali', c:'ermeneutica', d:'prassi pastorale', app:'prospettive pastorali'};
+  return {adj:'disciplinari', a:'fondamenti teorici', b:'implicazioni applicative', c:'quadri interpretativi', d:'questioni aperte', app:'sviluppi di ricerca'};
 }
 
-function capitalizeFirst(value){
-  if(!value) return '';
-  return value.charAt(0).toUpperCase()+value.slice(1);
+function degreeFrame(tipo){
+  return ({
+    triennale:{x:'quadro teorico, nodi principali e implicazioni applicative', y:'fondamenti teorici e sviluppi operativi'},
+    magistrale_2:{x:'questioni critiche, modelli interpretativi e sviluppi di ricerca', y:'evidenze, nodi problematici e prospettive di approfondimento'},
+    magistrale_5:{x:'assetto teorico, implicazioni professionali e profili operativi', y:'evidenze, criticità e applicazioni professionali'}
+  })[tipo]||{x:'quadro teorico e sviluppi di ricerca', y:'implicazioni teoriche e applicative'};
 }
 
-function cleanTopicSegment(value){
-  return normalizeTitleBase(value)
-    .replace(/^['"“”‘’]+|['"“”‘’]+$/g,'')
-    .replace(/^(analisi|studio|ricerca|valutazione|esame|approfondimento)\s+(di|del|della|dell['’]|dello|dei|degli|delle)\s+/i,'')
-    .replace(/^(il|lo|la|i|gli|le|un|uno|una)\s+/i,'')
-    .replace(/^l['’](?=[aeiouàèéìòóù])/i,'')
-    .trim();
+function getTitleSuggestionContext(){
+  const topic=(document.getElementById('argomento')?.value||'').trim();
+  const tipo=(document.getElementById('tipoLaurea')?.value||'').trim();
+  const facolta=(document.getElementById('facolta')?.value||'').trim();
+  const corso=(document.getElementById('corso')?.value||'').trim();
+  const approccio=(metodologia||'').trim();
+  const missing=[];
+  if(!tipo) missing.push('tipo di laurea');
+  if(!facolta) missing.push('facoltà');
+  if(!corso) missing.push('corso di laurea');
+  if(!approccio) missing.push('approccio metodologico');
+  if(!topic || normalizeTitleBase(topic).length<12) missing.push('argomento');
+  return {topic,tipo,facolta,corso,approccio,missing,ready:missing.length===0};
 }
 
-function parseTopicForTitleSuggestions(topic){
-  const base=normalizeTitleBase(topic);
-  if(!base) return {mode:'generic',focus:''};
-
-  let m=base.match(/^(?:l['’]|il |lo |la |i |gli |le )?(?:impatto|influenza|effetti?|ruolo|incidenza|contributo|rapporto)\s+(?:di|del|della|dell['’]|dello|dei|degli|delle)\s*(.+?)\s+(?:su|sul|sulla|sui|sulle|nel|nella|nei|nelle|in|rispetto a|all'interno di)\s+(.+)$/i);
-  if(m){
-    return {mode:'relation',left:cleanTopicSegment(m[1]),right:normalizeTitleBase(m[2])};
-  }
-
-  m=base.match(/^(.+?)\s+(?:e|ed)\s+(.+)$/i);
-  if(m){
-    return {mode:'pair',left:cleanTopicSegment(m[1]),right:cleanTopicSegment(m[2])};
-  }
-
-  m=base.match(/^(.+?)\s+(?:nel|nella|nei|nelle|in|durante|tra|fra)\s+(.+)$/i);
-  if(m){
-    return {mode:'context',focus:cleanTopicSegment(m[1]),context:normalizeTitleBase(m[2])};
-  }
-
-  return {mode:'generic',focus:cleanTopicSegment(base)};
-}
-
-function buildTitleCandidates(base,parsed){
-  if(parsed.mode==='relation'){
-    const left=parsed.left;
-    const right=parsed.right;
-    return [
-      `Tra ${right} e ${left}: quadro teorico, trasformazioni e questioni aperte`,
-      `${capitalizeFirst(right)} di fronte a ${left}: interpretazioni, impatti e prospettive`,
-      `Ripensare ${right} attraverso ${left}: modelli di analisi e applicazioni`,
-      `Oltre il rapporto tra ${left} e ${right}: nodi critici e sviluppi`,
-      `${capitalizeFirst(left)} e ${right}: un'indagine critica tra teoria e casi`
-    ];
-  }
-
-  if(parsed.mode==='pair'){
-    const left=parsed.left;
-    const right=parsed.right;
-    return [
-      `Tra ${left} e ${right}: convergenze, tensioni e sviluppi teorici`,
-      `Ripensare ${left} e ${right}: modelli interpretativi e problemi aperti`,
-      `Oltre la dicotomia tra ${left} e ${right}: letture critiche e applicazioni`,
-      `${capitalizeFirst(left)} e ${right}: un percorso di analisi tra teoria e metodo`,
-      `Questioni aperte intorno a ${left} e ${right}: prospettive, limiti e trasformazioni`
-    ];
-  }
-
-  if(parsed.mode==='context'){
-    const focus=parsed.focus;
-    const context=parsed.context;
-    return [
-      `${capitalizeFirst(focus)} e ${context}: quadri teorici, problemi aperti e sviluppi`,
-      `Ripensare ${context} attraverso ${focus}: modelli interpretativi e implicazioni`,
-      `Oltre ${focus} in ${context}: nodi critici e prospettive di ricerca`,
-      `Interpretare ${context} alla luce di ${focus}: approcci, limiti e applicazioni`,
-      `Percorsi di ricerca su ${focus} in ${context}: tra teoria, metodo e casi`
-    ];
-  }
-
-  const focus=parsed.focus||base;
-  return [
-    `Ripensare ${focus}: quadro teorico, nodi critici e prospettive di ricerca`,
-    `Oltre ${focus}: interpretazioni, trasformazioni e applicazioni`,
-    `Questioni aperte intorno a ${focus}: approcci, limiti e sviluppi`,
-    `Interpretare ${focus} oggi: modelli di analisi e problemi emergenti`,
-    `Percorsi di ricerca su ${focus}: tra teoria, metodo e casi`
+function createTitleSuggestions(context){
+  if(!context || !context.ready) return [];
+  const base=normalizeTitleBase(context.topic);
+  const faculty=facultyTitleProfile(context.facolta);
+  const method=methodologyFrame(context.approccio);
+  const degree=degreeFrame(context.tipo);
+  const approachLabel=methodologyLabel(context.approccio);
+  const course=context.corso;
+  const titles=[
+    `${base}: ${faculty.a}, ${faculty.b} e ${faculty.app}`,
+    `${base}: una ${method.study} in ${course}`,
+    `${base}: ${faculty.c}, ${faculty.d} e ${degree.x}`,
+    `${base}: profili ${faculty.adj}, ${method.question} e ${degree.y}`,
+    `${base}: prospettiva ${approachLabel} e implicazioni per ${course}`
   ];
+  return titles.map(t=>t.replace(/\s+/g,' ').trim()).filter((v,i,a)=>v && a.indexOf(v)===i).slice(0,5);
 }
 
-function dedupeAndRankTitleSuggestions(candidates,topic){
-  const base=normalizeTitleBase(topic);
-  const baseNorm=normalizeTitleComparison(base);
-  const unique=[];
-
-  (candidates||[]).forEach(candidate=>{
-    const cleaned=normalizeTitleBase(String(candidate||''));
-    const cleanedNorm=normalizeTitleComparison(cleaned);
-    if(!cleaned || cleaned.length<16) return;
-    if(cleanedNorm===baseNorm) return;
-    if(cleanedNorm.startsWith(baseNorm)) return;
-    if(titleSimilarity(cleaned,base)>=0.86) return;
-    if(unique.some(existing=>normalizeTitleComparison(existing)===cleanedNorm)) return;
-    if(unique.some(existing=>titleSimilarity(existing,cleaned)>=0.9)) return;
-    unique.push(cleaned);
-  });
-
-  return unique.slice(0,5);
-}
-
-function createTitleSuggestions(topic){
-  const base=normalizeTitleBase(topic);
-  if(!base || base.length<12) return [];
-  const parsed=parseTopicForTitleSuggestions(base);
-  return dedupeAndRankTitleSuggestions(buildTitleCandidates(base,parsed), base);
-}
-
-let titleSuggestTimer=null;
-let titleSuggestSeq=0;
-const titleSuggestCache=new Map();
-
-function currentTitleSuggestionContext(){
-  return {
-    topic:(document.getElementById('argomento')?.value||'').trim(),
-    faculty:(document.getElementById('facolta')?.value||'').trim(),
-    degreeCourse:(document.getElementById('corso')?.value||'').trim(),
-    degreeType:(document.getElementById('tipoLaurea')?.value||'').trim()
-  };
-}
-
-function currentTitleSuggestionCacheKey(ctx){
-  return JSON.stringify([
-    normalizeTitleBase(ctx.topic),
-    normalizeTitleBase(ctx.faculty),
-    normalizeTitleBase(ctx.degreeCourse),
-    normalizeTitleBase(ctx.degreeType)
-  ]);
-}
-
-function setTitleSuggestionStatus(message,error=false){
-  const status=document.getElementById('titleSuggestStatus');
-  if(!status) return;
-  if(!message){
-    status.style.display='none';
-    status.textContent='';
-    status.style.color='var(--text3)';
-    return;
-  }
-  status.style.display='block';
-  status.textContent=message;
-  status.style.color=error ? '#d98989' : 'var(--text3)';
-}
-
-function renderTitleSuggestionsList(suggestions){
+function renderTitleSuggestions(){
   const wrap=document.getElementById('titleSuggestWrap');
   const list=document.getElementById('titleSuggestList');
   if(!wrap || !list) return;
+  const context=getTitleSuggestionContext();
+  const suggestions=createTitleSuggestions(context);
   if(!suggestions.length){
     wrap.style.display='none';
     list.innerHTML='';
-    setTitleSuggestionStatus('');
     return;
   }
   wrap.style.display='block';
   list.innerHTML=suggestions.map(title=>`<button type="button" onclick="applySuggestedTitle(this)" style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer">${escHtml(title)}</button>`).join('');
-}
-
-function extractTitleSuggestionsFromAI(text,topic){
-  const raw=(text||'')
-    .replace(/```[\s\S]*?```/g,' ')
-    .split(/\n+/)
-    .map(line=>line.replace(/^\s*(?:[-*•]|\d+[\.)])\s*/,'').trim())
-    .filter(Boolean)
-    .flatMap(line=>line.split(/\s*\|\s*/))
-    .map(line=>line.replace(/^Titolo\s*:?/i,'').trim())
-    .filter(Boolean);
-
-  return dedupeAndRankTitleSuggestions(raw, topic);
-}
-
-async function requestTitleSuggestionsFromAI(context){
-  const topic=normalizeTitleBase(context.topic);
-  if(!topic || topic.length<18) return createTitleSuggestions(topic);
-
-  const cacheKey=currentTitleSuggestionCacheKey(context);
-  if(titleSuggestCache.has(cacheKey)) return titleSuggestCache.get(cacheKey);
-
-  const degreeLabel=tipoLaureaLabel(context.degreeType||'triennale');
-  const prompt=[
-    'Genera 5 possibili titoli di tesi in italiano.',
-    'Devono essere professionali, credibili, adatti a una tesi di laurea e realmente differenziati tra loro.',
-    'Non limitarti a parafrasare l\'argomento: proponi angolazioni diverse ma coerenti con il tema.',
-    'Tieni conto dei dati seguenti.',
-    `Argomento: ${topic}`,
-    `Facoltà: ${context.faculty || 'non specificata'}`,
-    `Corso di laurea: ${context.degreeCourse || 'non specificato'}`,
-    `Tipo di laurea: ${degreeLabel}`,
-    'Regole obbligatorie:',
-    '1. Ogni titolo deve essere autonomo e non iniziare semplicemente con l\'argomento originale.',
-    '2. Evita titoli generici o gonfiati.',
-    '3. Evita due punti in tutti i titoli, salvo stretta necessità.',
-    '4. Restituisci solo 5 righe, una per titolo, senza commenti, senza numerazione, senza introduzioni finali.'
-  ].join('\n');
-
-  const result=await callClaude(prompt,'outline_draft');
-  const parsed=extractTitleSuggestionsFromAI(result.text||'', topic);
-  const finalSuggestions=parsed.length>=3 ? parsed : createTitleSuggestions(topic);
-  titleSuggestCache.set(cacheKey, finalSuggestions);
-  return finalSuggestions;
-}
-
-async function refreshTitleSuggestions(force=false){
-  const wrap=document.getElementById('titleSuggestWrap');
-  const list=document.getElementById('titleSuggestList');
-  if(!wrap || !list) return;
-
-  const context=currentTitleSuggestionContext();
-  const topic=normalizeTitleBase(context.topic);
-
-  if(!topic || topic.length<12){
-    renderTitleSuggestionsList([]);
-    return;
-  }
-
-  const localSuggestions=createTitleSuggestions(topic);
-  renderTitleSuggestionsList(localSuggestions);
-  setTitleSuggestionStatus('Elaborazione suggerimenti in corso...');
-
-  const seq=++titleSuggestSeq;
-  try{
-    const suggestions=await requestTitleSuggestionsFromAI(context);
-    if(seq!==titleSuggestSeq) return;
-    const finalSuggestions=suggestions.length ? suggestions : localSuggestions;
-    renderTitleSuggestionsList(finalSuggestions);
-    setTitleSuggestionStatus(finalSuggestions.length ? 'Suggerimenti calibrati su argomento, facoltà, corso e tipo di laurea.' : '');
-  }catch(err){
-    if(seq!==titleSuggestSeq) return;
-    renderTitleSuggestionsList(localSuggestions);
-    setTitleSuggestionStatus('Suggerimenti avanzati non disponibili al momento. Mostro una versione locale provvisoria.', true);
-  }
-}
-
-function queueTitleSuggestions(force=false){
-  clearTimeout(titleSuggestTimer);
-  if(force){
-    refreshTitleSuggestions(true);
-    return;
-  }
-  titleSuggestTimer=setTimeout(()=>refreshTitleSuggestions(false), 550);
 }
 
 function applySuggestedTitle(btn){
@@ -2132,10 +1954,16 @@ function applySuggestedTitle(btn){
   handleArgomentoInput();
 }
 
-function handleArgomentoInput(){
-  queueTitleSuggestions(false);
+function handleProjectStructureChange(){
+  renderTitleSuggestions();
   saveProgress();
 }
+
+function handleArgomentoInput(){
+  renderTitleSuggestions();
+  saveProgress();
+}
+
 async function callClaude(userPrompt, taskName='outline_draft'){
   const r=await fetch('/api/task',{
     method:'POST',
@@ -2164,7 +1992,7 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft'){
 // ══════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════
-function tipoLaureaLabel(t){return t==='magistrale_2'?'Magistrale (2 anni post-triennale)':t==='magistrale_5'?'Magistrale a ciclo unico (5 anni)':'Triennale (3 anni)';}
+function tipoLaureaLabel(t){return t==='magistrale_2'?'Magistrale (2 anni post-triennale)':t==='magistrale_5'?'Magistrale a ciclo unico (5 anni)':t==='triennale'?'Triennale (3 anni)':'';}
 function extractChapterTitles(indice){const l=indice.split('\n'),t=[];for(const ln of l){const m=ln.match(/^(\d+)\.\s+(.+)/);if(m)t.push(m[2].trim());}return t.length>0?t:['Capitolo 1','Capitolo 2','Capitolo 3'];}
 function streamText(elId,text,onDone){const el=document.getElementById(elId);el.textContent='';let i=0;const step=Math.max(1,Math.floor(text.length/280));const iv=setInterval(()=>{i=Math.min(i+step,text.length);el.textContent=text.substring(0,i);if(i>=text.length){clearInterval(iv);if(onDone)onDone();}},8);}
 function updateWordCount(){const t=[thesis.indice,thesis.abstract,...thesis.chapters.map(c=>c.content)].join(' ').split(/\s+/).filter(Boolean).length;document.getElementById('wordCount').textContent=t.toLocaleString('it-IT');}
