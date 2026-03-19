@@ -10,10 +10,6 @@
       "dest": "/api/claude.js"
     },
     {
-      "src": "/app/app-index.html",
-      "dest": "/app/index.html"
-    },
-    {
       "handle": "filesystem"
     }
   ]
