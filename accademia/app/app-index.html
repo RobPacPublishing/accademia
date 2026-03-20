@@ -2010,8 +2010,7 @@ function syncTitleSuggestionsWithCurrentContext(markStale=false){
 function parseTitleSuggestionResponse(text){
   const raw=String(text||'').trim();
   if(!raw) return {warning:'',items:[]};
-  const lines=raw.split(/
-+/).map(v=>v.trim()).filter(Boolean);
+  const lines=raw.split(/\n+/).map(v=>v.trim()).filter(Boolean);
   let warning='';
   const items=[];
   lines.forEach(line=>{
