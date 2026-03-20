@@ -1,22 +1,168 @@
-const OPENAI_TIMEOUT_MS = 90000;
-const ANTHROPIC_TIMEOUT_MS = 90000;
+const DEFAULT_OPENAI_TIMEOUT_MS = 90000;
+const DEFAULT_ANTHROPIC_TIMEOUT_MS = 120000;
 
-const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
+const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico universitario rigoroso, prudente e professionale.
 
 Regole permanenti:
 - lavora solo sui dati effettivamente forniti;
 - non inventare fonti, autori, date, studi, enti, statistiche, risultati di ricerca, teorie specifiche, citazioni, riferimenti normativi o bibliografici non presenti nei dati ricevuti;
-- se nei dati compaiono riferimenti incompleti o dubbi, non completarli per inferenza: mantieni formulazioni prudenti o neutre;
-- non simulare verifiche esterne e non dichiarare di aver consultato letteratura o database se tali fonti non sono state fornite;
-- evita formule meta o scolastiche come “raccordo verso il capitolo successivo”, “nel prossimo capitolo”, “analisi critica” come intestazione separata, “di seguito”, “ecco il testo”, salvo richiesta esplicita;
-- non aggiungere sezioni finali artificiali che svelino la generazione automatica;
+- se i dati sono incompleti o ambigui, non colmare i vuoti per inferenza: usa formulazioni prudenti, generali e difendibili;
+- non simulare ricerche esterne e non dichiarare di aver consultato letteratura o database se non sono stati forniti;
 - mantieni tono universitario sobrio, chiaro, rigoroso e non enfatico;
-- privilegia coerenza logica, sviluppo argomentativo e densità espositiva.
+- evita formule scolastiche o meta come “nel prossimo capitolo”, “di seguito”, “ecco il testo”, “analisi critica” come intestazione separata, salvo richiesta esplicita;
+- non aggiungere sezioni artificiali che rendano evidente la generazione automatica;
+- privilegia coerenza logica, controllo terminologico, progressione argomentativa e precisione formale.
 
-Per i capitoli:
+Regole aggiuntive per i testi lunghi:
 - sviluppa davvero i sottocapitoli, evitando paragrafi troppo brevi o schematici;
-- non trasformare il capitolo in una lista di teorie o autori se non sono presenti nei dati;
-- chiudi il testo in modo naturale, senza ponti espliciti al capitolo successivo.`;
+- non trasformare il testo in una lista di autori o teorie se i dati non li contengono;
+- chiudi in modo naturale, senza raccordi espliciti al capitolo successivo.`;
+
+const TASK_ALIASES = {
+  outline: 'outline_draft',
+  indice: 'outline_draft',
+  index: 'outline_draft',
+  outline_draft: 'outline_draft',
+  outline_review: 'outline_review',
+  review_outline: 'outline_review',
+  abstract: 'abstract_draft',
+  abstract_draft: 'abstract_draft',
+  abstract_review: 'abstract_review',
+  review_abstract: 'abstract_review',
+  chapter: 'chapter_draft',
+  chapter_draft: 'chapter_draft',
+  draft_chapter: 'chapter_draft',
+  chapter_review: 'chapter_review',
+  review_chapter: 'chapter_review',
+  tutor_revision: 'tutor_revision',
+  tutor_review: 'tutor_revision',
+  relator_revision: 'tutor_revision',
+  final_check: 'final_consistency_review',
+  final_review: 'final_consistency_review',
+  final_consistency_review: 'final_consistency_review',
+  title: 'title_suggestions',
+  titles: 'title_suggestions',
+  title_suggestion: 'title_suggestions',
+  title_suggestions: 'title_suggestions'
+};
+
+const TASK_CONFIG = {
+  title_suggestions: {
+    provider: 'openai',
+    maxOutputTokens: 900,
+    timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
+    prompt: `Valuta l'argomento e proponi titoli di tesi universitari disciplinarmente coerenti.
+- Tratta facoltà, corso di laurea, approccio metodologico e eventuale titolo già proposto come vincoli sostanziali, non decorativi.
+- Se l'argomento è chiaramente incompatibile con facoltà o corso, non fingere coerenza: restituisci una prima riga che inizi con "AVVISO:" spiegando in modo sobrio l'incompatibilità o la compatibilità parziale.
+- Se la compatibilità è debole ma recuperabile, dopo l'avviso proponi comunque 5 titoli rifocalizzati nel dominio corretto.
+- Se la compatibilità è alta, non inserire avvisi e proponi direttamente 5 titoli.
+- I 5 titoli devono essere tra loro realmente distinti per taglio e non semplici parafrasi reciproche.
+- Non ripetere meccanicamente la stessa espressione chiave in tutti i titoli; usa parafrasi, focalizzazioni concettuali e incipit diversi.
+- Non limitarti a sostituire il nome della disciplina o del corso a un titolo nato per un'altra area.
+- Non promettere raccolta dati originale, analisi statistica proprietaria o risultati empirici reali se tali elementi non sono presenti nei dati.
+- Restituisci solo l'avviso eventuale e poi 5 titoli, uno per riga, senza commenti aggiuntivi.`
+  },
+  outline_draft: {
+    provider: 'openai',
+    maxOutputTokens: 2200,
+    timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
+    prompt: `Costruisci un indice di tesi accademicamente solido, progressivo e difendibile sulla base dei soli dati ricevuti.
+- Ogni capitolo deve avere una funzione distinta e riconoscibile; evita capitoli-filtro, capitoli-cerniera e giustapposizioni deboli.
+- Fai emergere una traiettoria leggibile: definizione del problema, inquadramento teorico o concettuale, eventuale cornice metodologica, sviluppo dell'analisi, eventuale sezione applicativa o comparativa, conclusioni.
+- Adegua la struttura alla disciplina: una tesi giuridica, filosofica, economica, psicologica o tecnica non deve avere la stessa architettura.
+- L'approccio metodologico deve incidere davvero sulla struttura quando rilevante.
+- Evita titoli ornamentali o elastici come “aspetti”, “profili”, “riflessioni”, “considerazioni” se non delimitano un contenuto preciso.
+- Evita sottocapitoli che ripetano il titolo del capitolo con minime variazioni lessicali.
+- Mantieni un equilibrio realistico: né pochi blocchi troppo generici né una frammentazione artificiale.
+- Se i dati non giustificano una sezione metodologica autonoma, non inserirla per automatismo.
+- Restituisci solo l'indice finale, pronto da usare.`
+  },
+  outline_review: {
+    provider: 'openai',
+    maxOutputTokens: 2400,
+    timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
+    prompt: `Revisiona criticamente l'indice ricevuto come farebbe un relatore esigente.
+- Individua solo criticità reali di struttura, progressione, equilibrio, sovrapposizione o tenuta disciplinare.
+- Verifica che i capitoli facciano davvero avanzare il lavoro e non ripetano lo stesso nucleo in forma diversa.
+- Controlla che i sottocapitoli non siano formule deboli, ripetitive o puramente descrittive.
+- Mantieni ciò che funziona e modifica solo ciò che indebolisce davvero l'impianto.
+- Non introdurre contenuti disciplinari non presenti nei dati.
+- Organizza l'output in due sezioni con questi titoli esatti: Criticità rilevate | Versione migliorata.
+- Nella seconda sezione restituisci l'indice completo revisionato, pronto da usare.`
+  },
+  abstract_draft: {
+    provider: 'openai',
+    maxOutputTokens: 900,
+    timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
+    prompt: `Genera un abstract universitario chiaro, sobrio e coerente sulla base dei soli dati ricevuti.
+- L'abstract deve sintetizzare tema, obiettivo, impostazione del lavoro, eventuale metodologia dichiarata e fuoco dell'analisi senza enfasi promozionale.
+- Non trasformarlo in introduzione, riassunto scolastico o promessa di risultati non dimostrati.
+- Non inserire fonti, autori, dati, risultati empirici o riferimenti non presenti nei materiali forniti.
+- Mantieni un registro disciplinare credibile e una sintassi pulita.
+- Inserisci le parole chiave su una nuova riga finale con la formula esatta: "Parole chiave:".
+- Restituisci solo l'abstract finale.`
+  },
+  abstract_review: {
+    provider: 'openai',
+    maxOutputTokens: 1200,
+    timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
+    prompt: `Revisiona criticamente l'abstract ricevuto.
+- Migliora chiarezza, ordine logico, precisione disciplinare e pulizia formale.
+- Elimina promesse eccessive, ridondanze, formule scolastiche e genericità.
+- Verifica che il testo sia coerente con il tipo di tesi descritto nei dati.
+- Non introdurre fonti, dati o risultati non forniti.
+- Mantieni separata la riga finale "Parole chiave:".
+- Restituisci solo la versione revisionata.`
+  },
+  chapter_draft: {
+    provider: 'anthropic',
+    maxTokens: 6000,
+    timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
+    prompt: `Scrivi il capitolo richiesto in modo accademico, chiaro e realmente sviluppato sulla base dei soli dati ricevuti.
+- Rispetta titolo, sottocapitoli, funzione del capitolo e posizione nell'impianto complessivo della tesi.
+- Sviluppa davvero i sottocapitoli con paragrafi sostanziosi, evitando testo riempitivo, ripetizioni e aperture troppo generiche.
+- Non inventare autori, teorie, anni, enti, statistiche, dati, sentenze, riferimenti normativi o bibliografici non inclusi nei dati.
+- Se i dati non forniscono riferimenti specifici, mantieni il discorso su piano concettuale generale e prudente.
+- Evita di riscrivere l'indice in forma discorsiva: il capitolo deve argomentare, non elencare.
+- Non aggiungere sezioni finali artificiali come “Analisi critica”, “Sintesi finale”, “Raccordo verso il capitolo successivo” o simili, salvo richiesta esplicita.
+- Non chiudere con formule che anticipano esplicitamente il capitolo successivo.
+- Restituisci solo il capitolo finale.`
+  },
+  chapter_review: {
+    provider: 'anthropic',
+    maxTokens: 6500,
+    timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
+    prompt: `Revisiona criticamente il capitolo ricevuto con impostazione da supervisore accademico.
+- Controlla coerenza logica, chiarezza, densità argomentativa, precisione terminologica e continuità stilistica.
+- Individua ridondanze, passaggi deboli, accumuli descrittivi e slittamenti di registro.
+- Segnala se il testo introduce riferimenti, dati, autori o informazioni non supportati dai materiali di partenza.
+- Elimina chiusure artificiali o raccordi espliciti al capitolo successivo.
+- Mantieni un approccio conservativo: migliora davvero, ma senza stravolgere inutilmente il testo.
+- Struttura l'output in tre parti con questi titoli esatti: Criticità rilevate | Interventi prioritari | Testo revisionato.`
+  },
+  tutor_revision: {
+    provider: 'anthropic',
+    maxTokens: 6500,
+    timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
+    prompt: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
+- Intervieni in modo conservativo ma effettivo, limitandoti ai punti richiesti.
+- Se un'osservazione è ambigua, privilegia l'interpretazione più prudente e compatibile con i dati.
+- Non aggiungere contenuti, fonti o riferimenti non richiesti e non presenti nei materiali.
+- Mantieni tono, livello accademico e coerenza interna del testo.
+- Restituisci solo il testo revisionato.`
+  },
+  final_consistency_review: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
+    prompt: `Esegui un controllo finale di coerenza complessiva dell'elaborato.
+- Verifica coerenza tra titolo, indice, abstract, capitoli, terminologia e approccio dichiarato.
+- Individua ripetizioni strutturali, salti logici, incoerenze terminologiche, promesse non mantenute e riferimenti non supportati dai dati.
+- Distingui i problemi veramente bloccanti dalle criticità secondarie.
+- Non riscrivere l'elaborato: valuta e segnala in modo ordinato.
+- Struttura l'output in tre sezioni con questi titoli esatti: Criticità ad alta priorità | Criticità medie | Osservazioni finali.`
+  }
+};
 
 export default async function handler(req, res) {
   if (req.method === 'GET' && req.query?.config === 'supabase') {
@@ -41,13 +187,18 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Task mancante' });
     }
 
-    const provider = pickProvider(task);
-
-    if (provider === 'openai') {
-      return await handleOpenAI({ task, input, res });
+    const canonicalTask = canonicalizeTask(task);
+    if (!canonicalTask || !TASK_CONFIG[canonicalTask]) {
+      return res.status(400).json({ error: 'Task non supportato', details: task });
     }
 
-    return await handleAnthropic({ task, input, res });
+    const config = TASK_CONFIG[canonicalTask];
+
+    if (config.provider === 'openai') {
+      return await handleOpenAI({ task: canonicalTask, input, config, res });
+    }
+
+    return await handleAnthropic({ task: canonicalTask, input, config, res });
   } catch (error) {
     return res.status(500).json({
       error: 'Errore interno',
@@ -57,41 +208,52 @@ export default async function handler(req, res) {
 }
 
 function normalizeBody(body) {
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = { input: body };
+    }
+  }
+
   const safe = body && typeof body === 'object' ? body : {};
-  const task = typeof safe.task === 'string' ? safe.task.trim() : '';
-  const input =
-    typeof safe.input === 'string'
-      ? safe.input
-      : typeof safe.payload === 'string'
-        ? safe.payload
-        : typeof safe.content === 'string'
-          ? safe.content
-          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
+  const rawTask = typeof safe.task === 'string' ? safe.task.trim() : '';
+  const candidateInput = safe.input ?? safe.payload ?? safe.content ?? {};
 
-  return { task, input };
+  return {
+    task: rawTask,
+    input: stringifyInput(candidateInput)
+  };
 }
 
-function pickProvider(task) {
-  const anthropicTasks = new Set([
-    'chapter_draft',
-    'chapter_review',
-    'tutor_revision',
-    'final_consistency_review'
-  ]);
-
-  return anthropicTasks.has(task) ? 'anthropic' : 'openai';
+function stringifyInput(value) {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
-async function handleOpenAI({ task, input, res }) {
+function canonicalizeTask(task) {
+  const normalized = String(task || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  return TASK_ALIASES[normalized] || normalized;
+}
+
+async function handleOpenAI({ task, input, config, res }) {
   const openaiKey = process.env.OPENAI_API_KEY;
-  const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
+  const openaiModel = process.env.OPENAI_MODEL_ACADEMIC || process.env.OPENAI_MODEL || 'gpt-5.4';
 
   if (!openaiKey) {
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
   }
 
   const prompt = buildPrompt(task, input);
-
   const response = await fetchWithTimeout(
     'https://api.openai.com/v1/responses',
     {
@@ -103,10 +265,12 @@ async function handleOpenAI({ task, input, res }) {
       body: JSON.stringify({
         model: openaiModel,
         instructions: GENERAL_SYSTEM_PROMPT,
-        input: prompt
+        input: prompt,
+        max_output_tokens: config.maxOutputTokens,
+        prompt_cache_key: `accademia:${task}`
       })
     },
-    OPENAI_TIMEOUT_MS
+    config.timeoutMs || DEFAULT_OPENAI_TIMEOUT_MS
   );
 
   const data = await safeJson(response);
@@ -118,29 +282,19 @@ async function handleOpenAI({ task, input, res }) {
     });
   }
 
-  const text =
-    data?.output_text ||
-    extractOpenAIText(data) ||
-    'Nessun contenuto restituito';
-
-  return res.status(200).json({
-    ok: true,
-    provider: 'openai',
-    task,
-    text
-  });
+  const text = data?.output_text || extractOpenAIText(data) || 'Nessun contenuto restituito';
+  return res.status(200).json({ ok: true, task, text });
 }
 
-async function handleAnthropic({ task, input, res }) {
+async function handleAnthropic({ task, input, config, res }) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+  const anthropicModel = process.env.ANTHROPIC_MODEL_LONGFORM || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   if (!anthropicKey) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
   }
 
   const prompt = buildPrompt(task, input);
-
   const response = await fetchWithTimeout(
     'https://api.anthropic.com/v1/messages',
     {
@@ -153,16 +307,11 @@ async function handleAnthropic({ task, input, res }) {
       body: JSON.stringify({
         model: anthropicModel,
         system: GENERAL_SYSTEM_PROMPT,
-        max_tokens: 6000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
+        max_tokens: config.maxTokens || 4000,
+        messages: [{ role: 'user', content: prompt }]
       })
     },
-    ANTHROPIC_TIMEOUT_MS
+    config.timeoutMs || DEFAULT_ANTHROPIC_TIMEOUT_MS
   );
 
   const data = await safeJson(response);
@@ -174,89 +323,20 @@ async function handleAnthropic({ task, input, res }) {
     });
   }
 
-  const text =
-    Array.isArray(data?.content)
-      ? data.content.map(part => part?.text || '').join('\n').trim()
-      : '';
+  const text = Array.isArray(data?.content)
+    ? data.content.map(part => part?.text || '').join('\n').trim()
+    : '';
 
-  return res.status(200).json({
-    ok: true,
-    provider: 'anthropic',
-    task,
-    text: text || 'Nessun contenuto restituito'
-  });
+  return res.status(200).json({ ok: true, task, text: text || 'Nessun contenuto restituito' });
 }
 
 function buildPrompt(task, input) {
-  const payload = typeof input === 'string' ? input : JSON.stringify(input || {}, null, 2);
-
-  const map = {
-    outline_draft: `Costruisci un indice di tesi accademicamente solido, progressivo e difendibile sulla base dei soli dati ricevuti.
-- Organizza la struttura in modo che ogni capitolo abbia una funzione distinta e riconoscibile.
-- Evita capitoli-filtro, sovrapposizioni tematiche, salti logici e semplici parafrasi dell'argomento.
-- Fai emergere una traiettoria leggibile tra inquadramento del problema, strumenti teorici o metodologici, sviluppo analitico, eventuale parte applicativa e chiusura finale.
-- Se i dati suggeriscono nuclei già presenti, riorganizzali senza tradirne il senso ma migliorandone ordine, equilibrio e precisione.
-- Assegna a capitoli e sottocapitoli titoli specifici, sobri, professionali e semanticamente non duplicativi.
-- Evita formule elastiche o decorative come “aspetti”, “profili”, “riflessioni”, “considerazioni” quando non delimitano davvero il contenuto.
-- Includi una sezione metodologica, di stato dell'arte o di delimitazione del corpus solo se i dati la giustificano davvero.
-- Mantieni un equilibrio realistico tra ampiezza dei capitoli e granularità dei sottocapitoli.
-- Restituisci solo l'indice finale.`,
-
-    abstract_draft: `Genera un abstract accademico chiaro, continuo e formalmente pulito sulla base dei soli dati ricevuti.
-- Non inserire riferimenti, autori o dati non presenti nei materiali forniti.
-- Inserisci le parole chiave su una nuova riga finale con la formula: "Parole chiave:".
-- Restituisci solo l'abstract finale.`,
-
-    chapter_draft: `Scrivi il capitolo richiesto in modo accademico, chiaro e sviluppato sulla base dei soli dati ricevuti.
-- Non inventare autori, teorie, anni, enti, statistiche o riferimenti bibliografici non inclusi nei dati.
-- Se i dati non forniscono riferimenti specifici, mantieni il discorso su piano concettuale generale senza attribuzioni puntuali.
-- Sviluppa davvero ogni sottocapitolo con paragrafi sostanziosi, evitando sezioni scarne o solo introduttive.
-- Non aggiungere sezioni finali artificiali come "Analisi critica", "Raccordo verso il capitolo successivo", "Sintesi finale" o titoli simili, salvo richiesta esplicita.
-- Non chiudere con formule che anticipano esplicitamente il capitolo successivo.
-- Restituisci solo il capitolo finale.`,
-
-    outline_review: `Revisiona criticamente l'indice ricevuto come farebbe un relatore esigente.
-- Evidenzia solo problemi reali di struttura, equilibrio, progressione logica o tenuta accademica.
-- Verifica se i capitoli fanno davvero avanzare il lavoro oppure se risultano giustapposti o ridondanti.
-- Controlla che i sottocapitoli non ripetano il titolo del capitolo con minime variazioni lessicali.
-- Segnala capitoli generici, capitoli-filtro, lacune strutturali, squilibri e assenze metodologiche davvero rilevanti.
-- Conserva ciò che funziona e modifica solo ciò che indebolisce davvero la struttura.
-- Non introdurre contenuti disciplinari non presenti nei dati.
-- Organizza l'output in due sezioni con questi titoli esatti: Criticità rilevate | Versione migliorata.
-- Nella seconda sezione restituisci l'indice completo revisionato, pronto da usare.`,
-
-    abstract_review: `Revisiona criticamente l'abstract ricevuto.
-- Migliora chiarezza, ordine logico e pulizia formale.
-- Assicurati che la riga "Parole chiave:" sia separata dal corpo del testo.
-- Non introdurre fonti, dati o riferimenti non forniti.`,
-
-    chapter_review: `Revisiona criticamente il capitolo ricevuto.
-- Controlla coerenza logica, chiarezza, precisione terminologica e densità argomentativa.
-- Segnala se il testo introduce autori, teorie, dati, enti o riferimenti non presenti nei materiali di partenza.
-- Elimina eventuali chiusure artificiali o raccordi espliciti al capitolo successivo.
-- Mantieni un'impostazione conservativa: modifica solo ciò che è necessario.
-- Struttura l'output in tre parti: criticità rilevate, interventi prioritari, testo revisionato.`,
-
-    tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
-- Intervieni in modo conservativo.
-- Non aggiungere contenuti non richiesti.
-- Non introdurre fonti o riferimenti non presenti nei dati.
-- Restituisci solo il testo revisionato.`,
-
-    final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
-- Verifica coerenza tra indice, abstract e capitoli.
-- Segnala ripetizioni, salti logici, incongruenze terminologiche e raccordi artificiali.
-- Evidenzia se compaiono riferimenti specifici non supportati dai dati forniti.
-- Struttura l'output in: criticità ad alta priorità, criticità medie, osservazioni finali.`
-  };
-
-  return `${map[task] || 'Elabora il contenuto ricevuto in modo utile, coerente e prudente.'}\n\nDATI FORNITI DALL'UTENTE:\n${payload}`;
+  return `${TASK_CONFIG[task].prompt}\n\nDATI FORNITI DALL'UTENTE:\n${input}`;
 }
 
 function extractOpenAIText(data) {
   try {
     if (!data || !Array.isArray(data.output)) return '';
-
     return data.output
       .flatMap(item => item.content || [])
       .map(part => part.text || '')
@@ -269,20 +349,12 @@ function extractOpenAIText(data) {
 
 async function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error(`Timeout provider dopo ${Math.round(timeoutMs / 1000)} secondi`);
-    }
-    throw error;
+    return await fetch(url, { ...options, signal: controller.signal });
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timeout);
   }
 }
 
@@ -297,12 +369,5 @@ async function safeJson(response) {
 function simplifyProviderError(data) {
   if (!data) return 'Errore provider non dettagliato';
   if (typeof data === 'string') return data;
-  if (data.error?.message) return data.error.message;
-  if (data.message) return data.message;
-
-  try {
-    return JSON.stringify(data);
-  } catch {
-    return 'Errore provider non serializzabile';
-  }
+  return data?.error?.message || data?.message || JSON.stringify(data);
 }
