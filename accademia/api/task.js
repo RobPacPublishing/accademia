@@ -98,27 +98,34 @@ const TASK_CONFIG = {
   },
   abstract_draft: {
     provider: 'openai',
-    maxOutputTokens: 900,
+    maxOutputTokens: 1100,
     timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
-    prompt: `Genera un abstract universitario chiaro, sobrio e coerente sulla base dei soli dati ricevuti.
-- L'abstract deve sintetizzare tema, obiettivo, impostazione del lavoro, eventuale metodologia dichiarata e fuoco dell'analisi senza enfasi promozionale.
-- Non trasformarlo in introduzione, riassunto scolastico o promessa di risultati non dimostrati.
-- Non inserire fonti, autori, dati, risultati empirici o riferimenti non presenti nei materiali forniti.
-- Mantieni un registro disciplinare credibile e una sintassi pulita.
-- Inserisci le parole chiave su una nuova riga finale con la formula esatta: "Parole chiave:".
+    prompt: `Genera un abstract universitario realmente credibile e accademicamente sobrio sulla base dei soli dati ricevuti.
+- Scrivi un unico testo compatto di circa 170-230 parole, seguito da una sola riga finale con "Parole chiave:".
+- L'abstract deve far capire con chiarezza: tema del lavoro, problema o domanda di fondo, obiettivo, perimetro dell'analisi, impostazione metodologica solo se davvero dichiarata, e fuoco conclusivo del percorso.
+- L'ordine deve essere logico: contesto del tema, obiettivo del lavoro, impostazione del percorso, nucleo dell'analisi, chiusura sobria sulla rilevanza del lavoro.
+- Non trasformarlo in introduzione estesa, premessa narrativa, presentazione commerciale o riassunto scolastico.
+- Non usare formule vuote o standardizzate come "la presente tesi si propone di", "nel primo capitolo", "nel secondo capitolo", "verranno analizzati", "si cercherà di dimostrare" se non strettamente inevitabili.
+- Non elencare capitoli, non usare punti elenco, non scrivere sottotitoli interni.
+- Non promettere risultati, verifiche, evidenze o conferme che i dati non consentono di sostenere.
+- Non introdurre fonti, autori, dati, risultati empirici, riferimenti normativi o bibliografici non presenti nei materiali forniti.
+- Mantieni lessico disciplinare coerente con facoltà, corso e tipo di tesi.
+- Le parole chiave devono essere 4-6, pertinenti, non ridondanti e separate da virgole.
 - Restituisci solo l'abstract finale.`
   },
   abstract_review: {
     provider: 'openai',
-    maxOutputTokens: 1200,
+    maxOutputTokens: 1400,
     timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
-    prompt: `Revisiona criticamente l'abstract ricevuto.
-- Migliora chiarezza, ordine logico, precisione disciplinare e pulizia formale.
-- Elimina promesse eccessive, ridondanze, formule scolastiche e genericità.
-- Verifica che il testo sia coerente con il tipo di tesi descritto nei dati.
-- Non introdurre fonti, dati o risultati non forniti.
-- Mantieni separata la riga finale "Parole chiave:".
-- Restituisci solo la versione revisionata.`
+    prompt: `Revisiona criticamente l'abstract ricevuto come farebbe un relatore attento alla qualità formale e alla tenuta accademica.
+- Migliora ordine logico, compattezza, precisione disciplinare, pulizia sintattica e tono universitario.
+- Elimina formule scolastiche, enfasi superflua, ripetizioni, aperture troppo generiche e promesse non sostenibili.
+- Verifica che l'abstract non sia un mini-indice mascherato e non contenga la sequenza dei capitoli.
+- Se il testo è troppo vago, rendilo più preciso; se è troppo assertivo, rendilo più prudente.
+- Mantieni coerenza con titolo, argomento, indice, approccio metodologico e tipo di tesi descritti nei dati.
+- Non introdurre fonti, dati, risultati, autori, norme o riferimenti non forniti.
+- Mantieni la riga finale "Parole chiave:" come ultima riga, con 4-6 parole chiave pertinenti e non ripetitive.
+- Restituisci solo la versione revisionata finale.`
   },
   chapter_draft: {
     provider: 'anthropic',
