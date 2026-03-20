@@ -29,7 +29,7 @@ const TASK_ALIASES = {
 
 const OPENAI_TASK_CONFIG = {
   title_suggestions: {
-    max_output_tokens: 700
+    max_output_tokens: 900
   }
 };
 
@@ -75,16 +75,44 @@ function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const rawTask = typeof safe.task === 'string' ? safe.task.trim() : '';
   const task = normalizeTask(rawTask);
-  const input =
-    typeof safe.input === 'string'
+
+  const rawInput =
+    safe.input !== undefined
       ? safe.input
-      : typeof safe.payload === 'string'
+      : safe.payload !== undefined
         ? safe.payload
-        : typeof safe.content === 'string'
+        : safe.content !== undefined
           ? safe.content
-          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
+          : {};
+
+  const input = normalizeInput(rawInput);
 
   return { task, input };
+}
+
+function normalizeInput(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const parsed = tryParseJson(trimmed);
+    return parsed ?? value;
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  return String(value);
+}
+
+function tryParseJson(value) {
+  if (!value || typeof value !== 'string') return null;
+  const first = value[0];
+  if (first !== '{' && first !== '[') return null;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function normalizeTask(task) {
@@ -212,19 +240,11 @@ async function handleAnthropic({ task, input, res }) {
 }
 
 function buildPrompt(task, input) {
-  const payload = typeof input === 'string' ? input : JSON.stringify(input || {}, null, 2);
+  const parsedInput = coerceObject(input);
+  const payload = typeof input === 'string' ? input : serializeInput(input);
 
   const map = {
-    title_suggestions: `Genera titoli di tesi credibili, distinti e accademicamente maturi sulla base dei soli dati ricevuti.
-- Considera facoltà, corso di laurea, settore disciplinare e taglio metodologico come vincoli sostanziali: il titolo deve cambiare davvero se cambia il dominio disciplinare.
-- Non limitarti a sostituire il nome del corso o della disciplina dentro lo stesso schema lessicale.
-- Ricava dai materiali, se presenti, oggetto della ricerca, fuoco analitico, delimitazione dell'oggetto, prospettiva teorica, metodo, contesto, caso di studio, periodo, autore o corpus.
-- Costruisci proposte realmente differenziate per sintassi e impostazione: alcune più dirette, altre con sottotitolo, altre centrate sul problema di ricerca, ma sempre sobrie e universitarie.
-- Ogni proposta deve risultare plausibile per quella specifica area accademica e non deve poter essere riutilizzata quasi identica in una facoltà molto diversa.
-- Evita titoli sensazionalistici, vaghi, ridondanti, creativi in senso editoriale o troppo simili all'argomento grezzo inserito.
-- Evita titoli quasi identici tra loro e scarta qualunque proposta che differisca dalle altre solo per una minima sostituzione terminologica.
-- Ogni titolo deve iniziare con la maiuscola corretta.
-- Restituisci 10 proposte, una per riga, senza numerazione e senza commenti.`,
+    title_suggestions: buildTitleSuggestionsPrompt(parsedInput, payload),
 
     outline_draft: `Genera un indice accademico coerente e ben strutturato sulla base dei soli dati ricevuti.
 - Prevedi, se appropriato al tema, 5 capitoli principali oltre a introduzione, conclusioni e bibliografia.
@@ -275,6 +295,147 @@ function buildPrompt(task, input) {
   };
 
   return `${map[task] || 'Elabora il contenuto ricevuto in modo utile, coerente e prudente.'}\n\nDATI FORNITI DALL'UTENTE:\n${payload}`;
+}
+
+function buildTitleSuggestionsPrompt(parsedInput, payload) {
+  const disciplineBlock = buildDisciplineSummary(parsedInput);
+  const existingTitle = extractFirstString(parsedInput, [
+    'existingTitle',
+    'existing_title',
+    'proposedTitle',
+    'proposed_title',
+    'workingTitle',
+    'working_title',
+    'titleDraft',
+    'title_draft',
+    'candidateTitle',
+    'candidate_title',
+    'titolo',
+    'titoloProposto',
+    'titolo_proposto'
+  ]);
+
+  const topic = extractFirstString(parsedInput, [
+    'topic',
+    'thesisTopic',
+    'thesis_topic',
+    'subject',
+    'argomento',
+    'argomentoTesi',
+    'argomento_tesi'
+  ]);
+
+  const methodology = extractFirstString(parsedInput, [
+    'methodology',
+    'methodologicalApproach',
+    'methodological_approach',
+    'approach',
+    'approccioMetodologico',
+    'approccio_metodologico'
+  ]);
+
+  return `Devi valutare in modo rigoroso la compatibilità tra argomento della tesi, facoltà, corso di laurea e eventuale taglio metodologico, e solo dopo decidere se proporre titoli.
+
+Regole vincolanti:
+- Facoltà e corso di laurea sono vincoli disciplinari sostanziali, non etichette decorative.
+- Non trasformare un titolo nato in un dominio in un titolo di un altro dominio sostituendo solo il nome della disciplina o del corso.
+- Se l'argomento appartiene in modo prevalente a una disciplina diversa da quella selezionata e non è ragionevolmente riformulabile nel dominio indicato, non generare titoli fittizi.
+- Se la compatibilità è debole ma recuperabile, puoi generare titoli solo dopo avere rifocalizzato davvero il problema di ricerca nella prospettiva disciplinare selezionata.
+- Se è presente un titolo già pronto, trattalo come proposta preliminare da valutare criticamente: non assumerlo come corretto in automatico.
+- Ogni titolo proposto deve essere plausibile davanti a un relatore della facoltà selezionata e deve far percepire davvero l'ancoraggio disciplinare.
+- Evita lessico di discipline estranee al percorso selezionato, salvo che sia motivato da un reale approccio interdisciplinare emergente dai dati.
+- Evita titoli sensazionalistici, editoriali, vaghi, ridondanti o costruiti per semplice sostituzione terminologica.
+- Ogni titolo deve iniziare con la maiuscola corretta.
+
+Criterio di uscita obbligatorio:
+- Se la combinazione tra argomento e percorso di studi è sostanzialmente incompatibile, restituisci una sola riga che inizi esattamente con: "AVVISO:".
+  In quella riga spiega in modo chiaro e breve perché la combinazione non è coerente e invita a riformulare l'argomento oppure a modificare facoltà/corso.
+- Se la combinazione è solo parzialmente compatibile ma recuperabile, restituisci prima una riga che inizi esattamente con: "AVVISO:" e poi 5 titoli realmente rifocalizzati nel dominio corretto.
+- Se la combinazione è coerente, restituisci 5 titoli, uno per riga, senza numerazione e senza commenti.
+- Non restituire mai titoli quasi identici tra loro.
+- Non restituire mai titoli che potrebbero funzionare quasi uguali in una facoltà molto diversa.
+
+Vincoli da usare per la valutazione:
+${disciplineBlock}
+Argomento dichiarato: ${topic || 'non specificato'}
+Approccio metodologico dichiarato: ${methodology || 'non specificato'}
+Titolo già proposto: ${existingTitle || 'non presente'}
+
+Restituisci solo il risultato finale nel formato richiesto.`;
+}
+
+function buildDisciplineSummary(input) {
+  const degreeType = extractFirstString(input, [
+    'degreeType',
+    'degree_type',
+    'tipoLaurea',
+    'tipo_laurea',
+    'laurea'
+  ]);
+
+  const faculty = extractFirstString(input, [
+    'faculty',
+    'facolta',
+    'facoltà',
+    'department',
+    'area'
+  ]);
+
+  const course = extractFirstString(input, [
+    'degreeCourse',
+    'degree_course',
+    'course',
+    'corsoDiLaurea',
+    'corso_di_laurea',
+    'corso'
+  ]);
+
+  const field = extractFirstString(input, [
+    'disciplinaryField',
+    'disciplinary_field',
+    'sector',
+    'ssd',
+    'settoreDisciplinare',
+    'settore_disciplinare'
+  ]);
+
+  return [
+    `Tipo di laurea: ${degreeType || 'non specificato'}`,
+    `Facoltà: ${faculty || 'non specificata'}`,
+    `Corso di laurea: ${course || 'non specificato'}`,
+    `Settore disciplinare: ${field || 'non specificato'}`
+  ].join('\n');
+}
+
+function coerceObject(input) {
+  if (input && typeof input === 'object' && !Array.isArray(input)) return input;
+  if (typeof input === 'string') {
+    const parsed = tryParseJson(input.trim());
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  }
+  return null;
+}
+
+function extractFirstString(input, keys) {
+  if (!input || typeof input !== 'object') return '';
+
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return '';
+}
+
+function serializeInput(input) {
+  if (typeof input === 'string') return input;
+  try {
+    return JSON.stringify(input ?? {}, null, 2);
+  } catch {
+    return String(input ?? '');
+  }
 }
 
 function extractOpenAIText(data) {
