@@ -68,9 +68,13 @@ const TASK_CONFIG = {
     timeoutMs: DEFAULT_OPENAI_TIMEOUT_MS,
     prompt: `Costruisci un indice di tesi accademicamente solido, progressivo e difendibile sulla base dei soli dati ricevuti.
 - Ogni capitolo deve avere una funzione distinta e riconoscibile; evita capitoli-filtro, capitoli-cerniera e giustapposizioni deboli.
-- Fai emergere una traiettoria leggibile: definizione del problema, inquadramento teorico o concettuale, eventuale cornice metodologica, sviluppo dell'analisi, eventuale sezione applicativa o comparativa, conclusioni.
-- Adegua la struttura alla disciplina: una tesi giuridica, filosofica, economica, psicologica o tecnica non deve avere la stessa architettura.
-- L'approccio metodologico deve incidere davvero sulla struttura quando rilevante.
+- Non limitarti a cambiare il lessico: cambia davvero l'architettura quando cambiano disciplina, corso o approccio metodologico.
+- Non usare come schema implicito sempre la sequenza “quadro teorico → oggetto di analisi → ruolo/funzione → contesti/implicazioni” se non è davvero la migliore per i dati ricevuti.
+- Per Filosofia privilegia chiarificazione concettuale, statuto teorico delle categorie, confronto critico e implicazioni sul soggetto o sul riconoscimento; evita impianti psicosociali travestiti.
+- Per Psicologia privilegia costrutti, processi, dinamiche relazionali, contesti e implicazioni psicologico-sociali; evita strutture puramente speculative.
+- Per Giurisprudenza privilegia fonti, quadro normativo, problemi interpretativi, confronto tra orientamenti e ricadute applicative; evita impianti sociologici generici.
+- Per aree tecniche o economiche privilegia parametri, criteri di valutazione, quadri regolativi o di settore, applicazioni e casi; evita impianti da scienze umane.
+- L'approccio metodologico deve incidere davvero sulla struttura quando rilevante: comparativa = assi e criteri di confronto; caso studio = delimitazione del caso e quadro di analisi; revisione sistematica = logica di selezione e sintesi della letteratura.
 - Evita titoli ornamentali o elastici come “aspetti”, “profili”, “riflessioni”, “considerazioni” se non delimitano un contenuto preciso.
 - Evita sottocapitoli che ripetano il titolo del capitolo con minime variazioni lessicali.
 - Mantieni un equilibrio realistico: né pochi blocchi troppo generici né una frammentazione artificiale.
@@ -84,6 +88,8 @@ const TASK_CONFIG = {
     prompt: `Revisiona criticamente l'indice ricevuto come farebbe un relatore esigente.
 - Individua solo criticità reali di struttura, progressione, equilibrio, sovrapposizione o tenuta disciplinare.
 - Verifica che i capitoli facciano davvero avanzare il lavoro e non ripetano lo stesso nucleo in forma diversa.
+- Controlla se l'indice cambia davvero architettura al cambiare della disciplina o se si limita a rifilosofizzare/ri-lessicalizzare uno stesso schema generico.
+- Se l'impianto è troppo stabile o scolastico, rifondalo in modo più disciplinare.
 - Controlla che i sottocapitoli non siano formule deboli, ripetitive o puramente descrittive.
 - Mantieni ciò che funziona e modifica solo ciò che indebolisce davvero l'impianto.
 - Non introdurre contenuti disciplinari non presenti nei dati.

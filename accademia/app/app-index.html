@@ -414,8 +414,8 @@
           <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
           <div class="metod-chip" onclick="setMetod(this,'comparativa')">Comparativa</div>
         </div>
-        <div id="methodScopeNote" style="margin-top:10px;background:rgba(255,215,102,.05);border:1px solid rgba(255,215,102,.16);border-left:3px solid rgba(255,215,102,.45);border-radius:var(--radius-sm);padding:10px 14px;">
-          <span style="font-size:12px;color:var(--text3);line-height:1.6;">AccademIA è pensata per tesi teoriche, comparative, revisioni sistematiche e casi studio. Non è progettata per tesi basate su raccolta dati originali, questionari o analisi statistiche proprietarie.</span>
+        <div id="methodScopeNote" style="margin-top:8px;font-size:12px;color:var(--text3);line-height:1.55;">
+          AccademIA è pensata per tesi teoriche, comparative, revisioni sistematiche e casi studio; non è progettata per raccolta dati originali, questionari o analisi statistiche proprietarie.
         </div>
       </div>
       <div class="form-group full">
@@ -1244,6 +1244,34 @@ function getMetodologiaProfile(m){
   }[sanitizeMethodology(m)]||'Approccio teorico-argomentativo.';
 }
 
+function getOutlineArchitectureGuidance(facolta, corso, metodologia, isMagistrale){
+  const method = sanitizeMethodology(metodologia);
+  const methodRules = {
+    teorica: "La struttura deve far avanzare il ragionamento attraverso chiarificazione concettuale, inquadramento teorico e sviluppo interpretativo, senza simulare sezioni empiriche o raccolta dati.",
+    caso_studio: "La struttura deve prevedere delimitazione del caso, criteri di scelta, quadro di analisi e discussione applicata del caso, senza ridursi a narrazione descrittiva.",
+    revisione_sistematica: "La struttura deve includere impostazione della revisione, criteri di selezione, logica di screening o valutazione e sintesi ragionata della letteratura.",
+    comparativa: "La struttura deve rendere espliciti oggetti, criteri e assi di confronto; il confronto non va relegato a un solo sottocapitolo finale."
+  }[method] || "La metodologia deve incidere davvero sull'architettura del lavoro.";
+
+  const disciplineRules = {
+    Psicologia: "Per Psicologia privilegia un impianto centrato su costrutti, processi, contesti relazionali e implicazioni psicologico-sociali; evita strutture puramente speculative o nominalmente filosofiche.",
+    Filosofia: "Per Filosofia Teoretica non usare una sequenza psicosociale mascherata: privilegia chiarificazione concettuale, statuto teorico delle categorie, confronto critico e implicazioni sul soggetto, sul riconoscimento o sulla classificazione.",
+    Giurisprudenza: "Per Giurisprudenza privilegia architettura normativa e interpretativa: quadro delle fonti, problemi applicativi, confronto tra orientamenti e ricadute giurisprudenziali o sistematiche; evita impianti sociologici generici.",
+    Architettura: "Per Architettura privilegia quadro tecnico-progettuale, parametri o vincoli rilevanti, profili economici o normativi del progetto e, se pertinente, applicazione a un caso concreto; evita impianti da scienze umane.",
+    "Economia Aziendale": "Per Economia Aziendale privilegia meccanismi decisionali, variabili di mercato o di consumo, contesto di settore, implicazioni gestionali e, se pertinente, un'applicazione a caso o impresa.",
+    "Economia e Management": "Per Economia e Management privilegia logica analitica, contesto competitivo, meccanismi decisionali, implicazioni manageriali e criteri di confronto o valutazione.",
+    default: "La struttura deve riflettere davvero la disciplina selezionata e non replicare uno schema generico valido per qualsiasi facoltà."
+  }[facolta] || (corso && /filos/i.test(corso) ? "Per un corso filosofico privilegia chiarificazione concettuale, confronto teorico e tenuta speculativa, non una semplice sequenza psicosociale." : "La struttura deve riflettere davvero la disciplina selezionata e non replicare uno schema generico valido per qualsiasi facoltà.");
+
+  const degreeRule = isMagistrale
+    ? "Se la tesi è magistrale, l'impianto deve mostrare maggiore densità teorica o metodologica e un nucleo analitico più marcato."
+    : "Se la tesi è triennale, l'impianto deve restare sobrio ma non scolastico: evita la sequenza meccanica quadro teorico → oggetto → ruolo → contesti se non è davvero la migliore per la disciplina.";
+
+  return `${disciplineRules}
+${methodRules}
+${degreeRule}`;
+}
+
 // ══════════════════════════════════════════════
 // SYSTEM PROMPT
 // ══════════════════════════════════════════════
@@ -1305,6 +1333,7 @@ async function startPhase1(){
     ?`Struttura con ESATTAMENTE ${document.getElementById('numChapters').value} capitoli.`
     :`Determina il numero ottimale di capitoli (3-6) in base alla complessità dell'argomento.`;
 
+  const architectureRules=getOutlineArchitectureGuidance(thesis.facolta, thesis.corso, thesis.metodologia, cp.isMagistrale);
   const prompt=`Crea l'indice per una tesi di laurea ${cp.tipoLabel}.
 
 DATI:
@@ -1313,12 +1342,22 @@ DATI:
 ${thesis.titoloProposto?`- Titolo di lavoro: "${thesis.titoloProposto}"\n`:''}- Metodologia: ${thesis.metodologia}
 - Stile disciplinare: ${cp.dp.stile}
 
-REQUISITI:
+VINCOLI STRUTTURALI:
 ${numHint}
-Ogni capitolo: 3-4 sottocapitoli coerenti con l'approccio ${thesis.metodologia}.
+- Ogni capitolo deve avere una funzione distinta e riconoscibile.
+- Ogni capitolo deve contenere 3-4 sottocapitoli realmente coerenti con l'approccio ${thesis.metodologia}.
+- Evita capitoli-scatola, capitoli-cerniera e sequenze troppo stabili tra discipline diverse.
+- Evita sottocapitoli che ripetano il titolo del capitolo con minime variazioni.
+- Evita titoli ornamentali o vaghi come "aspetti", "profili", "riflessioni", "considerazioni" se non delimitano un contenuto preciso.
+- L'architettura deve essere difendibile davanti a un relatore della disciplina selezionata.
+
+GUIDA DISCIPLINARE:
+${architectureRules}
+
 ${cp.isMagistrale
-  ?'MAGISTRALE: prevedi capitolo dedicato alla metodologia e uno allo stato dell\'arte con gap identificato. Ultimo capitolo: contributo analitico originale.'
-  :'TRIENNALE: struttura descrittivo-argomentativa con progressione logica dall\'inquadramento teorico alle conclusioni.'}
+  ?'MAGISTRALE: inserisci una struttura più densa sul piano teorico o metodologico solo se giustificata dai dati; non automatizzare un capitolo metodologia o gap di letteratura se non serve davvero.'
+  :'TRIENNALE: costruisci una progressione sobria ma non scolastica; non usare automaticamente la stessa sequenza per tutte le facoltà.'}
+
 Includi: Introduzione, capitoli numerati con sottocapitoli, Conclusioni, Bibliografia${cp.isMagistrale?', eventuale Appendice':''}
 
 FORMATO OBBLIGATORIO (solo questo, nessun testo aggiuntivo):
@@ -1369,13 +1408,23 @@ async function reviseIndice(){
   document.getElementById('indiceChip').className='status-chip generating';
   document.getElementById('indiceChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('indiceApproval').style.display='none';
+  const architectureRules=getOutlineArchitectureGuidance(thesis.facolta, thesis.corso, thesis.metodologia, cp.isMagistrale);
   const prompt=`Revisiona l'indice di tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}${thesis.titoloProposto?` | Titolo di lavoro: "${thesis.titoloProposto}"`:''}
+
+GUIDA DISCIPLINARE:
+${architectureRules}
+
 INDICE ATTUALE:\n${thesis.indice}
-MODIFICHE: "${fb}"
+
+MODIFICHE RICHIESTE DALL'UTENTE: "${fb}"
+
+VINCOLI:
 ${numHint}
-${cp.isMagistrale?'Mantieni capitolo metodologia e gap nella letteratura.':''}
-Riscrivi indice completo. Stesso formato. Solo l'indice.`;
+- Mantieni ciò che funziona davvero.
+- Correggi ripetizioni strutturali, sottocapitoli troppo simili, sequenze scolastiche o architetture troppo generiche per la disciplina.
+- Se l'indice assomiglia troppo a uno schema valido per facoltà diverse, rifondalo in chiave più disciplinare.
+- Restituisci l'indice completo revisionato, stesso formato, senza commenti aggiuntivi.`;
   try{
     const t=await callClaude(prompt,'outline_review');
     thesis.indice=t;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
