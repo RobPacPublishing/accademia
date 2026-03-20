@@ -1,18 +1,6 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
 
-const TASK_CONFIG = {
-  outline_draft: { provider: 'openai', openaiMaxOutputTokens: 2400 },
-  outline_review: { provider: 'openai', openaiMaxOutputTokens: 2600 },
-  abstract_draft: { provider: 'openai', openaiMaxOutputTokens: 1400 },
-  abstract_review: { provider: 'openai', openaiMaxOutputTokens: 1600 },
-  title_suggestions: { provider: 'openai', openaiMaxOutputTokens: 1200 },
-  chapter_draft: { provider: 'anthropic', anthropicMaxTokens: 6000 },
-  chapter_review: { provider: 'anthropic', anthropicMaxTokens: 6000 },
-  tutor_revision: { provider: 'anthropic', anthropicMaxTokens: 6000 },
-  final_consistency_review: { provider: 'anthropic', anthropicMaxTokens: 2800 }
-};
-
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
 Regole permanenti:
@@ -68,49 +56,35 @@ export default async function handler(req, res) {
   }
 }
 
-function normalizeTaskName(task) {
-  const raw = typeof task === 'string' ? task.trim().toLowerCase() : '';
-  const aliases = {
-    outline: 'outline_draft',
-    indice: 'outline_draft',
-    index: 'outline_draft',
-    outline_review: 'outline_review',
-    indice_review: 'outline_review',
-    index_review: 'outline_review',
-    abstract: 'abstract_draft',
-    chapter: 'chapter_draft',
-    final_check: 'final_consistency_review',
-    title: 'title_suggestions',
-    titles: 'title_suggestions',
-    title_suggestion: 'title_suggestions'
-  };
-  return aliases[raw] || raw;
-}
-
 function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
-  const task = normalizeTaskName(safe.task);
-  const rawInput = safe.input ?? safe.payload ?? safe.content ?? {};
+  const task = typeof safe.task === 'string' ? safe.task.trim() : '';
   const input =
-    typeof rawInput === 'string'
-      ? rawInput
-      : JSON.stringify(rawInput || {});
+    typeof safe.input === 'string'
+      ? safe.input
+      : typeof safe.payload === 'string'
+        ? safe.payload
+        : typeof safe.content === 'string'
+          ? safe.content
+          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
 
   return { task, input };
 }
 
-function getTaskConfig(task) {
-  return TASK_CONFIG[task] || { provider: 'openai', openaiMaxOutputTokens: 1800 };
-}
-
 function pickProvider(task) {
-  return getTaskConfig(task).provider;
+  const anthropicTasks = new Set([
+    'chapter_draft',
+    'chapter_review',
+    'tutor_revision',
+    'final_consistency_review'
+  ]);
+
+  return anthropicTasks.has(task) ? 'anthropic' : 'openai';
 }
 
 async function handleOpenAI({ task, input, res }) {
   const openaiKey = process.env.OPENAI_API_KEY;
-  const config = getTaskConfig(task);
-  const openaiModel = process.env.OPENAI_MODEL_ACADEMIC || process.env.OPENAI_MODEL || 'gpt-5.4';
+  const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
 
   if (!openaiKey) {
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
@@ -129,8 +103,7 @@ async function handleOpenAI({ task, input, res }) {
       body: JSON.stringify({
         model: openaiModel,
         instructions: GENERAL_SYSTEM_PROMPT,
-        input: prompt,
-        max_output_tokens: config.openaiMaxOutputTokens || 1800
+        input: prompt
       })
     },
     OPENAI_TIMEOUT_MS
@@ -152,6 +125,7 @@ async function handleOpenAI({ task, input, res }) {
 
   return res.status(200).json({
     ok: true,
+    provider: 'openai',
     task,
     text
   });
@@ -159,8 +133,7 @@ async function handleOpenAI({ task, input, res }) {
 
 async function handleAnthropic({ task, input, res }) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const config = getTaskConfig(task);
-  const anthropicModel = process.env.ANTHROPIC_MODEL_LONGFORM || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+  const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   if (!anthropicKey) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
@@ -180,7 +153,7 @@ async function handleAnthropic({ task, input, res }) {
       body: JSON.stringify({
         model: anthropicModel,
         system: GENERAL_SYSTEM_PROMPT,
-        max_tokens: config.anthropicMaxTokens || 6000,
+        max_tokens: 6000,
         messages: [
           {
             role: 'user',
@@ -208,24 +181,26 @@ async function handleAnthropic({ task, input, res }) {
 
   return res.status(200).json({
     ok: true,
+    provider: 'anthropic',
     task,
     text: text || 'Nessun contenuto restituito'
   });
 }
 
 function buildPrompt(task, input) {
-  const payload = typeof input === 'string' ? input : JSON.stringify(input || {});
+  const payload = typeof input === 'string' ? input : JSON.stringify(input || {}, null, 2);
 
   const map = {
-    outline_draft: `Genera un indice di tesi universitario rigoroso, plausibile e ben gerarchizzato sulla base dei soli dati ricevuti.
-- Costruisci una struttura progressiva: dai fondamenti teorici o definitori verso analisi, applicazioni, discussione e chiusura, senza salti logici.
-- Usa un numero di capitoli davvero proporzionato al tema: in via ordinaria 5 capitoli principali oltre a introduzione, conclusioni e bibliografia; riduci o aumenta solo se i dati lo rendono chiaramente più appropriato.
-- Ogni capitolo deve avere una funzione distinta e riconoscibile; evita capitoli duplicati, speculari o semplicemente parafrasati.
-- I titoli devono essere accademici, sobri, specifici e credibili davanti a un relatore; evita formule vaghe, decorative o troppo simili tra loro.
-- I sottocapitoli devono risultare equilibrati, non ornamentali, non eccessivamente minuti e non ridondanti rispetto al titolo del capitolo.
-- Se nei dati compaiono facoltà, corso di laurea o approccio metodologico, l'indice deve rifletterli davvero nel lessico e nell'impostazione.
-- Non inserire autori, teorie, norme, casi di studio, metodi o riferimenti specialistici non presenti nei dati ricevuti.
-- Restituisci solo l'indice finale, già pronto da usare, in forma ordinata e pulita.`,
+    outline_draft: `Costruisci un indice di tesi accademicamente solido, progressivo e difendibile sulla base dei soli dati ricevuti.
+- Organizza la struttura in modo che ogni capitolo abbia una funzione distinta e riconoscibile.
+- Evita capitoli-filtro, sovrapposizioni tematiche, salti logici e semplici parafrasi dell'argomento.
+- Fai emergere una traiettoria leggibile tra inquadramento del problema, strumenti teorici o metodologici, sviluppo analitico, eventuale parte applicativa e chiusura finale.
+- Se i dati suggeriscono nuclei già presenti, riorganizzali senza tradirne il senso ma migliorandone ordine, equilibrio e precisione.
+- Assegna a capitoli e sottocapitoli titoli specifici, sobri, professionali e semanticamente non duplicativi.
+- Evita formule elastiche o decorative come “aspetti”, “profili”, “riflessioni”, “considerazioni” quando non delimitano davvero il contenuto.
+- Includi una sezione metodologica, di stato dell'arte o di delimitazione del corpus solo se i dati la giustificano davvero.
+- Mantieni un equilibrio realistico tra ampiezza dei capitoli e granularità dei sottocapitoli.
+- Restituisci solo l'indice finale.`,
 
     abstract_draft: `Genera un abstract accademico chiaro, continuo e formalmente pulito sulla base dei soli dati ricevuti.
 - Non inserire riferimenti, autori o dati non presenti nei materiali forniti.
@@ -240,14 +215,15 @@ function buildPrompt(task, input) {
 - Non chiudere con formule che anticipano esplicitamente il capitolo successivo.
 - Restituisci solo il capitolo finale.`,
 
-    outline_review: `Revisiona criticamente l'indice ricevuto come farebbe un supervisore accademico esigente ma sobrio.
-- Valuta solo aspetti strutturali reali: progressione logica, equilibrio tra capitoli, chiarezza dei titoli, coerenza dei sottocapitoli, aderenza a facoltà/corso/metodologia e assenza di sovrapposizioni.
-- Non segnalare pseudo-problemi o micro-ritocchi irrilevanti.
-- Individua con precisione se l'indice è troppo generico, troppo ripetitivo, troppo frammentato oppure sbilanciato tra parti introduttive e parti analitiche.
-- Se il problema riguarda singoli titoli, correggi i titoli; se riguarda l'architettura, correggi l'architettura.
-- Non introdurre contenuti disciplinari, autori, norme, casi o riferimenti non presenti nei dati.
-- Struttura l'output in due parti nette: "Criticità rilevate" e "Indice revisionato".
-- Nella seconda parte restituisci l'indice completo già migliorato, non semplici suggerimenti sparsi.`,
+    outline_review: `Revisiona criticamente l'indice ricevuto come farebbe un relatore esigente.
+- Evidenzia solo problemi reali di struttura, equilibrio, progressione logica o tenuta accademica.
+- Verifica se i capitoli fanno davvero avanzare il lavoro oppure se risultano giustapposti o ridondanti.
+- Controlla che i sottocapitoli non ripetano il titolo del capitolo con minime variazioni lessicali.
+- Segnala capitoli generici, capitoli-filtro, lacune strutturali, squilibri e assenze metodologiche davvero rilevanti.
+- Conserva ciò che funziona e modifica solo ciò che indebolisce davvero la struttura.
+- Non introdurre contenuti disciplinari non presenti nei dati.
+- Organizza l'output in due sezioni con questi titoli esatti: Criticità rilevate | Versione migliorata.
+- Nella seconda sezione restituisci l'indice completo revisionato, pronto da usare.`,
 
     abstract_review: `Revisiona criticamente l'abstract ricevuto.
 - Migliora chiarezza, ordine logico e pulizia formale.
@@ -271,18 +247,7 @@ function buildPrompt(task, input) {
 - Verifica coerenza tra indice, abstract e capitoli.
 - Segnala ripetizioni, salti logici, incongruenze terminologiche e raccordi artificiali.
 - Evidenzia se compaiono riferimenti specifici non supportati dai dati forniti.
-- Struttura l'output in: criticità ad alta priorità, criticità medie, osservazioni finali.`,
-
-    title_suggestions: `Valuta la compatibilità tra argomento, facoltà, corso di laurea, tipo di laurea, approccio metodologico ed eventuale titolo già proposto.
-- Se la combinazione è sostanzialmente incoerente in termini accademici, restituisci solo una riga che inizi con "AVVISO:" e spieghi perché.
-- Se la combinazione è parzialmente compatibile ma recuperabile, restituisci prima l'eventuale riga "AVVISO:" e poi 5 titoli disciplinari credibili, uno per riga.
-- Se la combinazione è coerente, restituisci direttamente 5 titoli disciplinari credibili, uno per riga.
-- Non ripetere meccanicamente la stessa locuzione centrale in tutti i titoli: la stessa espressione chiave dell'argomento non può comparire in più di 2 titoli su 5.
-- Negli altri titoli usa parafrasi, perifrasi o focalizzazioni concettuali disciplinari sobrie e credibili.
-- Differenzia incipit, struttura sintattica e taglio interpretativo dei titoli.
-- Evita titoli fotocopia che cambiano solo poche parole.
-- Se è presente un titolo già proposto, puoi valutarlo e ottimizzarlo, ma senza limitarti a minime variazioni lessicali.
-- Restituisci solo l'eventuale riga "AVVISO:" e poi i 5 titoli finali.`
+- Struttura l'output in: criticità ad alta priorità, criticità medie, osservazioni finali.`
   };
 
   return `${map[task] || 'Elabora il contenuto ricevuto in modo utile, coerente e prudente.'}\n\nDATI FORNITI DALL'UTENTE:\n${payload}`;
