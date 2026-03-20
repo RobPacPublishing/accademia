@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=_QNSDOOeiNdzbxPVe0NoKpLgiMZoQlAbX0W2o7hCV4afpL5aQq_c8G2ujHa5OAG-NoLQ5umqRZCeXTG1hXxUcT6zwx_SYRzx4IOHu7nTk3d0xAsAP64LddbTYRtkvGv0C6qKtrnPdxkCvBHg9-fVhnd8C8BujxSv4q36LVINyG03ZWDCrgJcngMP6oPy6uYbTF9cc3Lv__Moi12iMaKRLcqvjG_TjMHKpQtl2RPuoB9-7I9r70IRfSHBsqS3w6Miy12cTg0WmcZr2a7q565mIQ" charset="UTF-8"></script><style>
+  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=GM1NmI1nn9rdSJkJzJV-Z2m_n7JSDkp5M98p1Rrnv0zNINUDDGYvZt60tGN8z_P6_n03h_XgUvS9hn8I-ZSYPzJL8Q05tHL6yGKUZOocm0oBlBEkZfjTiQYB4ZqXi_qPx5phBO9B8QG-5BTJfAXBFmaf4wVIROypM1dCCjmA08PczAzumSQX6p8opeI9WS0M7dNmzp9ke4kAvfH7JwdkJM7v-mx1d5Uy2tjondJf6WJqmrlRLNNg5z6MuFtL2_PQyQqp628vSoxbC_TKng3zcA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=_QNSDOOeiNdzbxPVe0NoKpLgiMZoQlAbX0W2o7hCV4afpL5aQq_c8G2ujHa5OAG-NoLQ5umqRZCeXTG1hXxUcT6zwx_SYRzx4IOHu7nTk3d0xAsAP64LddbTYRtkvGv0C6qKtrnPdxkCvBHg9-fVhnd8C8BujxSv4q36LVINyG03ZWDCrgJcngMP6oPy6uYbTF9cc3Lv__Moi12iMaKRLcqvjG_TjMHKpQtl2RPuoB9-7I9r70IRfSHBsqS3w6Miy12cTg0WmcZr2a7q565mIQ" charset="UTF-8"></script><style>
     :root {
       --bg:#050505;
       --bg2:#0e0e0e;
@@ -530,6 +530,30 @@
       font-size:13px;
       color:var(--text-3);
     }
+    .prepurchase-note,
+    .plan-warning {
+      border:1px solid rgba(201,168,76,.18);
+      background:rgba(201,168,76,.06);
+      border-radius:18px;
+      color:var(--text-2);
+      font-size:14px;
+      line-height:1.7;
+    }
+    .prepurchase-note {
+      margin-top:16px;
+      padding:14px 16px;
+      max-width:760px;
+    }
+    .plan-warning {
+      max-width:920px;
+      margin:0 auto 22px;
+      padding:16px 18px;
+    }
+    .prepurchase-note strong,
+    .plan-warning strong,
+    .legal-note strong {
+      color:var(--gold);
+    }
     footer {
       border-top:1px solid rgba(201,168,76,.10);
       padding:26px 0 40px;
@@ -645,6 +669,7 @@
             <a class="btn btn-secondary" href="#piani">Scegli il piano</a>
             <a class="btn btn-secondary" href="#come-funziona">Come funziona</a>
           </div>
+          <div class="prepurchase-note"><strong>Nota importante prima dell'acquisto:</strong> AccademIA è un servizio di supporto alla strutturazione e revisione della tesi. Non sostituisce relatore, ateneo o valutazione accademica; non garantisce approvazione, voto o conformità regolamentare; non è pensata per raccolta dati originali, somministrazione di questionari o analisi statistiche proprietarie. Prima dell'uso è necessario leggere <a href="/termini.html" style="color:var(--gold);text-decoration:underline;">Termini</a> e <a href="/privacy.html" style="color:var(--gold);text-decoration:underline;">Privacy</a>.</div>
         </div>
 
         <div class="hero-card">
@@ -765,6 +790,8 @@
           <p>Ogni piano include l'accesso all'app, la revisione dell'indice e un numero definito di revisioni per accompagnarti durante il lavoro.</p>
         </div>
 
+        <div class="plan-warning"><strong>Perimetro del servizio:</strong> i piani AccademIA riguardano impostazione, sviluppo assistito e revisione di materiali di supporto alla tesi. Non includono raccolta dati reali, interviste, questionari, sperimentazioni, elaborazioni statistiche originali o validazione finale da parte dell'ateneo. Ogni contenuto resta da verificare, rielaborare e adattare prima dell'uso accademico.</div>
+
         <div class="plans">
           <article class="plan">
             <h3>Start</h3>
@@ -883,6 +910,11 @@
           </article>
 
           <article class="faq-item">
+            <strong class="faq-question">AccademIA è adatta a tesi empiriche con raccolta dati originale?</strong>
+            <p class="faq-answer">No. AccademIA non è progettata per gestire raccolta dati reale, somministrazione di questionari, interviste, campionamenti, analisi statistiche proprietarie o validazione metodologica di risultati originali. È pensata soprattutto per tesi teoriche, compilative, comparative, casi studio e percorsi di scrittura e revisione strutturata.</p>
+          </article>
+
+          <article class="faq-item">
             <strong class="faq-question">Cosa succede se le revisioni incluse non bastano?</strong>
             <p class="faq-answer">Se durante il percorso hai bisogno di ulteriore margine, puoi attivare revisioni aggiuntive oppure fare upgrade al piano superiore. In questo modo mantieni il lavoro già avviato e ampli il supporto solo quando serve davvero, senza acquistare in modo poco conveniente.</p>
           </article>
@@ -899,7 +931,7 @@
             <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Accedi all'app</a>
             <a class="btn btn-secondary" href="#piani">Scegli il piano</a>
           </div>
-          <div class="legal-note">AccademIA offre un supporto strutturato al percorso di tesi. Ogni contenuto deve essere verificato, adattato e validato prima di qualsiasi utilizzo accademico.</div>
+          <div class="legal-note"><strong>Avvertenza essenziale:</strong> AccademIA fornisce supporto strutturato al percorso di tesi, ma non sostituisce relatore, università o verifica accademica finale. Il servizio non include raccolta dati originali o analisi statistiche proprietarie. Ogni contenuto deve essere controllato, rielaborato e validato dall'utente prima di qualsiasi utilizzo.</div>
         </div>
       </div>
     </section>
@@ -909,7 +941,7 @@
     <div class="container footer-row">
       <div class="footer-brand">
         <span class="footer-title">AccademIA</span>
-        <span class="footer-meta">© 2026</span>
+        <span class="footer-meta">© 2026 · Supporto strutturato alla tesi, non servizio sostitutivo della valutazione accademica.</span>
       </div>
       <div class="footer-links">
         <a href="/privacy.html">Privacy</a>
