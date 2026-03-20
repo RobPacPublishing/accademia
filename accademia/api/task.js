@@ -1,6 +1,18 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
 
+const TASK_CONFIG = {
+  outline_draft: { provider: 'openai', openaiMaxOutputTokens: 2400 },
+  outline_review: { provider: 'openai', openaiMaxOutputTokens: 2600 },
+  abstract_draft: { provider: 'openai', openaiMaxOutputTokens: 1400 },
+  abstract_review: { provider: 'openai', openaiMaxOutputTokens: 1600 },
+  title_suggestions: { provider: 'openai', openaiMaxOutputTokens: 1200 },
+  chapter_draft: { provider: 'anthropic', anthropicMaxTokens: 6000 },
+  chapter_review: { provider: 'anthropic', anthropicMaxTokens: 6000 },
+  tutor_revision: { provider: 'anthropic', anthropicMaxTokens: 6000 },
+  final_consistency_review: { provider: 'anthropic', anthropicMaxTokens: 2800 }
+};
+
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
 Regole permanenti:
@@ -60,6 +72,11 @@ function normalizeTaskName(task) {
   const raw = typeof task === 'string' ? task.trim().toLowerCase() : '';
   const aliases = {
     outline: 'outline_draft',
+    indice: 'outline_draft',
+    index: 'outline_draft',
+    outline_review: 'outline_review',
+    indice_review: 'outline_review',
+    index_review: 'outline_review',
     abstract: 'abstract_draft',
     chapter: 'chapter_draft',
     final_check: 'final_consistency_review',
@@ -77,25 +94,23 @@ function normalizeBody(body) {
   const input =
     typeof rawInput === 'string'
       ? rawInput
-      : JSON.stringify(rawInput);
+      : JSON.stringify(rawInput || {});
 
   return { task, input };
 }
 
-function pickProvider(task) {
-  const anthropicTasks = new Set([
-    'chapter_draft',
-    'chapter_review',
-    'tutor_revision',
-    'final_consistency_review'
-  ]);
+function getTaskConfig(task) {
+  return TASK_CONFIG[task] || { provider: 'openai', openaiMaxOutputTokens: 1800 };
+}
 
-  return anthropicTasks.has(task) ? 'anthropic' : 'openai';
+function pickProvider(task) {
+  return getTaskConfig(task).provider;
 }
 
 async function handleOpenAI({ task, input, res }) {
   const openaiKey = process.env.OPENAI_API_KEY;
-  const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
+  const config = getTaskConfig(task);
+  const openaiModel = process.env.OPENAI_MODEL_ACADEMIC || process.env.OPENAI_MODEL || 'gpt-5.4';
 
   if (!openaiKey) {
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
@@ -114,7 +129,8 @@ async function handleOpenAI({ task, input, res }) {
       body: JSON.stringify({
         model: openaiModel,
         instructions: GENERAL_SYSTEM_PROMPT,
-        input: prompt
+        input: prompt,
+        max_output_tokens: config.openaiMaxOutputTokens || 1800
       })
     },
     OPENAI_TIMEOUT_MS
@@ -136,7 +152,6 @@ async function handleOpenAI({ task, input, res }) {
 
   return res.status(200).json({
     ok: true,
-    provider: 'openai',
     task,
     text
   });
@@ -144,7 +159,8 @@ async function handleOpenAI({ task, input, res }) {
 
 async function handleAnthropic({ task, input, res }) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+  const config = getTaskConfig(task);
+  const anthropicModel = process.env.ANTHROPIC_MODEL_LONGFORM || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   if (!anthropicKey) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
@@ -164,7 +180,7 @@ async function handleAnthropic({ task, input, res }) {
       body: JSON.stringify({
         model: anthropicModel,
         system: GENERAL_SYSTEM_PROMPT,
-        max_tokens: 6000,
+        max_tokens: config.anthropicMaxTokens || 6000,
         messages: [
           {
             role: 'user',
@@ -192,20 +208,24 @@ async function handleAnthropic({ task, input, res }) {
 
   return res.status(200).json({
     ok: true,
-    provider: 'anthropic',
     task,
     text: text || 'Nessun contenuto restituito'
   });
 }
 
 function buildPrompt(task, input) {
-  const payload = typeof input === 'string' ? input : JSON.stringify(input || {}, null, 2);
+  const payload = typeof input === 'string' ? input : JSON.stringify(input || {});
 
   const map = {
-    outline_draft: `Genera un indice accademico coerente e ben strutturato sulla base dei soli dati ricevuti.
-- Prevedi, se appropriato al tema, 5 capitoli principali oltre a introduzione, conclusioni e bibliografia.
-- Evita formulazioni ridondanti o generiche.
-- Restituisci solo l'indice finale.`,
+    outline_draft: `Genera un indice di tesi universitario rigoroso, plausibile e ben gerarchizzato sulla base dei soli dati ricevuti.
+- Costruisci una struttura progressiva: dai fondamenti teorici o definitori verso analisi, applicazioni, discussione e chiusura, senza salti logici.
+- Usa un numero di capitoli davvero proporzionato al tema: in via ordinaria 5 capitoli principali oltre a introduzione, conclusioni e bibliografia; riduci o aumenta solo se i dati lo rendono chiaramente più appropriato.
+- Ogni capitolo deve avere una funzione distinta e riconoscibile; evita capitoli duplicati, speculari o semplicemente parafrasati.
+- I titoli devono essere accademici, sobri, specifici e credibili davanti a un relatore; evita formule vaghe, decorative o troppo simili tra loro.
+- I sottocapitoli devono risultare equilibrati, non ornamentali, non eccessivamente minuti e non ridondanti rispetto al titolo del capitolo.
+- Se nei dati compaiono facoltà, corso di laurea o approccio metodologico, l'indice deve rifletterli davvero nel lessico e nell'impostazione.
+- Non inserire autori, teorie, norme, casi di studio, metodi o riferimenti specialistici non presenti nei dati ricevuti.
+- Restituisci solo l'indice finale, già pronto da usare, in forma ordinata e pulita.`,
 
     abstract_draft: `Genera un abstract accademico chiaro, continuo e formalmente pulito sulla base dei soli dati ricevuti.
 - Non inserire riferimenti, autori o dati non presenti nei materiali forniti.
@@ -220,10 +240,14 @@ function buildPrompt(task, input) {
 - Non chiudere con formule che anticipano esplicitamente il capitolo successivo.
 - Restituisci solo il capitolo finale.`,
 
-    outline_review: `Revisiona criticamente l'indice ricevuto.
-- Evidenzia solo problemi reali di struttura, equilibrio o coerenza.
-- Proponi poi una versione migliorata.
-- Non introdurre contenuti disciplinari non presenti nei dati.`,
+    outline_review: `Revisiona criticamente l'indice ricevuto come farebbe un supervisore accademico esigente ma sobrio.
+- Valuta solo aspetti strutturali reali: progressione logica, equilibrio tra capitoli, chiarezza dei titoli, coerenza dei sottocapitoli, aderenza a facoltà/corso/metodologia e assenza di sovrapposizioni.
+- Non segnalare pseudo-problemi o micro-ritocchi irrilevanti.
+- Individua con precisione se l'indice è troppo generico, troppo ripetitivo, troppo frammentato oppure sbilanciato tra parti introduttive e parti analitiche.
+- Se il problema riguarda singoli titoli, correggi i titoli; se riguarda l'architettura, correggi l'architettura.
+- Non introdurre contenuti disciplinari, autori, norme, casi o riferimenti non presenti nei dati.
+- Struttura l'output in due parti nette: "Criticità rilevate" e "Indice revisionato".
+- Nella seconda parte restituisci l'indice completo già migliorato, non semplici suggerimenti sparsi.`,
 
     abstract_review: `Revisiona criticamente l'abstract ricevuto.
 - Migliora chiarezza, ordine logico e pulizia formale.
