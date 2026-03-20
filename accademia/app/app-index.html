@@ -2010,7 +2010,8 @@ function syncTitleSuggestionsWithCurrentContext(markStale=false){
 function parseTitleSuggestionResponse(text){
   const raw=String(text||'').trim();
   if(!raw) return {warning:'',items:[]};
-  const lines=raw.split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  const lines=raw.split(/
++/).map(v=>v.trim()).filter(Boolean);
   let warning='';
   const items=[];
   lines.forEach(line=>{
@@ -2033,6 +2034,79 @@ function parseTitleSuggestionResponse(text){
   return {warning,items:items.slice(0,5)};
 }
 
+function normalizeTitleLexical(text){
+  return String(text||'')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9\s]/gi,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function getTitleStopwords(){
+  return new Set(['il','lo','la','i','gli','le','un','uno','una','di','del','della','dello','dei','degli','delle','a','ad','al','allo','alla','ai','agli','alle','da','dal','dalla','dallo','dai','dagli','dalle','in','nel','nella','nello','nei','negli','nelle','con','su','sul','sulla','sui','sugli','sulle','per','tra','fra','e','ed','o','od','come','the','and','or','of','to','for','dentro','verso','oltre','attraverso','quadro','lettura','prospettiva','prospettive','studio','analisi','tema','tesi','caso']);
+}
+
+function getMeaningfulTopicPhrases(topic){
+  const stop=getTitleStopwords();
+  const raw=normalizeTitleLexical(normalizeCreativeTopic(topic||''));
+  if(!raw) return [];
+  const tokens=raw.split(' ').filter(token=>token && !stop.has(token) && token.length>1);
+  const phrases=[];
+  for(let n=2;n<=Math.min(3,tokens.length);n++){
+    for(let i=0;i<=tokens.length-n;i++){
+      const phrase=tokens.slice(i,i+n).join(' ').trim();
+      if(phrase && phrase.length>=6) phrases.push(phrase);
+    }
+  }
+  return Array.from(new Set(phrases));
+}
+
+function getRepeatedTitlePhrases(items){
+  const stop=getTitleStopwords();
+  const counts={};
+  (items||[]).forEach(title=>{
+    const tokens=normalizeTitleLexical(title).split(' ').filter(token=>token && !stop.has(token) && token.length>1);
+    const seen=new Set();
+    for(let n=2;n<=3;n++){
+      for(let i=0;i<=tokens.length-n;i++){
+        const phrase=tokens.slice(i,i+n).join(' ').trim();
+        if(!phrase || phrase.length<6) continue;
+        seen.add(phrase);
+      }
+    }
+    seen.forEach(phrase=>{counts[phrase]=(counts[phrase]||0)+1;});
+  });
+  return Object.entries(counts).filter(([,count])=>count>=3).sort((a,b)=>b[1]-a[1]);
+}
+
+function titleSetIsTooRepetitive(items,context){
+  const safeItems=Array.isArray(items)?items.filter(Boolean):[];
+  if(safeItems.length<4) return false;
+  const repeated=getRepeatedTitlePhrases(safeItems);
+  if(!repeated.length) return false;
+  const topicPhrases=getMeaningfulTopicPhrases(context.topic||'');
+  const exactTopicEcho=topicPhrases.some(phrase=>safeItems.filter(title=>normalizeTitleLexical(title).includes(phrase)).length>2);
+  const repeatedGenerazioneZ=safeItems.filter(title=>/generazione\s+z/i.test(title)).length>2;
+  const repeatedOpenings=(()=>{
+    const counts={};
+    safeItems.forEach(title=>{
+      const tokens=normalizeTitleLexical(title).split(' ').filter(Boolean).slice(0,3);
+      if(tokens.length<2) return;
+      const key=tokens.join(' ');
+      counts[key]=(counts[key]||0)+1;
+    });
+    return Object.values(counts).some(count=>count>=3);
+  })();
+  return exactTopicEcho || repeatedGenerazioneZ || repeatedOpenings;
+}
+
+function buildTitleSuggestionPrompt(context,retry=false){
+  const topic=normalizeCreativeTopic(context.topic);
+  const retryLine=retry ? 'La generazione precedente era troppo ripetitiva: riformula da zero. La stessa locuzione centrale dell'argomento non deve comparire in più di 2 titoli su 5. Se il tema contiene un'espressione riconoscibile come "Generazione Z", usala al massimo in 2 titoli; negli altri usa parafrasi disciplinari credibili e non artificiose.' : '';
+  return `Valuta la compatibilità tra argomento, facoltà, corso di laurea e approccio metodologico. Se la combinazione non è abbastanza coerente in termini accademici, restituisci una sola riga che inizi con "AVVISO:" e spieghi perché. Se la combinazione è recuperabile, restituisci prima l'eventuale riga "AVVISO:" e poi 5 titoli realmente disciplinari, distinti tra loro, credibili e adatti a una tesi italiana. Regole obbligatorie: evita titoli intercambiabili tra facoltà diverse; non ripetere meccanicamente la stessa espressione chiave in tutti i titoli; alterna parafrasi, perifrasi, focalizzazioni concettuali e varianti lessicali sobrie; differenzia anche incipit e struttura sintattica; evita 5 titoli fotocopia che cambiano solo poche parole. ${retryLine} Tema di base: "${topic}".`;
+}
+
 async function requestTitleSuggestions(force=false){
   const context=getTitleSuggestionContext();
   const wrap=document.getElementById('titleSuggestWrap');
@@ -2043,12 +2117,11 @@ async function requestTitleSuggestions(force=false){
   if(titleSuggestionState.loading) return;
   if(!force && titleSuggestionState.signature===buildTitleSuggestionSignature(context) && ((titleSuggestionState.items&&titleSuggestionState.items.length) || titleSuggestionState.warning) && !titleSuggestionState.stale) return;
 
-  const topic=normalizeCreativeTopic(context.topic);
-  const prompt=`Valuta la compatibilità tra argomento, facoltà, corso di laurea e approccio metodologico. Se la combinazione non è abbastanza coerente in termini accademici, restituisci una sola riga che inizi con "AVVISO:" e spieghi perché. Se la combinazione è recuperabile, restituisci prima l'eventuale riga "AVVISO:" e poi 5 titoli realmente disciplinari, distinti tra loro, credibili e adatti a una tesi italiana. Evita titoli intercambiabili tra facoltà diverse. Tema di base: "${topic}".`;
+  const prompt=buildTitleSuggestionPrompt(context,false);
   titleSuggestionState={signature:buildTitleSuggestionSignature(context),items:[],warning:'',loading:true,error:'',stale:false};
   renderTitleSuggestions();
   try{
-    const text=await callClaude(prompt,'title_suggestions',{
+    let text=await callClaude(prompt,'title_suggestions',{
       existingTitle:context.existingTitle,
       existing_title:context.existingTitle,
       proposedTitle:context.existingTitle,
@@ -2056,7 +2129,19 @@ async function requestTitleSuggestions(force=false){
       titoloProposto:context.existingTitle,
       titleIntent:'suggest_or_warn'
     });
-    const parsed=parseTitleSuggestionResponse(text);
+    let parsed=parseTitleSuggestionResponse(text);
+    if(titleSetIsTooRepetitive(parsed.items,context)){
+      text=await callClaude(buildTitleSuggestionPrompt(context,true),'title_suggestions',{
+        existingTitle:context.existingTitle,
+        existing_title:context.existingTitle,
+        proposedTitle:context.existingTitle,
+        workingTitle:context.existingTitle,
+        titoloProposto:context.existingTitle,
+        titleIntent:'suggest_or_warn',
+        retryBecause:'titles_too_repetitive'
+      });
+      parsed=parseTitleSuggestionResponse(text);
+    }
     titleSuggestionState={signature:buildTitleSuggestionSignature(context),items:parsed.items,warning:parsed.warning,loading:false,error:'',stale:false};
     renderTitleSuggestions();
     saveProgress();
