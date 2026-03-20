@@ -410,14 +410,12 @@
         <label>Approccio metodologico</label>
         <div class="metod-row" id="metodRow">
           <div class="metod-chip" onclick="setMetod(this,'teorica')">Teorica</div>
-          <div class="metod-chip" onclick="setMetod(this,'empirica')">Empirica</div>
           <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio</div>
           <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
           <div class="metod-chip" onclick="setMetod(this,'comparativa')">Comparativa</div>
         </div>
-        <div id="empiricaWarning" style="display:none;margin-top:10px;background:rgba(224,85,85,.07);border:1px solid rgba(224,85,85,.25);border-left:3px solid var(--red);border-radius:var(--radius-sm);padding:10px 14px;gap:8px;align-items:flex-start;">
-          <span style="font-size:15px;flex-shrink:0">⚠️</span>
-          <span style="font-size:12px;color:var(--text3);line-height:1.6;"><strong style="color:#e07070">Approccio empirico — importante:</strong> AccademIA genera la struttura metodologica e il testo descrittivo, ma <strong style="color:#e07070">non raccoglie dati reali, non esegue analisi statistiche e non compila strumenti</strong> (questionari, griglie, scale). I capitoli di risultati e discussione saranno fondati su letteratura esistente, non su dati primari tuoi.</span>
+        <div id="methodScopeNote" style="margin-top:10px;background:rgba(255,215,102,.05);border:1px solid rgba(255,215,102,.16);border-left:3px solid rgba(255,215,102,.45);border-radius:var(--radius-sm);padding:10px 14px;">
+          <span style="font-size:12px;color:var(--text3);line-height:1.6;">AccademIA è pensata per tesi teoriche, comparative, revisioni sistematiche e casi studio. Non è progettata per tesi basate su raccolta dati originali, questionari o analisi statistiche proprietarie.</span>
         </div>
       </div>
       <div class="form-group full">
@@ -1107,12 +1105,18 @@ function renderSavedChapterBlock(idx,total){
   renderRevCounter(idx);
 }
 
+function sanitizeMethodology(value){
+  const raw=(value||'').trim();
+  if(raw==='empirica') return 'teorica';
+  return raw;
+}
+
 function restoreProgressUI(){
   applyFormState(loadProgress()?.form || {});
   setIndiceMode(indiceMode);
   const metodBtn=document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
   if(metodBtn) setMetod(metodBtn, metodologia);
-  else {document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active')); const warn=document.getElementById('empiricaWarning'); if(warn) warn.style.display='none';}
+  else {document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));}
   if(chapterOverrideActive){
     const btn=document.getElementById('toggleOverride');
     if(btn && !btn.classList.contains('active')) toggleChapterOverride();
@@ -1162,10 +1166,11 @@ function restoreProgressOnLoad(){
   if(!saved || !saved.thesis) return;
   window.__restoringState=true;
   thesis=saved.thesis;
+  if(thesis && thesis.metodologia==='empirica') thesis.metodologia='teorica';
   revState=saved.revState||revState;
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   indiceMode=saved.indiceMode||'ai';
-  metodologia=saved.metodologia||'';
+  metodologia=sanitizeMethodology(saved.metodologia||'');
   chapterOverrideActive=!!saved.chapterOverrideActive;
   titleSuggestionState=normalizeStoredTitleSuggestionState(saved.titleSuggestionState);
   restoreProgressUI();
@@ -1176,7 +1181,7 @@ function restoreProgressOnLoad(){
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';document.getElementById('empiricaWarning').style.display=val==='empirica'?'flex':'none';renderTitleSuggestions();if(!window.__restoringState) saveProgress();}
+function setMetod(el,val){const safeVal=sanitizeMethodology(val);document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=safeVal||'';renderTitleSuggestions();if(!window.__restoringState) saveProgress();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -1220,11 +1225,11 @@ function validateForm(){
 function getDisciplineProfile(facolta){
   const P={
     'Giurisprudenza':{stile:'giuridico-argomentativo con riferimenti normativi',fonti:'dottrina giuridica, giurisprudenza (Cassazione, Corte Costituzionale, CGUE), testi normativi, Foro Italiano, Rivista di Diritto Civile',vocabolario:'fattispecie, locus standi, ratio legis, orientamento giurisprudenziale, interpretazione sistematica',logica:'deduttiva: dalla norma al caso, analisi esegetica'},
-    'Psicologia':{stile:'scientifico-empirico con riferimento a paradigmi consolidati',fonti:'Journal of Personality, Psychological Review, Clinical Psychology Review (APA), DSM-5-TR, studi longitudinali peer-reviewed',vocabolario:'costrutto, variabile dipendente/indipendente, validità ecologica, affidabilità test-retest, p<.05, effect size',logica:'ipotetico-deduttiva: ipotesi → operazionalizzazione → verifica'},
-    'Economia e Management':{stile:'analitico-quantitativo con supporto di dati empirici',fonti:'HBR, Journal of Finance, Strategic Management Journal (ABS-rated), ISTAT, Banca d\'Italia, Eurostat, World Bank',vocabolario:'VAN, EBITDA, elasticità della domanda, esternalità, equilibrio di Nash, indice di Herfindahl',logica:'modelli teorici validati da dati empirici'},
-    'Economia Aziendale':{stile:'analitico-quantitativo con supporto di dati empirici',fonti:'HBR, Journal of Finance, Strategic Management Journal (ABS-rated), ISTAT, Banca d\'Italia, Eurostat',vocabolario:'VAN, EBITDA, ROI, ROE, elasticità, equilibrio di Nash',logica:'modelli teorici validati da dati empirici'},
+    'Psicologia':{stile:'scientifico con riferimento a paradigmi consolidati',fonti:'Journal of Personality, Psychological Review, Clinical Psychology Review (APA), DSM-5-TR, studi longitudinali peer-reviewed',vocabolario:'costrutto, validità ecologica, affidabilità, regolazione emotiva, dinamiche identitarie, processi di attribuzione',logica:'ipotetico-deduttiva: quadri teorici → categorie interpretative → discussione critica'},
+    'Economia e Management':{stile:'analitico-quantitativo con supporto di letteratura e dati di settore',fonti:'HBR, Journal of Finance, Strategic Management Journal (ABS-rated), ISTAT, Banca d\'Italia, Eurostat, World Bank',vocabolario:'VAN, EBITDA, elasticità della domanda, esternalità, equilibrio di Nash, indice di Herfindahl',logica:'modelli teorici e interpretativi supportati da letteratura e dati secondari'},
+    'Economia Aziendale':{stile:'analitico-quantitativo con supporto di letteratura e dati di settore',fonti:'HBR, Journal of Finance, Strategic Management Journal (ABS-rated), ISTAT, Banca d\'Italia, Eurostat',vocabolario:'VAN, EBITDA, ROI, ROE, elasticità, equilibrio di Nash',logica:'modelli teorici e interpretativi supportati da letteratura e dati secondari'},
     'Medicina e Chirurgia':{stile:'scientifico evidence-based con linee guida cliniche',fonti:'PubMed/MEDLINE, Cochrane Reviews, NEJM, The Lancet, linee guida ERS/ESC/OMS, RCT',vocabolario:'sensibilità/specificità, odds ratio, IC 95%, NNT, metanalisi, livelli di evidenza (I-V)',logica:'evidence-based: dalla revisione sistematica alla pratica clinica'},
-    'Psicologia':{stile:'scientifico-empirico con paradigmi consolidati',fonti:'riviste APA indicizzate, DSM-5-TR, studi peer-reviewed',vocabolario:'costrutto psicologico, validità, affidabilità, significatività statistica',logica:'ipotetico-deduttiva'},
+    'Psicologia':{stile:'scientifico con paradigmi consolidati',fonti:'riviste APA indicizzate, DSM-5-TR, studi peer-reviewed',vocabolario:'costrutto psicologico, validità, affidabilità, dinamiche relazionali',logica:'ipotetico-deduttiva'},
     'Scienze Politiche e Relazioni Internazionali':{stile:'analitico-comparativo multidisciplinare',fonti:'International Organization, European Journal of Political Research, report ONU/UE/NATO',vocabolario:'governance multilivello, neofunzionalismo, realismo/liberalismo/costruttivismo, sovereignty gap',logica:'comparativa e interpretativa: analisi casi, process tracing'},
     'default':{stile:'accademico-argomentativo con approccio critico e analitico',fonti:'riviste peer-reviewed indicizzate Scopus/WoS, monografie accademiche, report istituzioni riconosciute',vocabolario:'terminologia tecnica specifica della disciplina, registro formale accademico',logica:'argomentativa: tesi, antitesi, sintesi con supporto bibliografico'}
   };
@@ -1233,11 +1238,10 @@ function getDisciplineProfile(facolta){
 function getMetodologiaProfile(m){
   return {
     'teorica':'Approccio TEORICO: rassegna critica della letteratura, confronto tra paradigmi interpretativi, costruzione di framework concettuale originale. Non include dati primari.',
-    'empirica':'Approccio EMPIRICO: definizione ipotesi operative, descrizione campione e procedura raccolta dati, analisi statistica risultati, discussione alla luce della letteratura.',
-    'caso_studio':'CASO STUDIO (case study research): selezione e giustificazione del caso, raccolta dati multi-fonte, analisi interpretativa thick description.',
-    'revisione_sistematica':'REVISIONE SISTEMATICA: criteri PICO/SPIDER, stringa di ricerca su database, flow chart PRISMA, valutazione qualità studi, sintesi narrativa o metanalisi.',
-    'comparativa':'COMPARATIVA: selezione casi (most similar/most different system design), variabili di confronto, analisi similitudini/differenze, generalizzazione controllata.'
-  }[m]||'Approccio teorico-argomentativo.';
+    'caso_studio':'CASO STUDIO: delimitazione e giustificazione del caso, uso di fonti documentali affidabili, analisi interpretativa contestualizzata e discussione critica dei risultati.',
+    'revisione_sistematica':'REVISIONE SISTEMATICA: criteri di selezione espliciti, stringa di ricerca, processo di screening, valutazione della qualità degli studi e sintesi ragionata della letteratura.',
+    'comparativa':'COMPARATIVA: selezione motivata dei casi o modelli, variabili di confronto, analisi di somiglianze e differenze, generalizzazione controllata.'
+  }[sanitizeMethodology(m)]||'Approccio teorico-argomentativo.';
 }
 
 // ══════════════════════════════════════════════
@@ -1252,7 +1256,7 @@ REGOLE ASSOLUTE — VIOLAZIONE NON TOLLERATA:
 3. Usa il web search per trovare fonti reali PRIMA di scrivere. Cerca specificamente autori, titoli e anni verificabili.
 4. Se non trovi una fonte verificata, usa formule prudenti: "la letteratura evidenzia che...", "diversi studi nel settore indicano...", "secondo l'orientamento prevalente in letteratura..."
 5. Usa **testo** SOLO per titoli di sottosezioni. Zero altro markdown.
-6. Ogni claim empirico richiede supporto: fonte verificata OPPURE formula prudente.
+6. Ogni riferimento a dati, risultati o verifiche richiede supporto: fonte verificata OPPURE formula prudente.
 7. Standard minimo: tesi discussa con lode presso ateneo italiano di primo livello.`;
 }
 
@@ -1470,9 +1474,6 @@ function getChapterRole(idx,total,title,metod){
   }else if(idx===total-1){
     role='ULTIMO CAPITOLO: convergenza argomentativa. Integra tutti gli argomenti verso le conclusioni.';
     body='Sviluppa l\'argomentazione finale integrando esplicitamente quanto emerso nei capitoli precedenti. Presenta implicazioni pratiche, policy recommendation o sviluppi futuri. Identifica i limiti dello studio. Apri a prospettive di ricerca futura.';
-  }else if(metod==='empirica'&&idx===Math.floor(total/2)){
-    role='CAPITOLO METODOLOGICO: descrive il disegno della ricerca.';
-    body='Descrivi: paradigma epistemologico, approccio metodologico e motivazione. Presenta campione/corpus, strumenti di raccolta dati, procedura. Discuti validità e affidabilità. Anticipa i risultati senza svilupparli.';
   }else{
     role=`CAPITOLO DI SVILUPPO ${idx+1}/${total}: approfondisce un aspetto specifico dell\'argomento.`;
     body='Sviluppa in profondità attraverso sottosezioni tematicamente distinte. Ogni sottosezione porta avanti l\'argomentazione con supporto bibliografico. Alterna presentazione letteratura e commento critico. Argomenta, non solo rassegna.';
@@ -1882,21 +1883,19 @@ function normalizeTitleBase(topic){
 function methodologyLabel(v){
   return ({
     teorica:'teorico-critica',
-    empirica:'empirica',
     caso_studio:'basata su studio di caso',
     revisione_sistematica:'di revisione sistematica della letteratura',
     comparativa:'comparativa'
-  })[v]||'';
+  })[sanitizeMethodology(v)]||'';
 }
 
 function methodologyFrame(v){
   return ({
     teorica:{study:'lettura teorico-critica', question:'quadri teorici, nodi concettuali e implicazioni interpretative'},
-    empirica:{study:'indagine empirica', question:'variabili, evidenze e implicazioni applicative'},
     caso_studio:{study:'studio di caso', question:'analisi del caso, risultati e trasferibilità delle evidenze'},
     revisione_sistematica:{study:'revisione sistematica della letteratura', question:'stato dell’arte, convergenze e lacune della ricerca'},
     comparativa:{study:'analisi comparativa', question:'confronto tra modelli, contesti e risultati'}
-  })[v]||{study:'analisi accademica', question:'quadro teorico e sviluppi di ricerca'};
+  })[sanitizeMethodology(v)]||{study:'analisi accademica', question:'quadro teorico e sviluppi di ricerca'};
 }
 
 function facultyTitleProfile(facolta){
@@ -1948,7 +1947,7 @@ function getTitleSuggestionContext(){
   const tipo=(document.getElementById('tipoLaurea')?.value||'').trim();
   const facolta=(document.getElementById('facolta')?.value||'').trim();
   const corso=(document.getElementById('corso')?.value||'').trim();
-  const approccio=(metodologia||'').trim();
+  const approccio=sanitizeMethodology((metodologia||'').trim());
   const missing=[];
   if(!tipo) missing.push('tipo di laurea');
   if(!facolta) missing.push('facoltà');
