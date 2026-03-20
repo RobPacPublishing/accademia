@@ -423,8 +423,17 @@
       <div class="form-group full">
         <label>Argomento della tesi</label>
         <textarea id="argomento" placeholder="Es: L'impatto dell'intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Titolo già pronto [opzionale]</label>
+        <input type="text" id="titoloProposto" placeholder="Es: La rappresentazione della Generazione Z nei processi progettuali contemporanei" oninput="handleWorkingTitleInput()">
+        <div style="margin-top:8px;font-size:12px;color:var(--text3);line-height:1.6;">Questo campo è separato dall'argomento: serve per inserire o affinare un titolo di lavoro senza sostituire il tema della tesi.</div>
         <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
-          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Suggerimenti titolo</div>
+            <button type="button" id="titleSuggestBtn" onclick="requestTitleSuggestions(true)" style="padding:8px 12px;border-radius:10px;border:1px solid rgba(201,168,76,.28);background:rgba(201,168,76,.08);color:var(--gold);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer">Genera suggerimenti</button>
+          </div>
+          <div id="titleSuggestStatus" style="display:none;margin-bottom:10px;font-size:12px;line-height:1.65;color:var(--text3)"></div>
           <div id="titleSuggestList" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
@@ -648,13 +657,15 @@
 // ══════════════════════════════════════════════
 let chapterOverrideActive=false, indiceMode='ai', metodologia='';
 let thesis={
-  argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
+  argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',titoloProposto:'',
   indice:'',indiceVersions:[],
   abstract:'',abstractVersions:[],
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   approvedChapters:[],
   contextPacket:null
 };
+
+let titleSuggestionState={signature:'',items:[],warning:'',loading:false,error:'',stale:false};
 
 let currentStep=0;
 const STORAGE_KEY='accademia_workflow_v2';
@@ -998,6 +1009,7 @@ function ensureGlobalCounter(){
 function captureFormState(){
   return {
     argomento:document.getElementById('argomento')?.value||'',
+    titoloProposto:document.getElementById('titoloProposto')?.value||'',
     facolta:document.getElementById('facolta')?.value||'',
     corso:document.getElementById('corso')?.value||'',
     tipoLaurea:document.getElementById('tipoLaurea')?.value||'',
@@ -1009,16 +1021,19 @@ function captureFormState(){
 function applyFormState(form){
   if(!form) return;
   if(document.getElementById('argomento')) document.getElementById('argomento').value=form.argomento||'';
+  if(document.getElementById('titoloProposto')) document.getElementById('titoloProposto').value=form.titoloProposto||'';
   if(document.getElementById('facolta')) document.getElementById('facolta').value=form.facolta||'';
   if(document.getElementById('corso')) document.getElementById('corso').value=form.corso||'';
   if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=form.tipoLaurea||'';
   if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=form.indiceManuale||'';
   if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
+  syncTitleSuggestionsWithCurrentContext(false);
   renderTitleSuggestions();
 }
 
 function saveProgress(){
   try{
+    thesis.titoloProposto=getWorkingTitleValue();
     const payload={
       thesis,
       revState,
@@ -1026,6 +1041,7 @@ function saveProgress(){
       indiceMode,
       metodologia,
       chapterOverrideActive,
+      titleSuggestionState,
       form:captureFormState(),
       savedAt:new Date().toISOString()
     };
@@ -1151,6 +1167,7 @@ function restoreProgressOnLoad(){
   indiceMode=saved.indiceMode||'ai';
   metodologia=saved.metodologia||'';
   chapterOverrideActive=!!saved.chapterOverrideActive;
+  titleSuggestionState=normalizeStoredTitleSuggestionState(saved.titleSuggestionState);
   restoreProgressUI();
   window.__restoringState=false;
   showToast('Sessione ripristinata ✓');
@@ -1249,6 +1266,7 @@ async function startPhase1(){
   thesis.corso=document.getElementById('corso').value.trim();
   thesis.tipo=document.getElementById('tipoLaurea').value;
   thesis.metodologia=metodologia;
+  thesis.titoloProposto=getWorkingTitleValue();
   thesis.chapters=[];thesis.currentChapterIdx=0;thesis.approvedChapters=[];
   // Will be re-init after chapters count is known (at generateNextChapter)
   thesis.contextPacket={
@@ -1288,7 +1306,7 @@ async function startPhase1(){
 DATI:
 - Facoltà: ${thesis.facolta} | Corso: ${thesis.corso}
 - Argomento: "${thesis.argomento}"
-- Metodologia: ${thesis.metodologia}
+${thesis.titoloProposto?`- Titolo di lavoro: "${thesis.titoloProposto}"\n`:''}- Metodologia: ${thesis.metodologia}
 - Stile disciplinare: ${cp.dp.stile}
 
 REQUISITI:
@@ -1348,7 +1366,7 @@ async function reviseIndice(){
   document.getElementById('indiceChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('indiceApproval').style.display='none';
   const prompt=`Revisiona l'indice di tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
-Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
+Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}${thesis.titoloProposto?` | Titolo di lavoro: "${thesis.titoloProposto}"`:''}
 INDICE ATTUALE:\n${thesis.indice}
 MODIFICHE: "${fb}"
 ${numHint}
@@ -1380,7 +1398,7 @@ async function generateAbstract(){
   document.getElementById('abstractApproval').style.display='none';
   const cp=thesis.contextPacket;
   const prompt=`Scrivi l'abstract per tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
-Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
+Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}${thesis.titoloProposto?` | Titolo di lavoro: "${thesis.titoloProposto}"`:''}
 Indice: ${thesis.indice}
 
 REQUISITI:
@@ -1422,7 +1440,7 @@ async function reviseAbstract(){
   document.getElementById('abstractChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('abstractApproval').style.display='none';
   const prompt=`Revisiona abstract tesi ${cp.tipoLabel} in ${thesis.facolta}.
-Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
+Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}${thesis.titoloProposto?` | Titolo di lavoro: "${thesis.titoloProposto}"`:''}
 ABSTRACT ATTUALE:\n${thesis.abstract}
 MODIFICHE: "${fb}"
 Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
@@ -1778,12 +1796,14 @@ function downloadDocx(){
   const blob=new Blob([html],{type:'application/vnd.ms-word;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;
-  a.download=`AccademIA_${thesis.argomento.substring(0,30).replace(/[^a-zA-Z0-9]/g,'_')}.doc`;
+  const exportTitle=(getEffectiveThesisTitle()||'tesi').substring(0,30).replace(/[^a-zA-Z0-9]/g,'_');
+  a.download=`AccademIA_${exportTitle}.doc`;
   a.click();URL.revokeObjectURL(url);showToast('Download avviato ✓');
 }
 function buildWordHTML(){
   const tl=tipoLaureaLabel(thesis.tipo);
-  let b=`<h1 style="text-align:center;font-family:Georgia,serif;font-size:20pt;margin-bottom:6pt">${escHtml(thesis.argomento)}</h1>
+  const thesisTitle=getEffectiveThesisTitle();
+  let b=`<h1 style="text-align:center;font-family:Georgia,serif;font-size:20pt;margin-bottom:6pt">${escHtml(thesisTitle)}</h1>
 <p style="text-align:center;font-family:Arial;font-size:11pt;color:#555">${escHtml(thesis.facolta)} — ${escHtml(thesis.corso)}</p>
 <p style="text-align:center;font-family:Arial;font-size:10pt;color:#888">${tl}</p>
 <br><hr style="border:none;border-top:1px solid #ccc"><br>
@@ -1824,11 +1844,15 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
   const facolta=(document.getElementById('facolta')?.value||thesis.facolta||'').trim();
   const corso=(document.getElementById('corso')?.value||thesis.corso||'').trim();
   const tipo=(document.getElementById('tipoLaurea')?.value||thesis.tipo||'').trim();
+  const titoloProposto=(document.getElementById('titoloProposto')?.value||thesis.titoloProposto||'').trim();
   const chapterTitles=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[];
   return {
     prompt:userPrompt,
     taskName,
     theme:argomento,
+    workingTitle:titoloProposto,
+    proposedTitle:titoloProposto,
+    existingTitle:titoloProposto,
     faculty:facolta,
     degreeCourse:corso,
     degreeType:tipo,
@@ -1899,8 +1923,28 @@ function degreeFrame(tipo){
   })[tipo]||{x:'quadro teorico e sviluppi di ricerca', y:'implicazioni teoriche e applicative'};
 }
 
+function getWorkingTitleValue(){
+  return (document.getElementById('titoloProposto')?.value||thesis.titoloProposto||'').trim();
+}
+
+function getEffectiveThesisTitle(){
+  return getWorkingTitleValue() || thesis.titoloProposto || thesis.argomento || (document.getElementById('argomento')?.value||'').trim();
+}
+
+function normalizeStoredTitleSuggestionState(state){
+  return {
+    signature:(state&&state.signature)||'',
+    items:Array.isArray(state?.items)?state.items.filter(Boolean).slice(0,5):[],
+    warning:(state&&state.warning)||'',
+    loading:false,
+    error:(state&&state.error)||'',
+    stale:!!(state&&state.stale)
+  };
+}
+
 function getTitleSuggestionContext(){
   const topic=(document.getElementById('argomento')?.value||'').trim();
+  const existingTitle=getWorkingTitleValue();
   const tipo=(document.getElementById('tipoLaurea')?.value||'').trim();
   const facolta=(document.getElementById('facolta')?.value||'').trim();
   const corso=(document.getElementById('corso')?.value||'').trim();
@@ -1911,7 +1955,7 @@ function getTitleSuggestionContext(){
   if(!corso) missing.push('corso di laurea');
   if(!approccio) missing.push('approccio metodologico');
   if(!topic || normalizeTitleBase(topic).length<12) missing.push('argomento');
-  return {topic,tipo,facolta,corso,approccio,missing,ready:missing.length===0};
+  return {topic,existingTitle,tipo,facolta,corso,approccio,missing,ready:missing.length===0};
 }
 
 function normalizeCreativeTopic(topic){
@@ -1936,47 +1980,6 @@ function normalizeCreativeComparison(value){
     .trim();
 }
 
-function buildConceptualTopicVariants(base){
-  const variants=new Set();
-  const clean=normalizeCreativeTopic(base);
-  if(!clean) return [];
-  variants.add(clean);
-
-  const replacementSets=[
-    [[/\bstereotipi\b/ig,'processi stereotipici'],[/\bgenerazione z\b/ig,'Generazione Z']],
-    [[/\bstereotipi\b/ig,'rappresentazioni sociali'],[/\bgenerazione z\b/ig,'immagine della Generazione Z']],
-    [[/\bautostima\b/ig,'percezione di sé'],[/\bsocial media\b/ig,'ambienti digitali']],
-    [[/\bimpatto\b/ig,'ricadute'],[/\bsocial media\b/ig,'piattaforme sociali']],
-    [[/\bintelligenza artificiale\b/ig,'IA generativa'],[/\bmercato del lavoro\b/ig,'trasformazioni del lavoro']],
-    [[/\bprocrastinazione\b/ig,'rinvio intenzionale'],[/\bansia\b/ig,'attivazione ansiosa']]
-  ];
-
-  replacementSets.forEach(set=>{
-    let candidate=clean;
-    set.forEach(([rx,repl])=>{ candidate=candidate.replace(rx,repl); });
-    candidate=normalizeTitleBase(candidate);
-    if(candidate && candidate.toLowerCase()!==clean.toLowerCase()) variants.add(candidate);
-  });
-
-  if(/\bstereotipi\b/i.test(clean) && /\bGenerazione Z\b/i.test(clean)){
-    variants.add('La costruzione dell’immagine della Generazione Z');
-    variants.add('La Generazione Z come oggetto di rappresentazione sociale');
-  }
-
-  return Array.from(variants).slice(0,6);
-}
-
-function disciplineAngles(context){
-  const source=`${context.facolta} ${context.corso}`.toLowerCase();
-  if(source.includes('psicolog')) return ['categorizzazione sociale','dinamiche identitarie','processi di attribuzione','benessere psicosociale'];
-  if(source.includes('sociolog') || source.includes('scienze sociali')) return ['rappresentazioni collettive','dinamiche generazionali','costruzione sociale','mutamenti culturali'];
-  if(source.includes('comunicaz')) return ['narrazioni mediatiche','immaginario collettivo','discorso pubblico','processi di framing'];
-  if(source.includes('econom')) return ['assetti organizzativi','comportamenti di consumo','dinamiche decisionali','ricadute manageriali'];
-  if(source.includes('giurisprud') || source.includes('diritto')) return ['qualificazione giuridica','bilanciamento degli interessi','profili applicativi','cornice normativa'];
-  if(source.includes('educaz') || source.includes('formaz')) return ['contesti di apprendimento','processi educativi','strategie formative','ricadute pedagogiche'];
-  return ['cornici teoriche','snodi concettuali','dinamiche interpretative','ricadute applicative'];
-}
-
 function upperFirstTitleChar(title){
   if(!title) return '';
   const trimmed=String(title).trim();
@@ -1984,81 +1987,185 @@ function upperFirstTitleChar(title){
   return trimmed.charAt(0).toUpperCase()+trimmed.slice(1);
 }
 
-function uniqueTitlePush(bucket,title,baseNorm){
-  const clean=upperFirstTitleChar(normalizeTitleBase(title));
-  const norm=normalizeCreativeComparison(clean);
-  if(!clean || clean.length<18) return;
-  if(norm===baseNorm) return;
-  if(bucket.some(existing=>normalizeCreativeComparison(existing)===norm)) return;
-  bucket.push(clean);
+function buildTitleSuggestionSignature(context){
+  return JSON.stringify({
+    topic:normalizeCreativeComparison(context.topic||''),
+    existingTitle:normalizeCreativeComparison(context.existingTitle||''),
+    tipo:(context.tipo||'').trim().toLowerCase(),
+    facolta:(context.facolta||'').trim().toLowerCase(),
+    corso:(context.corso||'').trim().toLowerCase(),
+    approccio:(context.approccio||'').trim().toLowerCase()
+  });
 }
 
-function createTitleSuggestions(context){
-  if(!context || !context.ready) return [];
-  const base=normalizeCreativeTopic(context.topic);
-  if(!base || base.length<12) return [];
-  const faculty=facultyTitleProfile(context.facolta);
-  const method=methodologyFrame(context.approccio);
-  const degree=degreeFrame(context.tipo);
-  const approachLabel=methodologyLabel(context.approccio);
-  const course=context.corso;
-  const angles=disciplineAngles(context);
-  const concepts=buildConceptualTopicVariants(base);
-  const baseNorm=normalizeCreativeComparison(base);
-  const titles=[];
+function syncTitleSuggestionsWithCurrentContext(markStale=false){
+  const context=getTitleSuggestionContext();
+  const signature=buildTitleSuggestionSignature(context);
+  if(titleSuggestionState.signature!==signature){
+    const hadContent=(titleSuggestionState.items&&titleSuggestionState.items.length)||titleSuggestionState.warning;
+    titleSuggestionState={signature,items:[],warning:'',loading:false,error:'',stale:!!(markStale&&hadContent)};
+  }
+}
 
-  const primary=concepts[0]||base;
-  const secondary=concepts[1]||primary;
-  const tertiary=concepts[2]||secondary;
+function parseTitleSuggestionResponse(text){
+  const raw=String(text||'').trim();
+  if(!raw) return {warning:'',items:[]};
+  const lines=raw.split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  let warning='';
+  const items=[];
+  lines.forEach(line=>{
+    const clean=line
+      .replace(/^[-*•–]\s+/,'')
+      .replace(/^\d+[\.)]\s+/,'')
+      .replace(/^[A-Z][\.)]\s+/,'')
+      .trim();
+    if(!clean) return;
+    if(/^avviso\s*:/i.test(clean) || /^attenzione\s*:/i.test(clean)){
+      warning=clean.replace(/^attenzione\s*:/i,'AVVISO:').trim();
+      return;
+    }
+    if(/^(suggerimenti titolo|titoli proposti|proposte titolo)\s*:$/i.test(clean)) return;
+    const normalized=upperFirstTitleChar(clean.replace(/^['“”"]+|['“”"]+$/g,''));
+    if(!normalized) return;
+    if(items.some(existing=>normalizeCreativeComparison(existing)===normalizeCreativeComparison(normalized))) return;
+    items.push(normalized);
+  });
+  return {warning,items:items.slice(0,5)};
+}
 
-  uniqueTitlePush(titles, `Tra ${angles[0]} e ${angles[1]}: ${primary} in ${course}`, baseNorm);
-  uniqueTitlePush(titles, `${secondary}: una ${method.study} tra ${faculty.c} e ${faculty.d}`, baseNorm);
-  uniqueTitlePush(titles, `${tertiary}: ${faculty.a}, ${faculty.b} e ${faculty.app}`, baseNorm);
-  uniqueTitlePush(titles, `${secondary}: questioni ${faculty.adj} e ${degree.x}`, baseNorm);
-  uniqueTitlePush(titles, `Ripensare ${tertiary}: prospettiva ${approachLabel} e implicazioni per ${course}`, baseNorm);
-  uniqueTitlePush(titles, `Oltre le formulazioni immediate: ${tertiary} tra ${angles[2]} e ${angles[3]}`, baseNorm);
-  uniqueTitlePush(titles, `${secondary}: ${method.question}`, baseNorm);
+async function requestTitleSuggestions(force=false){
+  const context=getTitleSuggestionContext();
+  const wrap=document.getElementById('titleSuggestWrap');
+  if(!wrap) return;
+  syncTitleSuggestionsWithCurrentContext(false);
+  renderTitleSuggestions();
+  if(!context.ready) return;
+  if(titleSuggestionState.loading) return;
+  if(!force && titleSuggestionState.signature===buildTitleSuggestionSignature(context) && ((titleSuggestionState.items&&titleSuggestionState.items.length) || titleSuggestionState.warning) && !titleSuggestionState.stale) return;
 
-  return titles.slice(0,5);
+  const topic=normalizeCreativeTopic(context.topic);
+  const prompt=`Valuta la compatibilità tra argomento, facoltà, corso di laurea e approccio metodologico. Se la combinazione non è abbastanza coerente in termini accademici, restituisci una sola riga che inizi con "AVVISO:" e spieghi perché. Se la combinazione è recuperabile, restituisci prima l'eventuale riga "AVVISO:" e poi 5 titoli realmente disciplinari, distinti tra loro, credibili e adatti a una tesi italiana. Evita titoli intercambiabili tra facoltà diverse. Tema di base: "${topic}".`;
+  titleSuggestionState={signature:buildTitleSuggestionSignature(context),items:[],warning:'',loading:true,error:'',stale:false};
+  renderTitleSuggestions();
+  try{
+    const text=await callClaude(prompt,'title_suggestions',{
+      existingTitle:context.existingTitle,
+      existing_title:context.existingTitle,
+      proposedTitle:context.existingTitle,
+      workingTitle:context.existingTitle,
+      titoloProposto:context.existingTitle,
+      titleIntent:'suggest_or_warn'
+    });
+    const parsed=parseTitleSuggestionResponse(text);
+    titleSuggestionState={signature:buildTitleSuggestionSignature(context),items:parsed.items,warning:parsed.warning,loading:false,error:'',stale:false};
+    renderTitleSuggestions();
+    saveProgress();
+  }catch(error){
+    titleSuggestionState={signature:buildTitleSuggestionSignature(context),items:[],warning:'',loading:false,error:error?.message||'Errore nella generazione dei suggerimenti titolo.',stale:true};
+    renderTitleSuggestions();
+    showToast('Errore nella generazione dei suggerimenti titolo',true);
+  }
 }
 
 function renderTitleSuggestions(){
   const wrap=document.getElementById('titleSuggestWrap');
   const list=document.getElementById('titleSuggestList');
-  if(!wrap || !list) return;
+  const status=document.getElementById('titleSuggestStatus');
+  const btn=document.getElementById('titleSuggestBtn');
+  if(!wrap || !list || !status || !btn) return;
+
+  syncTitleSuggestionsWithCurrentContext(false);
   const context=getTitleSuggestionContext();
-  const suggestions=createTitleSuggestions(context);
-  if(!suggestions.length){
+  const hasInput=!!(context.topic || context.existingTitle || context.facolta || context.corso || context.tipo || context.approccio);
+  if(!hasInput){
     wrap.style.display='none';
     list.innerHTML='';
+    status.style.display='none';
+    status.innerHTML='';
     return;
   }
+
   wrap.style.display='block';
-  list.innerHTML=suggestions.map(title=>`<button type="button" onclick="applySuggestedTitle(this)" style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer">${escHtml(title)}</button>`).join('');
+  const buttonLabel=context.existingTitle ? 'Valuta / ottimizza titolo' : ((titleSuggestionState.items&&titleSuggestionState.items.length) || titleSuggestionState.warning ? 'Rigenera suggerimenti' : 'Genera suggerimenti');
+  btn.textContent=buttonLabel;
+  btn.disabled=!context.ready || titleSuggestionState.loading;
+  btn.style.opacity=btn.disabled?'0.6':'1';
+  btn.style.cursor=btn.disabled?'not-allowed':'pointer';
+
+  const notices=[];
+  if(!context.ready){
+    notices.push(`Per ottenere suggerimenti coerenti completa: ${context.missing.join(', ')}.`);
+  }else if(titleSuggestionState.loading){
+    notices.push('Valutazione disciplinare in corso...');
+  }else if(titleSuggestionState.error){
+    notices.push(titleSuggestionState.error);
+  }else if(titleSuggestionState.stale){
+    notices.push('Hai modificato dati rilevanti del progetto: i suggerimenti precedenti non sono più validi e vanno rigenerati.');
+  }else if((!titleSuggestionState.items || !titleSuggestionState.items.length) && !titleSuggestionState.warning){
+    notices.push(context.existingTitle ? 'Puoi far valutare il titolo inserito oppure generare 5 proposte nuove coerenti con il tuo percorso.' : 'Genera suggerimenti titolo coerenti con facoltà, corso, approccio metodologico e argomento.');
+  }
+  if(titleSuggestionState.warning){
+    notices.push(titleSuggestionState.warning);
+  }
+
+  if(notices.length){
+    status.style.display='block';
+    status.innerHTML=notices.map(msg=>{
+      const isWarn=/^AVVISO:/i.test(msg) || /non sono più validi/i.test(msg) || /errore/i.test(msg);
+      return `<div style="padding:10px 12px;border-radius:12px;border:1px solid ${isWarn?'rgba(224,85,85,.24)':'rgba(201,168,76,.18)'};background:${isWarn?'rgba(224,85,85,.06)':'rgba(201,168,76,.05)'};color:${isWarn?'#e9b7b7':'var(--text2)'}">${escHtml(msg)}</div>`;
+    }).join('');
+  }else{
+    status.style.display='none';
+    status.innerHTML='';
+  }
+
+  if(titleSuggestionState.items && titleSuggestionState.items.length){
+    const currentTitle=normalizeCreativeComparison(getWorkingTitleValue());
+    list.innerHTML=titleSuggestionState.items.map(title=>{
+      const active=currentTitle && normalizeCreativeComparison(title)===currentTitle;
+      return `<button type="button" onclick="applySuggestedTitle(this)" style="text-align:left;padding:10px 12px;border-radius:12px;border:1px solid ${active?'rgba(201,168,76,.35)':'rgba(255,255,255,.08)'};background:${active?'rgba(201,168,76,.08)':'rgba(255,255,255,.03)'};color:var(--text);cursor:pointer">${escHtml(title)}</button>`;
+    }).join('');
+  }else{
+    list.innerHTML='';
+  }
 }
 
 function applySuggestedTitle(btn){
-  const el=document.getElementById('argomento');
+  const el=document.getElementById('titoloProposto');
   if(!el || !btn) return;
   el.value=btn.textContent.trim();
-  handleArgomentoInput();
+  thesis.titoloProposto=el.value.trim();
+  titleSuggestionState.signature=buildTitleSuggestionSignature(getTitleSuggestionContext());
+  titleSuggestionState.stale=false;
+  renderTitleSuggestions();
+  saveProgress();
+  showToast('Titolo proposto inserito ✓');
 }
 
 function handleProjectStructureChange(){
+  syncTitleSuggestionsWithCurrentContext(true);
   renderTitleSuggestions();
   saveProgress();
 }
 
 function handleArgomentoInput(){
+  syncTitleSuggestionsWithCurrentContext(true);
   renderTitleSuggestions();
   saveProgress();
 }
 
-async function callClaude(userPrompt, taskName='outline_draft'){
+function handleWorkingTitleInput(){
+  thesis.titoloProposto=getWorkingTitleValue();
+  syncTitleSuggestionsWithCurrentContext(true);
+  renderTitleSuggestions();
+  saveProgress();
+}
+
+async function callClaude(userPrompt, taskName='outline_draft', extra={}){
   const r=await fetch('/api/task',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
+    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt,extra)})
   });
   const d=await r.json().catch(()=>({}));
   if(!r.ok){throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);}
@@ -2068,11 +2175,11 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // ══════════════════════════════════════════════
 // API TASK — unified chapter call
 // ══════════════════════════════════════════════
-async function callClaudeWithSearch(userPrompt, taskName='chapter_draft'){
+async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra={}){
   const r=await fetch('/api/task',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
+    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt,extra)})
   });
   const d=await r.json().catch(()=>({}));
   if(!r.ok){throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);}
