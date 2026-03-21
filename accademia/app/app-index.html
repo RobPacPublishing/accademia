@@ -1210,16 +1210,49 @@ function renderSavedChapterBlock(idx,total){
           <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
         </div>
       </div>
-      <div class="approval-row" id="chapApproval-${idx}" style="display:${(thesis.approvedChapters||[])[idx]?'none':'flex'}">
-        <span class="hint">Approva il Capitolo ${idx+1} per confermarlo definitivamente</span>
-        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
-        ${idx<total-1
-          ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}</button>`
-          :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva ultimo capitolo e concludi</button>`}
-      </div>
+${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
     </div>`;
   area.appendChild(block);
   renderRevCounter(idx);
+}
+
+
+function getChapterApprovalRow(idx,total,approved,visible=true){
+  const display=visible?'flex':'none';
+  const hint=approved
+    ? `Capitolo ${idx+1} approvato. Puoi ancora richiedere una revisione.`
+    : `Approva il Capitolo ${idx+1} per confermarlo definitivamente`;
+  const redoLabel=approved ? '✎ Revisiona capitolo approvato' : '✎ Richiedi modifiche';
+  const primaryLabel=approved
+    ? (idx<total-1 ? `➜ Vai al Cap. ${idx+2}` : '✓ Vai al controllo finale')
+    : (idx<total-1 ? `✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}` : '✓ Approva ultimo capitolo e concludi');
+  const primaryAction=approved
+    ? (idx<total-1 ? `goToNextChapterFromApproved(${idx})` : 'focusFinalTools()')
+    : (idx<total-1 ? `approveChapter(${idx})` : 'approveLastChapter()');
+  return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
+        <span class="hint">${hint}</span>
+        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">${redoLabel}</button>
+        <button class="btn-approve" onclick="${primaryAction}">${primaryLabel}</button>
+      </div>`;
+}
+
+function goToNextChapterFromApproved(idx){
+  thesis.currentChapterIdx=Math.max(thesis.currentChapterIdx, idx+1);
+  const nextTitle=thesis.chapterTitles[idx+1]||'';
+  const nc=document.getElementById('nextChapters');
+  if(!nc)return;
+  nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
+  nc.classList.add('visible');
+  nc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  saveProgress();
+}
+
+function focusFinalTools(){
+  const bar=document.getElementById('downloadBar');
+  if(bar){
+    bar.style.display='flex';
+    bar.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 
 function restoreProgressUI(){
@@ -1752,13 +1785,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
           <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
         </div>
       </div>
-      <div class="approval-row" id="chapApproval-${idx}" style="display:none">
-        <span class="hint">Approva il Capitolo ${idx+1} per confermarlo definitivamente</span>
-        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">✎ Richiedi modifiche</button>
-        ${idx<total-1
-          ?`<button class="btn-approve" onclick="approveChapter(${idx})">✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}</button>`
-          :`<button class="btn-approve" onclick="approveLastChapter()">✓ Approva ultimo capitolo e concludi</button>`}
-      </div>
+${getChapterApprovalRow(idx,total,false,false)}
     </div>`;
   area.appendChild(block);
   block.scrollIntoView({behavior:'smooth',block:'start'});
@@ -1784,7 +1811,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
       document.getElementById(`chapChip-${idx}`).innerHTML='✓ Completato';
       document.getElementById(`chapVerBadge-${idx}`).style.display='inline-flex';
-      document.getElementById(`chapApproval-${idx}`).style.display='flex';
+      const chapRow=document.getElementById(`chapApproval-${idx}`); if(chapRow) chapRow.outerHTML=getChapterApprovalRow(idx,total,false,true);
       updateChapterProgressBar(idx,total,false);
       renderRevCounter(idx);
       saveProgress();
@@ -1793,8 +1820,9 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
 }
 
 function approveChapter(idx){
-  document.getElementById(`chapApproval-${idx}`).style.display='none';
   thesis.approvedChapters[idx]=true;
+  const row=document.getElementById(`chapApproval-${idx}`);
+  if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,true,true);
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   thesis.currentChapterIdx=idx+1;
   const nc=document.getElementById('nextChapters');
@@ -1807,8 +1835,9 @@ function approveChapter(idx){
 
 function approveLastChapter(){
   const idx=thesis.currentChapterIdx;
-  document.getElementById(`chapApproval-${idx}`).style.display='none';
   thesis.approvedChapters[idx]=true;
+  const row=document.getElementById(`chapApproval-${idx}`);
+  if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,true,true);
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   setStep(4);
@@ -1871,7 +1900,7 @@ ISTRUZIONI:
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
       document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisionato';
-      document.getElementById(`chapApproval-${idx}`).style.display='flex';
+      const revisedRow=document.getElementById(`chapApproval-${idx}`); if(revisedRow) revisedRow.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
       document.getElementById(`chapRevision-${idx}`).classList.remove('open');
       document.getElementById(`chapRevInput-${idx}`).value='';
       updateWordCount();
