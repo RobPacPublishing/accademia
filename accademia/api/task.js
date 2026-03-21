@@ -129,28 +129,31 @@ const TASK_CONFIG = {
   },
   chapter_draft: {
     provider: 'anthropic',
-    maxTokens: 7000,
+    maxTokens: 7600,
     timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
-    prompt: `Scrivi il capitolo richiesto in modo accademico, realmente sviluppato e coerente con l'impianto complessivo della tesi.
+    prompt: `Scrivi il capitolo richiesto come vero capitolo di tesi, non come sintesi manualistica o indice trasformato in prosa.
 - Rispetta con precisione titolo del capitolo, eventuali sottocapitoli, posizione del capitolo nell'indice, facoltà, corso di laurea e approccio dichiarato.
-- Ogni sottocapitolo deve avere una funzione riconoscibile: fondazione teorica, chiarimento concettuale, sviluppo del nucleo argomentativo, applicazione interpretativa o chiusura interna del capitolo. Evita sottosezioni che dicano quasi la stessa cosa con parole diverse.
-- Sviluppa davvero il ragionamento: non limitarti a riformulare l'indice, non procedere per definizioni generiche ripetute e non riempire con frasi ornamentali.
-- Mantieni progressione e densità: ogni paragrafo deve aggiungere un passaggio logico, una distinzione, una conseguenza o una precisazione utile.
+- Ancora il testo al problema specifico della tesi fin dalle prime righe: evita aperture troppo scolastiche, panoramiche enciclopediche e avvii impersonali che potrebbero adattarsi a qualunque elaborato della disciplina.
+- Ogni sottocapitolo deve avere una funzione distinta e percepibile: fondazione teorica, delimitazione del problema, chiarimento concettuale, sviluppo del nucleo argomentativo, confronto critico, applicazione interpretativa o chiusura interna del capitolo. Evita sottosezioni che dicano quasi la stessa cosa con parole diverse.
+- Non scrivere meta-commenti come “questo capitolo si propone di”, “si esaminerà”, “si passerà ora a”, salvo stretta necessità. Il capitolo deve entrare nel merito, non descrivere il proprio programma.
+- Sviluppa davvero il ragionamento: ogni paragrafo deve aggiungere una distinzione, un nesso, una conseguenza, una tensione teorica o un chiarimento utile. Se una frase non fa avanzare l'argomentazione, eliminala.
+- Evita il tono da manuale: se un passaggio potrebbe stare quasi identico in un compendio generale o in una voce introduttiva, rendilo più mirato alla domanda di fondo dell'elaborato.
+- Mantieni densità e continuità, ma senza comprimere tutto in blocchi astratti: alterna definizione, delimitazione, sviluppo e implicazione in modo naturale.
+- Non ripetere più volte gli stessi nuclei concettuali con minime variazioni lessicali. Una nozione già chiarita non va rispiegata se non per spostarla su un piano nuovo.
 - Se i materiali non contengono autori, studi, dati, sentenze o riferimenti specifici, non inventarli: mantieni il discorso su un piano concettuale generale ma rigoroso.
 - Non trasformare il capitolo in un elenco di formule astratte o in una sequenza di titoletti mascherati da prosa.
-- Evita ripetizioni ravvicinate della stessa espressione chiave, frasi ridondanti e chiusure prevedibili.
-- Non aggiungere sezioni artificiali come “Analisi critica”, “Sintesi finale”, “Considerazioni conclusive” o raccordi espliciti verso il capitolo successivo, salvo richiesta esplicita.
-- Il testo deve sembrare un vero capitolo universitario: sobrio, continuo, argomentato e difendibile.
+- Evita chiusure generiche, riepiloghi scolastici e raccordi espliciti verso il capitolo successivo.
+- Il testo deve risultare sobrio, argomentato, disciplinare e difendibile davanti a un relatore esigente.
 - Restituisci solo il capitolo finale.`
   },
   chapter_review: {
     provider: 'anthropic',
-    maxTokens: 7500,
+    maxTokens: 7800,
     timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
     prompt: `Revisiona criticamente il capitolo ricevuto con impostazione da supervisore accademico esigente.
-- Valuta anzitutto se il capitolo sviluppa davvero la funzione assegnata nell'indice o se resta descrittivo, ripetitivo o genericamente corretto.
+- Valuta anzitutto se il capitolo sviluppa davvero la funzione assegnata nell'indice o se resta descrittivo, ripetitivo, manualistico o genericamente corretto.
 - Controlla coerenza logica, chiarezza espositiva, densità argomentativa, precisione terminologica, continuità stilistica e differenziazione reale tra i sottocapitoli.
-- Individua ridondanze, parafrasi interne, accumuli descrittivi, passaggi troppo generici, slittamenti di registro e chiusure artificiali.
+- Individua ridondanze, parafrasi interne, accumuli descrittivi, passaggi troppo generici, meta-commenti inutili, aperture da manuale e chiusure artificiali.
 - Segnala se il testo introduce riferimenti, dati, autori, sentenze, norme o informazioni non supportati dai materiali di partenza.
 - Intervieni in modo conservativo ma sostanziale: elimina il superfluo, rafforza i passaggi deboli e rendi il testo più universitario senza riscriverlo inutilmente da zero.
 - Se il capitolo è troppo scolastico, troppo schematico o troppo simile all'indice in forma discorsiva, correggilo apertamente.
