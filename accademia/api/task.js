@@ -219,11 +219,16 @@ function buildPrompt(task, input) {
 - Assicurati che la riga "Parole chiave:" sia separata dal corpo del testo.
 - Non introdurre fonti, dati o riferimenti non forniti.`,
 
-    chapter_review: `Revisiona criticamente il capitolo ricevuto.
-- Controlla coerenza logica, chiarezza, precisione terminologica e densità argomentativa.
-- Elimina eventuali chiusure artificiali o raccordi espliciti al capitolo successivo.
-- Segnala mentalmente eventuali riferimenti non supportati dai materiali, ma non mostrare diagnosi, note redazionali o intestazioni.
-- Mantieni un'impostazione conservativa: modifica solo ciò che è necessario.
+    chapter_review: `Revisiona il capitolo ricevuto come farebbe un correttore accademico esigente ma sobrio.
+- L'obiettivo non è una semplice pulizia stilistica: devi migliorare davvero il testo quando presenti ridondanze, tono troppo manualistico, meta-commento, passaggi solo descrittivi, chiusure generiche o sviluppo argomentativo debole.
+- Trasforma i passaggi che spiegano soltanto cosa farà il capitolo in passaggi che iniziano effettivamente a sviluppare il contenuto.
+- Riduci parafrasi interne, ripetizioni concettuali e frasi che ribadiscono l'indice in prosa.
+- Rafforza la funzione specifica di ciascun sottocapitolo: ogni sezione deve aggiungere un passaggio reale del ragionamento, non ripetere in altra forma quanto già detto.
+- Mantieni il contenuto sostanziale, la struttura generale e il taglio disciplinare del testo, ma intervieni in modo più deciso quando la qualità lo richiede.
+- Elimina aperture enfatiche, chiusure generiche, formule troppo scolastiche o troppo da manuale.
+- Se trovi affermazioni troppo ampie, indimostrabili o non supportate dai materiali ricevuti, rendile più prudenti invece di ampliarle.
+- Non aggiungere fonti, autori, date, norme, sentenze, dati o riferimenti bibliografici non presenti nei materiali forniti.
+- Non mostrare diagnosi, commenti redazionali, intestazioni di servizio, elenchi di criticità o spiegazioni del lavoro svolto.
 - Restituisci esclusivamente il capitolo revisionato finale, pronto da usare, senza sezioni come "Criticità rilevate", "Interventi prioritari", "Testo revisionato" o simili.`,
 
     tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
