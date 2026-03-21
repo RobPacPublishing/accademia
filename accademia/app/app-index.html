@@ -1116,6 +1116,7 @@ function deleteIndice(){
   document.getElementById('indiceBlock').style.display='none';
   document.getElementById('indiceRevision').classList.remove('open');
   document.getElementById('indiceRevInput').value='';
+  if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value='';
   document.getElementById('nextAbstract').classList.remove('visible');
   document.getElementById('abstractBlock').style.display='none';
   document.getElementById('abstractText').textContent='';
