@@ -1121,6 +1121,7 @@ function deleteIndice(){
   document.getElementById('abstractText').textContent='';
   document.getElementById('abstractRevision').classList.remove('open');
   document.getElementById('abstractRevInput').value='';
+  if(document.getElementById('abstractManuale')) document.getElementById('abstractManuale').value='';
   document.getElementById('nextChapters').classList.remove('visible');
   document.getElementById('nextChapters').innerHTML='';
   document.getElementById('chaptersArea').innerHTML='';
@@ -1142,6 +1143,7 @@ function deleteAbstract(){
   document.getElementById('abstractBlock').style.display='none';
   document.getElementById('abstractRevision').classList.remove('open');
   document.getElementById('abstractRevInput').value='';
+  if(document.getElementById('abstractManuale')) document.getElementById('abstractManuale').value='';
   document.getElementById('chaptersArea').innerHTML='';
   document.getElementById('downloadBar').style.display='none';
   document.getElementById('nextChapters').classList.remove('visible');
