@@ -1,5 +1,14 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
+const DEFAULT_UNLOCK_CODE_RECIPIENT = process.env.UNLOCK_CODE_EMAIL || 'robpacpublishing@gmail.com';
+const UNLOCK_CODE_TASKS = new Set([
+  'issue_unlock_code',
+  'request_unlock_code',
+  'send_unlock_code',
+  'create_unlock_code',
+  'free_unlock_code',
+  'unlock_code_request'
+]);
 
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
@@ -35,14 +44,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { task, input } = normalizeBody(req.body);
+    const normalized = normalizeBody(req.body);
+    const { task, input } = normalized;
 
     if (!task) {
       return res.status(400).json({ error: 'Task mancante' });
     }
 
-    if (task === 'request_free_unlock_code') {
-      return await handleFreeUnlockCode({ input, res });
+    if (UNLOCK_CODE_TASKS.has(task)) {
+      return await handleUnlockCodeRequest({ task, normalized, res });
     }
 
     const provider = pickProvider(task);
@@ -60,136 +70,10 @@ export default async function handler(req, res) {
   }
 }
 
-const FREE_UNLOCK_CODE_EMAIL = 'robpacpublishing@gmail.com';
-
-async function handleFreeUnlockCode({ input, res }) {
-  const requestedEmail = extractRequestedEmail(input);
-
-  if (requestedEmail !== FREE_UNLOCK_CODE_EMAIL) {
-    return res.status(403).json({
-      error: 'Email non autorizzata',
-      details: `Il pacchetto gratuito può inviare il codice solo a ${FREE_UNLOCK_CODE_EMAIL}`
-    });
-  }
-
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY;
-  const resendKey = process.env.RESEND_API_KEY;
-  const resendFrom = process.env.RESEND_FROM_EMAIL || 'AccademIA <onboarding@resend.dev>';
-
-  if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({
-      error: 'Configurazione Supabase mancante',
-      details: 'SUPABASE_URL o chiave Supabase non configurate'
-    });
-  }
-
-  if (!resendKey) {
-    return res.status(500).json({
-      error: 'Configurazione email mancante',
-      details: 'RESEND_API_KEY non configurata'
-    });
-  }
-
-  const code = generateUnlockCode('TESIA');
-
-  const insertResponse = await fetchWithTimeout(
-    `${supabaseUrl}/rest/v1/codes`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-        Prefer: 'return=representation'
-      },
-      body: JSON.stringify({
-        code,
-        type: 'base',
-        used: false
-      })
-    },
-    OPENAI_TIMEOUT_MS
-  );
-
-  const insertData = await safeJson(insertResponse);
-
-  if (!insertResponse.ok) {
-    return res.status(insertResponse.status).json({
-      error: 'Errore creazione codice',
-      details: simplifyProviderError(insertData)
-    });
-  }
-
-  const emailResponse = await fetchWithTimeout(
-    'https://api.resend.com/emails',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${resendKey}`
-      },
-      body: JSON.stringify({
-        from: resendFrom,
-        to: [FREE_UNLOCK_CODE_EMAIL],
-        subject: 'AccademIA — Codice pacchetto gratuito',
-        html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#222">
-          <h2 style="margin:0 0 12px">Codice pacchetto gratuito</h2>
-          <p>È stato generato un codice gratuito per AccademIA.</p>
-          <p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:18px 0">${code}</p>
-          <p>Inseriscilo nella sezione <strong>Inserisci codice</strong> della webapp.</p>
-        </div>`
-      })
-    },
-    OPENAI_TIMEOUT_MS
-  );
-
-  const emailData = await safeJson(emailResponse);
-
-  if (!emailResponse.ok) {
-    return res.status(emailResponse.status).json({
-      error: 'Errore invio email',
-      details: simplifyProviderError(emailData)
-    });
-  }
-
-  return res.status(200).json({
-    ok: true,
-    email: FREE_UNLOCK_CODE_EMAIL
-  });
-}
-
-function extractRequestedEmail(input) {
-  if (!input) return '';
-  if (typeof input === 'string') {
-    try {
-      const parsed = JSON.parse(input);
-      if (parsed && typeof parsed.email === 'string') return parsed.email.trim().toLowerCase();
-    } catch {
-      return input.trim().toLowerCase();
-    }
-    return '';
-  }
-
-  if (typeof input === 'object' && typeof input.email === 'string') {
-    return input.email.trim().toLowerCase();
-  }
-
-  return '';
-}
-
-function generateUnlockCode(prefix = 'TESIA') {
-  const chunk = () => Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${prefix}-${chunk()}-${chunk()}`;
-}
-
 function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
-  const input =
+  const rawInput =
     typeof safe.input === 'string'
       ? safe.input
       : typeof safe.payload === 'string'
@@ -198,7 +82,25 @@ function normalizeBody(body) {
           ? safe.content
           : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
 
-  return { task, input };
+  return {
+    task,
+    input: rawInput,
+    body: safe,
+    parsedInput: parseMaybeJson(rawInput)
+  };
+}
+
+function parseMaybeJson(value) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return {};
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return {};
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return {};
+  }
 }
 
 function pickProvider(task) {
@@ -210,6 +112,212 @@ function pickProvider(task) {
   ]);
 
   return anthropicTasks.has(task) ? 'anthropic' : 'openai';
+}
+
+async function handleUnlockCodeRequest({ task, normalized, res }) {
+  const plan = pickUnlockPlan(normalized, task);
+  const recipient = pickUnlockRecipient(normalized);
+  const codeType = plan === 'premium' ? 'premium' : 'base';
+  const planLabel = codeType === 'premium' ? 'Pacchetto Premium' : 'Pacchetto Base';
+  const code = await generateUniqueCode();
+
+  await saveUnlockCode({ code, type: codeType });
+  await sendUnlockCodeEmail({ recipient, code, planLabel });
+
+  return res.status(200).json({
+    ok: true,
+    task,
+    text: `Codice ${planLabel} generato e inviato via email.`,
+    recipient,
+    plan: codeType
+  });
+}
+
+function pickUnlockPlan(normalized, task) {
+  const sources = [
+    normalized.body,
+    normalized.body?.input,
+    normalized.parsedInput
+  ];
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+    const raw = source.plan || source.package || source.tier || source.type;
+    if (typeof raw === 'string') {
+      const value = raw.trim().toLowerCase();
+      if (value === 'premium') return 'premium';
+      if (value === 'base' || value === 'free' || value === 'gratuito') return 'base';
+    }
+  }
+
+  return task === 'free_unlock_code' ? 'base' : 'base';
+}
+
+function pickUnlockRecipient(normalized) {
+  const sources = [
+    normalized.body,
+    normalized.body?.input,
+    normalized.parsedInput
+  ];
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+    const raw = source.email || source.recipient || source.to;
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw.trim();
+    }
+  }
+
+  return DEFAULT_UNLOCK_CODE_RECIPIENT;
+}
+
+async function generateUniqueCode() {
+  for (let i = 0; i < 8; i += 1) {
+    const candidate = `TESIA-${randomChunk(4)}-${randomChunk(4)}`;
+    const exists = await unlockCodeExists(candidate);
+    if (!exists) return candidate;
+  }
+
+  throw new Error('Impossibile generare un codice univoco');
+}
+
+function randomChunk(length) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < length; i += 1) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return out;
+}
+
+function getSupabaseServerConfig() {
+  const url = process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error('Configurazione server Supabase mancante');
+  }
+
+  return { url, key };
+}
+
+async function unlockCodeExists(code) {
+  const { url, key } = getSupabaseServerConfig();
+  const response = await fetchWithTimeout(
+    `${url}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id&limit=1`,
+    {
+      method: 'GET',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`
+      }
+    },
+    20000
+  );
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(`Errore verifica codice Supabase: ${simplifyProviderError(data)}`);
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
+async function saveUnlockCode({ code, type }) {
+  const { url, key } = getSupabaseServerConfig();
+  const response = await fetchWithTimeout(
+    `${url}/rest/v1/codes`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({
+        code,
+        type,
+        used: false
+      })
+    },
+    20000
+  );
+
+  if (!response.ok) {
+    const data = await safeJson(response);
+    throw new Error(`Errore salvataggio codice Supabase: ${simplifyProviderError(data)}`);
+  }
+}
+
+async function sendUnlockCodeEmail({ recipient, code, planLabel }) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+
+  if (!resendKey) {
+    throw new Error('RESEND_API_KEY non configurata');
+  }
+
+  if (!from) {
+    throw new Error('RESEND_FROM_EMAIL non configurata');
+  }
+
+  const subject = `${planLabel} AccademIA - Codice di attivazione`;
+  const text = [
+    `È stato generato un nuovo codice per ${planLabel}.`,
+    '',
+    `Codice: ${code}`,
+    '',
+    'Inseriscilo nella sezione "Inserisci codice" dell’app AccademIA per sbloccare le revisioni aggiuntive.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f1f1f">
+      <h2 style="margin:0 0 12px">${escapeHtml(planLabel)} AccademIA</h2>
+      <p style="margin:0 0 10px">È stato generato un nuovo codice di attivazione.</p>
+      <p style="margin:0 0 16px"><strong>Codice:</strong> <span style="font-size:18px;letter-spacing:2px">${escapeHtml(code)}</span></p>
+      <p style="margin:0">Inseriscilo nella sezione <strong>Inserisci codice</strong> dell’app AccademIA per sbloccare le revisioni aggiuntive.</p>
+    </div>
+  `;
+
+  const response = await fetchWithTimeout(
+    'https://api.resend.com/emails',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resendKey}`
+      },
+      body: JSON.stringify({
+        from,
+        to: [recipient],
+        subject,
+        text,
+        html
+      })
+    },
+    30000
+  );
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(`Errore invio email Resend: ${simplifyProviderError(data)}`);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 async function handleOpenAI({ task, input, res }) {
@@ -364,11 +472,13 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
-- Intervieni in modo conservativo.
+    tutor_revision: `Applica in modo rigoroso e prioritario le osservazioni del relatore o tutor al testo ricevuto.
+- Tratta le osservazioni come istruzioni vincolanti di revisione del capitolo, non come semplice prompt di rigenerazione generica.
+- Mantieni struttura, funzione del capitolo e coerenza con indice e abstract, salvo correzione esplicitamente richiesta.
+- Intervieni in modo mirato ma sostanziale dove le osservazioni lo richiedono.
 - Non aggiungere contenuti non richiesti.
 - Non introdurre fonti o riferimenti non presenti nei dati.
-- Restituisci solo il testo revisionato.`,
+- Restituisci solo il testo revisionato finale.`,
 
     final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
 - Verifica coerenza tra indice, abstract e capitoli.
@@ -386,7 +496,8 @@ function extractOpenAIText(data) {
 
     return data.output
       .flatMap(item => item.content || [])
-      .map(part => part.text || '')
+      .filter(part => part?.type === 'output_text' && part?.text)
+      .map(part => part.text)
       .join('\n')
       .trim();
   } catch {
