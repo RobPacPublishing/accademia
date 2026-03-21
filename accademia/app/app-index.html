@@ -410,15 +410,11 @@
         <label>Approccio metodologico</label>
         <div class="metod-row" id="metodRow">
           <div class="metod-chip" onclick="setMetod(this,'teorica')">Teorica</div>
-          <div class="metod-chip" onclick="setMetod(this,'empirica')">Empirica</div>
           <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio</div>
           <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
           <div class="metod-chip" onclick="setMetod(this,'comparativa')">Comparativa</div>
         </div>
-        <div id="empiricaWarning" style="display:none;margin-top:10px;background:rgba(224,85,85,.07);border:1px solid rgba(224,85,85,.25);border-left:3px solid var(--red);border-radius:var(--radius-sm);padding:10px 14px;gap:8px;align-items:flex-start;">
-          <span style="font-size:15px;flex-shrink:0">⚠️</span>
-          <span style="font-size:12px;color:var(--text3);line-height:1.6;"><strong style="color:#e07070">Approccio empirico — importante:</strong> AccademIA genera la struttura metodologica e il testo descrittivo, ma <strong style="color:#e07070">non raccoglie dati reali, non esegue analisi statistiche e non compila strumenti</strong> (questionari, griglie, scale). I capitoli di risultati e discussione saranno fondati su letteratura esistente, non su dati primari tuoi.</span>
-        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3)">AccademIA è pensata soprattutto per tesi teoriche, comparative, di caso studio e revisioni sistematiche. Non è progettata per raccolta dati originali o analisi statistiche proprietarie.</div>
       </div>
       <div class="form-group full">
         <label>Argomento della tesi</label>
@@ -473,11 +469,19 @@
       </div>
     </div>
     <div class="next-phase-area" id="nextAbstract">
+      <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Abstract della tesi</div>
+      <div class="indice-mode-toggle" style="margin-bottom:10px">
+        <button class="mode-btn active" id="abstractModeBtnAI" onclick="setAbstractMode('ai')">✦ Genera con AI</button>
+        <button class="mode-btn" id="abstractModeBtnManual" onclick="setAbstractMode('manual')">✎ Ho già un abstract</button>
+      </div>
+      <div id="abstractManualWrap" style="display:none;margin-bottom:10px">
+        <textarea id="abstractManuale" placeholder="Incolla qui l'abstract già approvato o già revisionato..." rows="8" style="font-size:13px;line-height:1.8" oninput="if(!window.__restoringState) saveProgress()"></textarea>
+      </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <button class="phase-btn" onclick="generateAbstract()">✦ Genera Abstract</button>
+        <button class="phase-btn" id="btnAbstractAction" onclick="generateAbstract()">✦ Genera Abstract</button>
         <button class="btn-redo" onclick="skipAbstractAndGoToChapters()">↷ Vai direttamente ai Capitoli</button>
       </div>
-      <div style="margin-top:10px;font-size:12px;color:var(--text3)">Puoi passare direttamente ai capitoli anche senza generare prima l'abstract.</div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text3)">Puoi usare un abstract già esistente oppure passare direttamente ai capitoli anche senza generarlo qui.</div>
     </div>
   </div>
 
@@ -656,7 +660,7 @@
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
-let chapterOverrideActive=false, indiceMode='ai', metodologia='';
+let chapterOverrideActive=false, indiceMode='ai', abstractMode='ai', metodologia='';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
   indice:'',indiceVersions:[],
@@ -1012,6 +1016,7 @@ function captureFormState(){
     corso:document.getElementById('corso')?.value||'',
     tipoLaurea:document.getElementById('tipoLaurea')?.value||'',
     indiceManuale:document.getElementById('indiceManuale')?.value||'',
+    abstractManuale:document.getElementById('abstractManuale')?.value||'',
     numChapters:document.getElementById('numChapters')?.value||'4'
   };
 }
@@ -1023,6 +1028,7 @@ function applyFormState(form){
   if(document.getElementById('corso')) document.getElementById('corso').value=form.corso||'';
   if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value=form.tipoLaurea||'';
   if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=form.indiceManuale||'';
+  if(document.getElementById('abstractManuale')) document.getElementById('abstractManuale').value=form.abstractManuale||'';
   if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
   renderTitleSuggestions();
 }
@@ -1034,6 +1040,7 @@ function saveProgress(){
       revState,
       currentStep,
       indiceMode,
+      abstractMode,
       metodologia,
       chapterOverrideActive,
       form:captureFormState(),
@@ -1215,9 +1222,10 @@ function renderSavedChapterBlock(idx,total){
 function restoreProgressUI(){
   applyFormState(loadProgress()?.form || {});
   setIndiceMode(indiceMode);
+  setAbstractMode(abstractMode);
   const metodBtn=document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
   if(metodBtn) setMetod(metodBtn, metodologia);
-  else {document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active')); const warn=document.getElementById('empiricaWarning'); if(warn) warn.style.display='none';}
+  else {document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));}
   if(chapterOverrideActive){
     const btn=document.getElementById('toggleOverride');
     if(btn && !btn.classList.contains('active')) toggleChapterOverride();
@@ -1267,10 +1275,12 @@ function restoreProgressOnLoad(){
   if(!saved || !saved.thesis) return;
   window.__restoringState=true;
   thesis=saved.thesis;
+  if(thesis && thesis.metodologia==='empirica') thesis.metodologia='teorica';
   revState=saved.revState||revState;
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   indiceMode=saved.indiceMode||'ai';
-  metodologia=saved.metodologia||'';
+  abstractMode=saved.abstractMode||'ai';
+  metodologia=(saved.metodologia==='empirica'?'teorica':(saved.metodologia||''));
   chapterOverrideActive=!!saved.chapterOverrideActive;
   restoreProgressUI();
   window.__restoringState=false;
@@ -1280,7 +1290,7 @@ function restoreProgressOnLoad(){
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';const warn=document.getElementById('empiricaWarning');if(warn) warn.style.display=val==='empirica'?'flex':'none';renderTitleSuggestions();if(!window.__restoringState) saveProgress();}
+function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';renderTitleSuggestions();if(!window.__restoringState) saveProgress();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -1288,6 +1298,18 @@ function setIndiceMode(mode){
   document.getElementById('indiceManualWrap').style.display=mode==='manual'?'block':'none';
   document.getElementById('indiceAIWrap').style.display=mode==='ai'?'block':'none';
   document.getElementById('btnStep1').textContent=mode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
+}
+function setAbstractMode(mode){
+  abstractMode=mode;
+  const aiBtn=document.getElementById('abstractModeBtnAI');
+  const manualBtn=document.getElementById('abstractModeBtnManual');
+  const manualWrap=document.getElementById('abstractManualWrap');
+  const actionBtn=document.getElementById('btnAbstractAction');
+  if(aiBtn) aiBtn.classList.toggle('active',mode==='ai');
+  if(manualBtn) manualBtn.classList.toggle('active',mode==='manual');
+  if(manualWrap) manualWrap.style.display=mode==='manual'?'block':'none';
+  if(actionBtn) actionBtn.textContent=mode==='manual'?'✦ Usa questo abstract':'✦ Genera Abstract';
+  if(!window.__restoringState) saveProgress();
 }
 function toggleChapterOverride(){
   chapterOverrideActive=!chapterOverrideActive;
@@ -1494,11 +1516,28 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
 // PHASE 2 — ABSTRACT
 // ══════════════════════════════════════════════
 async function generateAbstract(){
+  const manualAbstract=document.getElementById('abstractManuale')?.value.trim()||'';
   document.getElementById('nextAbstract').classList.remove('visible');
   document.getElementById('abstractBlock').style.display='block';
-  document.getElementById('abstractOutput').classList.add('typing');
   document.getElementById('abstractText').textContent='';
   document.getElementById('abstractApproval').style.display='none';
+  if(abstractMode==='manual'){
+    if(!manualAbstract){
+      showToast("Incolla l'abstract già disponibile",true);
+      document.getElementById('nextAbstract').classList.add('visible');
+      return;
+    }
+    thesis.abstract=manualAbstract;
+    thesis.abstractVersions=[{content:manualAbstract,timestamp:now(),label:'Abstract inserito manualmente'}];
+    document.getElementById('abstractOutput').classList.remove('typing');
+    document.getElementById('abstractChip').className='status-chip done';
+    document.getElementById('abstractChip').innerHTML='✓ Inserito';
+    document.getElementById('abstractText').textContent=manualAbstract;
+    document.getElementById('abstractApproval').style.display='flex';
+    saveProgress();
+    return;
+  }
+  document.getElementById('abstractOutput').classList.add('typing');
   const cp=thesis.contextPacket;
   const prompt=`Scrivi l'abstract per tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
