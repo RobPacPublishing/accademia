@@ -93,6 +93,17 @@
   .source-chip{display:inline-flex;align-items:center;background:rgba(91,155,213,.08);border:1px solid rgba(91,155,213,.2);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--blue);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .sources-warning{font-size:11px;color:var(--text3);font-style:italic;padding:8px 26px;border-top:1px solid var(--border);background:rgba(201,168,76,.02);}
   .approval-row{display:flex;align-items:center;gap:10px;padding:14px 26px;border-top:1px solid var(--border);background:var(--bg3);flex-wrap:wrap;}
+  .approval-row .actions{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;}
+  .btn-tutor{padding:9px 16px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.28);border-radius:var(--radius-sm);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+  .btn-tutor:hover{background:rgba(201,168,76,.16);}
+  .tutor-inline{display:none;padding:14px 26px;border-top:1px solid var(--border);background:rgba(201,168,76,.05);}
+  .tutor-inline.open{display:block;}
+  .tutor-inline-row{display:flex;gap:8px;align-items:flex-end;}
+  .tutor-inline textarea{flex:1;min-height:110px;resize:vertical;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.5;}
+  .tutor-inline-note{font-size:12px;color:var(--text3);margin-bottom:8px;}
+  .btn-send-tutor{padding:10px 18px;background:rgba(95,155,255,.12);border:1px solid rgba(95,155,255,.28);border-radius:var(--radius-sm);color:#8eb7ff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;}
+  .btn-send-tutor:hover{background:rgba(95,155,255,.2);}
+  .btn-send-tutor:disabled{opacity:.4;cursor:not-allowed;}
   .approval-row .hint{font-size:12px;color:var(--text3);flex:1;min-width:140px;}
   .btn-approve{padding:9px 20px;background:rgba(94,184,122,.1);border:1px solid rgba(94,184,122,.35);border-radius:var(--radius-sm);color:var(--green);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-approve:hover{background:rgba(94,184,122,.18);}
@@ -194,8 +205,10 @@
   .guide-note strong{color:var(--gold);}
 
   /* ── REVISION COUNTER ── */
-  .rev-counter-bar{background:var(--bg3);border-top:1px solid var(--border);padding:10px 26px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
-  .rev-counter-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);}
+  .rev-counter-bar{background:var(--bg3);border-top:1px solid var(--border);padding:10px 26px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  .rev-counter-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);flex-wrap:wrap;row-gap:4px;min-width:0;}
+  .rev-counter-global{font-size:12px;line-height:1.35;text-align:right;max-width:280px;margin-left:auto;color:var(--text3);word-break:break-word;}
+  @media (max-width: 760px){.rev-counter-global{max-width:none;width:100%;text-align:left;margin-left:0;}.revision-inline-row,.tutor-inline-row{flex-direction:column;align-items:stretch;}.btn-send-revision,.btn-send-tutor{width:100%;}.approval-row .actions{margin-left:0;width:100%;}}
   .rev-counter-dots{display:flex;gap:4px;}
   .rev-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);transition:background .3s;}
   .rev-dot.used{background:var(--gold);}
@@ -752,7 +765,7 @@ function renderRevCounter(idx){
   const remCh = revState.premiumUnlocked ? '∞' : Math.max(0,max-used);
   el.querySelector('.rev-counter-info span:last-child').textContent = revState.premiumUnlocked
     ? '+10 revisioni aggiunte (Premium)'
-    : `${remCh} revisioni rimanenti su questo capitolo`;
+    : `${remCh} revisioni rimaste su questo capitolo`;
   renderGlobalCounter();
 }
 
@@ -1206,8 +1219,15 @@ function renderSavedChapterBlock(idx,total){
       </div>
       <div class="revision-inline" id="chapRevision-${idx}">
         <div class="revision-inline-row">
-          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le modifiche richieste..."></textarea>
           <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
+        </div>
+      </div>
+      <div class="tutor-inline" id="chapTutor-${idx}">
+        <div class="tutor-inline-note">Incolla qui osservazioni, correzioni o richieste specifiche del relatore.</div>
+        <div class="tutor-inline-row">
+          <textarea id="chapTutorInput-${idx}" placeholder="Osservazioni del relatore..."></textarea>
+          <button class="btn-send-tutor" id="chapTutorBtn-${idx}" onclick="tutorReviseChapter(${idx})">Applica osservazioni</button>
         </div>
       </div>
 ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
@@ -1231,8 +1251,11 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
     : (idx<total-1 ? `approveChapter(${idx})` : 'approveLastChapter()');
   return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
         <span class="hint">${hint}</span>
-        <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">${redoLabel}</button>
-        <button class="btn-approve" onclick="${primaryAction}">${primaryLabel}</button>
+        <div class="actions">
+          <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">${redoLabel}</button>
+          <button class="btn-tutor" onclick="toggleTutorRevision(${idx})">🧑‍🏫 Osservazioni relatore</button>
+          <button class="btn-approve" onclick="${primaryAction}">${primaryLabel}</button>
+        </div>
       </div>`;
 }
 
@@ -1781,8 +1804,15 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
       </div>
       <div class="revision-inline" id="chapRevision-${idx}">
         <div class="revision-inline-row">
-          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le correzioni del relatore o le modifiche richieste..."></textarea>
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le modifiche richieste..."></textarea>
           <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
+        </div>
+      </div>
+      <div class="tutor-inline" id="chapTutor-${idx}">
+        <div class="tutor-inline-note">Incolla qui osservazioni, correzioni o richieste specifiche del relatore.</div>
+        <div class="tutor-inline-row">
+          <textarea id="chapTutorInput-${idx}" placeholder="Osservazioni del relatore..."></textarea>
+          <button class="btn-send-tutor" id="chapTutorBtn-${idx}" onclick="tutorReviseChapter(${idx})">Applica osservazioni</button>
         </div>
       </div>
 ${getChapterApprovalRow(idx,total,false,false)}
@@ -1864,7 +1894,8 @@ async function reviseChapter(idx){
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
   document.getElementById(`chapChip-${idx}`).className='status-chip searching';
   document.getElementById(`chapChip-${idx}`).innerHTML='<span class="spinner-blue"></span>Ricerca aggiornata...';
-  document.getElementById(`chapApproval-${idx}`).style.display='none';
+  const approvalEl=document.getElementById(`chapApproval-${idx}`); if(approvalEl) approvalEl.style.display='none';
+  const tutorEl=document.getElementById(`chapTutor-${idx}`); if(tutorEl) tutorEl.classList.remove('open');
   const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const prompt=`Revisiona Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
@@ -1919,6 +1950,73 @@ ISTRUZIONI:
   btn.disabled=false;
 }
 
+
+async function tutorReviseChapter(idx){
+  if(!canRevise(idx)){
+    const perCh=revState.perChapter[idx]||0;
+    const reason = perCh>=MAX_REV_PER_CHAPTER ? 'chapter' : 'total';
+    openUnlockModal(reason==='chapter' ? idx : null);
+    return;
+  }
+  const notes=(document.getElementById(`chapTutorInput-${idx}`)?.value||'').trim();
+  if(!notes){showToast('Inserisci le osservazioni del relatore',true);return;}
+  consumeRevision(idx);
+  const ch=thesis.chapters[idx]; const cp=thesis.contextPacket;
+  const btn=document.getElementById(`chapTutorBtn-${idx}`); if(btn) btn.disabled=true;
+  document.getElementById(`chapOutput-${idx}`).classList.add('typing');
+  document.getElementById(`chapChip-${idx}`).className='status-chip searching';
+  document.getElementById(`chapChip-${idx}`).innerHTML='<span class="spinner-blue"></span>Revisione relatore...';
+  const approvalEl=document.getElementById(`chapApproval-${idx}`); if(approvalEl) approvalEl.style.display='none';
+  document.getElementById(`chapRevision-${idx}`)?.classList.remove('open');
+  const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
+  const prompt=`Applica le osservazioni del relatore al Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
+Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
+
+PROFILO DISCIPLINARE: ${cp.dp.stile} | Fonti: ${cp.dp.fonti}
+INDICE:
+${thesis.indice}
+ABSTRACT APPROVATO:
+${thesis.abstract||''}
+CAPITOLO ATTUALE:
+${ch.content}
+
+OSSERVAZIONI DEL RELATORE:
+${notes}
+
+ISTRUZIONI:
+- Riscrivi il capitolo COMPLETO integrando davvero le osservazioni.
+- Mantieni il perimetro del capitolo e la sua funzione nell'indice.
+- Non limitarti a ripulire lo stile: correggi punti deboli, ridondanze, passaggi generici, chiusure deboli e tono troppo manualistico se presenti.
+- Conserva tono accademico sobrio e disciplinare.
+- Nessun elenco, nessun commento introduttivo o finale. Restituisci solo il testo revisionato del capitolo.
+- Lunghezza orientativa: ${lung.min}-${lung.max} parole.
+- NON inventare fonti.`;
+  try{
+    const result=await callClaudeWithSearch(prompt,'tutor_revision');
+    const text=result.text;
+    ch.versions.push({content:text,timestamp:now(),label:`Tutor: "${notes.substring(0,35)}"`});
+    ch.currentVersion=ch.versions.length-1; ch.content=text;
+    const badge=document.getElementById(`chapVerBadge-${idx}`); if(badge) badge.textContent=`↺ v${ch.currentVersion+1}`;
+    streamText(`chapText-${idx}`,text,()=>{
+      document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
+      document.getElementById(`chapChip-${idx}`).className='status-chip done';
+      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisionato';
+      const row=document.getElementById(`chapApproval-${idx}`); if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
+      const tutorWrap=document.getElementById(`chapTutor-${idx}`); if(tutorWrap) tutorWrap.classList.remove('open');
+      const tutorInput=document.getElementById(`chapTutorInput-${idx}`); if(tutorInput) tutorInput.value='';
+      updateWordCount();
+      renderRevCounter(idx);
+      if(!canRevise(idx)){
+        const tutorBtn=document.getElementById(`chapTutorBtn-${idx}`);
+        if(tutorBtn){tutorBtn.textContent='🔓 Sblocca revisioni'; tutorBtn.onclick=()=>openUnlockModal(idx);}
+      }
+    });
+    saveProgress();
+    showToast('Osservazioni del relatore applicate ✓');
+  }catch(e){showToast('Errore: '+e.message,true);} 
+  if(btn) btn.disabled=false;
+}
+
 // ══════════════════════════════════════════════
 // CHAPTER PROGRESS BAR
 // ══════════════════════════════════════════════
@@ -1963,7 +2061,16 @@ function toggleRevision(key){
   if(key==='indice'){document.getElementById('indiceRevision').classList.toggle('open');return;}
   if(key==='abstract'){document.getElementById('abstractRevision').classList.toggle('open');return;}
   const idx=parseInt(key.split('-')[1]);
-  const el=document.getElementById(`chapRevision-${idx}`);if(el)el.classList.toggle('open');
+  const el=document.getElementById(`chapRevision-${idx}`);
+  const tutor=document.getElementById(`chapTutor-${idx}`);
+  if(tutor) tutor.classList.remove('open');
+  if(el)el.classList.toggle('open');
+}
+function toggleTutorRevision(idx){
+  const el=document.getElementById(`chapTutor-${idx}`);
+  const rev=document.getElementById(`chapRevision-${idx}`);
+  if(rev) rev.classList.remove('open');
+  if(el) el.classList.toggle('open');
 }
 
 // ══════════════════════════════════════════════
