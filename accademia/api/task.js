@@ -234,11 +234,13 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
-- Intervieni in modo conservativo.
+    tutor_revision: `Applica in modo rigoroso e prioritario le osservazioni del relatore o tutor al testo ricevuto.
+- Tratta le osservazioni come istruzioni vincolanti di revisione del capitolo, non come semplice prompt di rigenerazione generica.
+- Mantieni struttura, funzione del capitolo e coerenza con indice e abstract, salvo correzione esplicitamente richiesta.
+- Intervieni in modo mirato ma sostanziale dove le osservazioni lo richiedono.
 - Non aggiungere contenuti non richiesti.
 - Non introdurre fonti o riferimenti non presenti nei dati.
-- Restituisci solo il testo revisionato.`,
+- Restituisci solo il testo revisionato finale.`,
 
     final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
 - Verifica coerenza tra indice, abstract e capitoli.
