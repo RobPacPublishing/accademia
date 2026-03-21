@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=E7LUStPbL8iB3Jia6pjHUPZ12F_K0nQnUpPsLUspxRlofm2a4cTSeWvm6kYaTn_Tm4GhTbDrluzmjdT71Z5nuZqdBUf9xQE6m5x2tYURouPNJuyayr3npzd78110gOrOv-IO2Ff1EBX2ppREXVTlx-JSUvNHApUyYHFyBfei37chTfVNMkQ-lwNV3WZQ_m6vEyId-exh0hHnxzrhqJ-3UxwBEng-m60KVdbpB4xTHL6XbxwRq0hJHnNhYtHc3tqieKzcqDPqzkBVydDkZEsc9w" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=0Kvqcc2sH4YPkJ6XelQyB-7pEJHhmPgzOu-EjfE7Vz_XPWuByIGVVDXVvYg440oUgbIDNLZeHoXS-yCtFPdUw_KnZzsw56tglqh7HrxkBEKTme5jWNOg0EQXJZOJjdRgwevqGmk9KRHSQ_Qvh9aru9OyP2yTvJotgqjzwM2RDkocNB7RSoo8JsTajE7VRMtTfsi-nMhnfnEsK4QbOx3xKCjLb6M9J0uww4uH84taEDxvtV4uGIQiWFfTI8jFYwPttps5kYAg8AD6XyRw6zUU6g" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -96,23 +96,14 @@
   .approval-row .actions{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;}
   .btn-tutor{padding:9px 16px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.28);border-radius:var(--radius-sm);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-tutor:hover{background:rgba(201,168,76,.16);}
+  .tutor-inline{display:none;padding:14px 26px;border-top:1px solid var(--border);background:rgba(201,168,76,.05);}
+  .tutor-inline.open{display:block;}
   .tutor-inline-row{display:flex;gap:8px;align-items:flex-end;}
   .tutor-inline textarea{flex:1;min-height:110px;resize:vertical;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.5;}
   .tutor-inline-note{font-size:12px;color:var(--text3);margin-bottom:8px;}
   .btn-send-tutor{padding:10px 18px;background:rgba(95,155,255,.12);border:1px solid rgba(95,155,255,.28);border-radius:var(--radius-sm);color:#8eb7ff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;}
   .btn-send-tutor:hover{background:rgba(95,155,255,.2);}
   .btn-send-tutor:disabled{opacity:.4;cursor:not-allowed;}
-  .chapter-tools-bar{display:flex;gap:10px;padding:14px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);flex-wrap:wrap;}
-  .chapter-tool-btn{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
-  .chapter-tool-btn:hover{border-color:var(--gold);color:var(--gold);}
-  .chapter-tool-btn.tutor{border-color:rgba(95,155,255,.28);color:#8eb7ff;background:rgba(95,155,255,.05);}
-  .chapter-tool-btn.tutor:hover{background:rgba(95,155,255,.12);border-color:rgba(95,155,255,.45);}
-  .chapter-tool-btn.bypass{border-color:rgba(94,184,122,.35);color:var(--green);background:rgba(94,184,122,.06);}
-  .tutor-inline{display:none;padding:16px 26px;border-top:1px solid var(--border);background:rgba(95,155,255,.045);}
-  .tutor-inline.open{display:block;}
-  .tutor-panel-head{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
-  .tutor-panel-title{font-size:12px;letter-spacing:1.1px;text-transform:uppercase;font-weight:700;color:#8eb7ff;}
-  .tutor-panel-subtitle{font-size:12px;color:var(--text3);line-height:1.55;}
   .approval-row .hint{font-size:12px;color:var(--text3);flex:1;min-width:140px;}
   .btn-approve{padding:9px 20px;background:rgba(94,184,122,.1);border:1px solid rgba(94,184,122,.35);border-radius:var(--radius-sm);color:var(--green);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-approve:hover{background:rgba(94,184,122,.18);}
@@ -194,7 +185,6 @@
   .header-nav{display:flex;align-items:center;gap:6px;}
   .nav-link{background:none;border:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:6px 10px;border-radius:var(--radius-sm);transition:all .2s;white-space:nowrap;}
   .nav-link:hover{color:var(--gold);background:var(--gold-dim2);}
-  .nav-link.active-test{color:var(--green);border:1px solid rgba(94,184,122,.28);background:rgba(94,184,122,.08);}
 
   /* ── GUIDA UTENTE COLLASSABILE ── */
   .guide-bar{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:24px;overflow:hidden;}
@@ -223,7 +213,6 @@
   .rev-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);transition:background .3s;}
   .rev-dot.used{background:var(--gold);}
   .rev-dot.locked{background:var(--red);}
-  .rev-dot.bypass{background:var(--green);}
   .rev-counter-global{font-size:11px;color:var(--text3);text-align:right;}
   .rev-counter-global strong{color:var(--text2);}
 
@@ -266,7 +255,6 @@
   <div class="header-nav">
     <button class="nav-link" onclick="openModal('guideModal')">📖 Come funziona</button>
     <button class="nav-link" onclick="openModal('tosModal')">⚖ Termini e Privacy</button>
-    <button class="nav-link" id="revisionBypassToggleBtn" type="button" style="display:none;" aria-label="Bypass revisioni">🧪 Test revisioni</button>
     <button class="nav-link" id="accessLogoutBtn" type="button" style="display:none;" aria-label="Logout">🔒 Logout</button>
   </div>
 </header>
@@ -565,6 +553,10 @@
 
     <div class="unlock-panel active" id="unlockPanelBuy">
       <div class="unlock-price-row">
+        <div class="unlock-price-card" id="cardFree" onclick="selectUnlockPlan('free')">
+          <div class="price">€0</div>
+          <div class="desc"><strong>Pacchetto gratuito</strong><br>codice inviato a<br>robpacpublishing@gmail.com</div>
+        </div>
         <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')">
           <div class="price">+3</div>
           <div class="desc"><strong>Revisioni aggiuntive</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
@@ -575,7 +567,7 @@
         </div>
       </div>
       <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Prosegui all'attivazione →</button>
-      <div class="unlock-note">Dopo l'attivazione ricevi il codice via email. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni aggiuntive.</div>
+      <div class="unlock-note" id="unlockPurchaseNote">Se scegli il pacchetto gratuito, il codice viene inviato a robpacpublishing@gmail.com. Per i pacchetti a pagamento, dopo l'attivazione ricevi il codice via email e poi lo inserisci nel tab "Inserisci codice".</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
@@ -747,50 +739,8 @@ function initRevState(nChapters){
 }
 
 const MAX_REV_PER_CHAPTER = 3;
-const PERSONAL_REV_BYPASS_KEY = '_td_personal_rev_bypass_v1';
-const PERSONAL_REV_BYPASS_CODE = 'robpac-tutor-dev-2026';
-
-function hasPersonalRevisionBypass(){
-  return sessionStorage.getItem(ACCESS_SESSION_KEY) === '1' && localStorage.getItem(PERSONAL_REV_BYPASS_KEY) === '1';
-}
-
-function setPersonalRevisionBypass(enabled){
-  if(enabled) localStorage.setItem(PERSONAL_REV_BYPASS_KEY,'1');
-  else localStorage.removeItem(PERSONAL_REV_BYPASS_KEY);
-  updateBypassButton();
-  refreshRevisionUi();
-}
-
-function togglePersonalRevisionBypass(){
-  if(sessionStorage.getItem(ACCESS_SESSION_KEY) !== '1'){
-    showToast('Accedi prima alla webapp',true);
-    return;
-  }
-  if(hasPersonalRevisionBypass()){
-    setPersonalRevisionBypass(false);
-    showToast('Bypass personale revisioni disattivato');
-    return;
-  }
-  const inserted = window.prompt('Codice bypass revisioni (solo test locale):','');
-  if((inserted||'').trim() !== PERSONAL_REV_BYPASS_CODE){
-    showToast('Codice bypass non valido',true);
-    return;
-  }
-  setPersonalRevisionBypass(true);
-  showToast('Bypass personale revisioni attivato');
-}
-
-function updateBypassButton(){
-  const btn=document.getElementById('revisionBypassToggleBtn');
-  if(!btn) return;
-  const unlocked=sessionStorage.getItem(ACCESS_SESSION_KEY)==='1';
-  btn.style.display=unlocked?'inline-flex':'none';
-  btn.classList.toggle('active-test',hasPersonalRevisionBypass());
-  btn.textContent=hasPersonalRevisionBypass()?'🧪 Bypass revisioni ON':'🧪 Test revisioni';
-}
 
 function canRevise(idx){
-  if(hasPersonalRevisionBypass()) return true;
   const perCh = revState.perChapter[idx]||0;
   if(perCh >= MAX_REV_PER_CHAPTER) return false;
   if(revState.totalUsed >= revState.totalBudget) return false;
@@ -798,11 +748,6 @@ function canRevise(idx){
 }
 
 function consumeRevision(idx){
-  if(hasPersonalRevisionBypass()){
-    renderRevCounter(idx);
-    renderGlobalCounter();
-    return;
-  }
   revState.perChapter[idx] = (revState.perChapter[idx]||0)+1;
   revState.totalUsed++;
   renderRevCounter(idx);
@@ -814,68 +759,25 @@ function renderRevCounter(idx){
   if(!el) return;
   const used = revState.perChapter[idx]||0;
   const max = MAX_REV_PER_CHAPTER;
-  const bypass = hasPersonalRevisionBypass();
   const dotsHtml = Array.from({length:max},(_,i)=>{
     let cls='rev-dot';
-    if(bypass) cls+=' bypass';
-    else if(revState.premiumUnlocked) cls+=' used';
+    if(revState.premiumUnlocked) cls+=' used';
     else if(i<used) cls+= used>=max?' locked':' used';
     return`<span class="${cls}"></span>`;
   }).join('');
   el.querySelector('.rev-counter-dots').innerHTML=dotsHtml;
-  el.querySelector('.rev-counter-info span:last-child').textContent = bypass
-    ? 'Bypass personale attivo'
-    : revState.premiumUnlocked
-      ? '+10 revisioni aggiunte (Premium)'
-      : `${Math.max(0,max-used)} revisioni rimaste su questo capitolo`;
+  const remCh = revState.premiumUnlocked ? '∞' : Math.max(0,max-used);
+  el.querySelector('.rev-counter-info span:last-child').textContent = revState.premiumUnlocked
+    ? '+10 revisioni aggiunte (Premium)'
+    : `${remCh} revisioni rimaste su questo capitolo`;
   renderGlobalCounter();
 }
 
 function renderGlobalCounter(){
   const el=document.getElementById('globalRevCounter');if(!el)return;
-  if(hasPersonalRevisionBypass()){el.innerHTML='<strong>🧪 Bypass personale attivo</strong> — limiti revisioni disattivati solo per questa sessione/profilo locale';return;}
   if(revState.premiumUnlocked){el.innerHTML='<strong>✦ Premium attivo</strong> — Revisioni illimitate';return;}
   const rem=Math.max(0,revState.totalBudget-revState.totalUsed);
   el.innerHTML=`Budget totale: <strong>${rem} / ${revState.totalBudget}</strong> revisioni rimanenti`;
-}
-
-function syncChapterActionButtons(idx){
-  const revBtn=document.getElementById(`chapRevBtn-${idx}`);
-  const tutorBtn=document.getElementById(`chapTutorBtn-${idx}`);
-  const revToggle=document.getElementById(`chapRevToggle-${idx}`);
-  const tutorToggle=document.getElementById(`chapTutorToggle-${idx}`);
-  const available=canRevise(idx);
-  const bypass=hasPersonalRevisionBypass();
-
-  if(revBtn){
-    revBtn.disabled=false;
-    revBtn.textContent=available?'Rigenera':'🔓 Sblocca revisioni';
-    revBtn.onclick=available?()=>reviseChapter(idx):()=>openUnlockModal(idx);
-  }
-  if(tutorBtn){
-    tutorBtn.disabled=false;
-    tutorBtn.textContent=available?'Applica osservazioni':'🔓 Sblocca revisioni';
-    tutorBtn.onclick=available?()=>tutorReviseChapter(idx):()=>openUnlockModal(idx);
-  }
-  if(revToggle){
-    revToggle.textContent=available?'✎ Revisione capitolo':'🔓 Sblocca revisioni';
-    revToggle.classList.toggle('bypass',bypass);
-    revToggle.onclick=available?()=>toggleRevision(`chap-${idx}`):()=>openUnlockModal(idx);
-  }
-  if(tutorToggle){
-    tutorToggle.textContent='🧑‍🏫 Osservazioni del relatore';
-    tutorToggle.classList.toggle('bypass',bypass);
-    tutorToggle.onclick=available?()=>toggleTutorRevision(idx):()=>openUnlockModal(idx);
-  }
-}
-
-function refreshRevisionUi(){
-  updateBypassButton();
-  renderGlobalCounter();
-  (thesis.chapters||[]).forEach((_,idx)=>{
-    renderRevCounter(idx);
-    syncChapterActionButtons(idx);
-  });
 }
 
 // ── DISCLAIMER ──
@@ -892,8 +794,7 @@ function getAccessElements(){
     app: document.getElementById('appContainer'),
     code: document.getElementById('accessCodeInput'),
     msg: document.getElementById('accessCodeMsg'),
-    logout: document.getElementById('accessLogoutBtn'),
-    bypass: document.getElementById('revisionBypassToggleBtn')
+    logout: document.getElementById('accessLogoutBtn')
   };
 }
 
@@ -923,12 +824,10 @@ function checkDisclaimer(){
 }
 
 function applyAccessState(unlocked){
-  const {overlay,app,logout,code,msg,btn,bypass} = getAccessElements();
+  const {overlay,app,logout,code,msg,btn} = getAccessElements();
   if(app) app.style.display = unlocked ? '' : 'none';
   if(overlay) overlay.style.display = unlocked ? 'none' : 'flex';
   if(logout) logout.style.display = unlocked ? 'inline-flex' : 'none';
-  if(bypass) bypass.style.display = unlocked ? 'inline-flex' : 'none';
-  updateBypassButton();
   if(!unlocked){
     if(code) code.value = '';
     ['check1','check2','check3'].forEach(id=>{
@@ -982,7 +881,7 @@ function logoutAccess(){
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
-  const {btn,code,logout,bypass} = getAccessElements();
+  const {btn,code,logout} = getAccessElements();
   ['check1','check2','check3'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){
@@ -1002,7 +901,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
   if(btn) btn.addEventListener('click',acceptDisclaimer);
   if(logout) logout.addEventListener('click',logoutAccess);
-  if(bypass) bypass.addEventListener('click',togglePersonalRevisionBypass);
 
   const unlocked = sessionStorage.getItem(ACCESS_SESSION_KEY) === '1';
   applyAccessState(unlocked);
@@ -1020,6 +918,32 @@ function toggleGuide(){
 
 // ── UNLOCK MODAL ──
 let unlockPlan='';
+const FREE_UNLOCK_CODE_EMAIL='robpacpublishing@gmail.com';
+
+function updateUnlockPurchaseUi(){
+  const btn=document.getElementById('btnGoToPurchase');
+  const note=document.getElementById('unlockPurchaseNote');
+  if(!btn||!note) return;
+
+  if(!unlockPlan){
+    btn.disabled=true;
+    btn.textContent="Prosegui all'attivazione →";
+    note.textContent=`Se scegli il pacchetto gratuito, il codice viene inviato a ${FREE_UNLOCK_CODE_EMAIL}. Per i pacchetti a pagamento, dopo l'attivazione ricevi il codice via email e poi lo inserisci nel tab "Inserisci codice".`;
+    return;
+  }
+
+  btn.disabled=false;
+
+  if(unlockPlan==='free'){
+    btn.textContent='Invia codice gratuito';
+    note.textContent=`Il codice gratuito verrà inviato a ${FREE_UNLOCK_CODE_EMAIL}.`;
+    return;
+  }
+
+  btn.textContent="Prosegui all'attivazione →";
+  note.textContent='Dopo l\'attivazione ricevi il codice via email. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni aggiuntive.';
+}
+
 function openUnlockModal(chapIdx){
   revState.unlockTargetChapter=chapIdx;
   const total=thesis.chapterTitles.length;
@@ -1029,11 +953,12 @@ function openUnlockModal(chapIdx){
       ? `Hai esaurito le revisioni per il Capitolo ${chapIdx+1} "${thesis.chapterTitles[chapIdx]||''}". Budget totale rimanente: ${rem}/${revState.totalBudget}.`
       : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade di piano per continuare.`;
   unlockPlan='';
+  document.getElementById('cardFree').classList.remove('selected');
   document.getElementById('cardBase').classList.remove('selected');
   document.getElementById('cardPremium').classList.remove('selected');
-  document.getElementById('btnGoToPurchase').disabled=true;
   document.getElementById('unlockCodeInput').value='';
   document.getElementById('unlockCodeMsg').textContent='';
+  updateUnlockPurchaseUi();
   setUnlockTab('buy');
   openModal('unlockModal');
 }
@@ -1047,15 +972,56 @@ function setUnlockTab(tab){
 
 function selectUnlockPlan(plan){
   unlockPlan=plan;
+  document.getElementById('cardFree').classList.toggle('selected',plan==='free');
   document.getElementById('cardBase').classList.toggle('selected',plan==='base');
   document.getElementById('cardPremium').classList.toggle('selected',plan==='premium');
-  document.getElementById('btnGoToPurchase').disabled=false;
+  updateUnlockPurchaseUi();
 }
 
 const GUMROAD_BASE_URL='https://gumroad.com/l/TESIA-BASE';
 const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM';
 
+async function requestFreeUnlockCode(){
+  const btn=document.getElementById('btnGoToPurchase');
+  const note=document.getElementById('unlockPurchaseNote');
+  const originalLabel=btn?.textContent||'';
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='Invio in corso...';
+  }
+  if(note) note.textContent=`Invio del codice gratuito a ${FREE_UNLOCK_CODE_EMAIL} in corso...`;
+
+  try{
+    const res = await fetch('/api/task',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:'request_free_unlock_code',input:{email:FREE_UNLOCK_CODE_EMAIL}})
+    });
+
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data?.ok){
+      throw new Error(data?.details || data?.error || 'Invio non riuscito');
+    }
+
+    if(note) note.textContent=`Codice gratuito inviato a ${FREE_UNLOCK_CODE_EMAIL}. Controlla la casella email e poi inserisci il codice nel tab "Inserisci codice".`;
+    showToast(`Codice gratuito inviato a ${FREE_UNLOCK_CODE_EMAIL}`);
+    setUnlockTab('enter');
+  }catch(err){
+    if(note) note.textContent=`Invio non riuscito. ${err?.message || 'Verifica configurazione email e riprova.'}`;
+    showToast(err?.message || 'Invio codice non riuscito',true);
+  }finally{
+    if(btn){
+      btn.disabled=false;
+      btn.textContent=originalLabel||'Invia codice gratuito';
+    }
+  }
+}
+
 function goToPurchase(){
+  if(unlockPlan==='free'){
+    requestFreeUnlockCode();
+    return;
+  }
   const url=unlockPlan==='premium'?GUMROAD_PREMIUM_URL:GUMROAD_BASE_URL;
   window.open(url,'_blank');
   setUnlockTab('enter');
@@ -1323,23 +1289,16 @@ function renderSavedChapterBlock(idx,total){
         </div>
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
-      <div class="chapter-tools-bar">
-        <button class="chapter-tool-btn" id="chapRevToggle-${idx}" onclick="toggleRevision('chap-${idx}')">✎ Revisione capitolo</button>
-        <button class="chapter-tool-btn tutor" id="chapTutorToggle-${idx}" onclick="toggleTutorRevision(${idx})">🧑‍🏫 Osservazioni del relatore</button>
-      </div>
       <div class="revision-inline" id="chapRevision-${idx}">
         <div class="revision-inline-row">
-          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le modifiche richieste per la revisione capitolo..."></textarea>
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le modifiche richieste..."></textarea>
           <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
         </div>
       </div>
       <div class="tutor-inline" id="chapTutor-${idx}">
-        <div class="tutor-panel-head">
-          <div class="tutor-panel-title">Osservazioni del relatore</div>
-          <div class="tutor-panel-subtitle">Flusso separato dalla normale revisione capitolo. Incolla qui le indicazioni del relatore e applicale come revisione mirata del capitolo, anche dopo l'approvazione.</div>
-        </div>
+        <div class="tutor-inline-note">Incolla qui osservazioni, correzioni o richieste specifiche del relatore.</div>
         <div class="tutor-inline-row">
-          <textarea id="chapTutorInput-${idx}" placeholder="Incolla qui osservazioni, correzioni o richieste puntuali del relatore..."></textarea>
+          <textarea id="chapTutorInput-${idx}" placeholder="Osservazioni del relatore..."></textarea>
           <button class="btn-send-tutor" id="chapTutorBtn-${idx}" onclick="tutorReviseChapter(${idx})">Applica osservazioni</button>
         </div>
       </div>
@@ -1347,15 +1306,15 @@ ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
     </div>`;
   area.appendChild(block);
   renderRevCounter(idx);
-  syncChapterActionButtons(idx);
 }
 
 
 function getChapterApprovalRow(idx,total,approved,visible=true){
   const display=visible?'flex':'none';
   const hint=approved
-    ? `Capitolo ${idx+1} approvato. Le revisioni restano disponibili nelle azioni dedicate sopra.`
-    : `Approva il Capitolo ${idx+1} per confermarlo definitivamente. Le revisioni capitolo e relatore restano separate nelle azioni dedicate sopra.`;
+    ? `Capitolo ${idx+1} approvato. Puoi ancora richiedere una revisione.`
+    : `Approva il Capitolo ${idx+1} per confermarlo definitivamente`;
+  const redoLabel=approved ? '✎ Revisiona capitolo approvato' : '✎ Richiedi modifiche';
   const primaryLabel=approved
     ? (idx<total-1 ? `➜ Vai al Cap. ${idx+2}` : '✓ Vai al controllo finale')
     : (idx<total-1 ? `✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}` : '✓ Approva ultimo capitolo e concludi');
@@ -1365,6 +1324,8 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
   return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
         <span class="hint">${hint}</span>
         <div class="actions">
+          <button class="btn-redo" onclick="toggleRevision('chap-${idx}')">${redoLabel}</button>
+          <button class="btn-tutor" onclick="toggleTutorRevision(${idx})">🧑‍🏫 Osservazioni relatore</button>
           <button class="btn-approve" onclick="${primaryAction}">${primaryLabel}</button>
         </div>
       </div>`;
@@ -1378,7 +1339,6 @@ function goToNextChapterFromApproved(idx){
   nc.innerHTML=`<button class="phase-btn" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+2} — ${escHtml(nextTitle)}</button>`;
   nc.classList.add('visible');
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
-  syncChapterActionButtons(idx);
   saveProgress();
 }
 
@@ -1432,7 +1392,7 @@ function restoreProgressUI(){
       if(!thesis.chapters[thesis.currentChapterIdx]) document.getElementById('nextChapters').classList.add('visible');
     }
     thesis.chapters.forEach((_,idx)=>renderRevCounter(idx));
-    refreshRevisionUi();
+    renderGlobalCounter();
   }
   if(currentStep>=4){
     document.getElementById('downloadBar').style.display='flex';
@@ -1914,23 +1874,16 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
         </div>
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
-      <div class="chapter-tools-bar">
-        <button class="chapter-tool-btn" id="chapRevToggle-${idx}" onclick="toggleRevision('chap-${idx}')">✎ Revisione capitolo</button>
-        <button class="chapter-tool-btn tutor" id="chapTutorToggle-${idx}" onclick="toggleTutorRevision(${idx})">🧑‍🏫 Osservazioni del relatore</button>
-      </div>
       <div class="revision-inline" id="chapRevision-${idx}">
         <div class="revision-inline-row">
-          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le modifiche richieste per la revisione capitolo..."></textarea>
+          <textarea id="chapRevInput-${idx}" placeholder="Descrivi le modifiche richieste..."></textarea>
           <button class="btn-send-revision" id="chapRevBtn-${idx}" onclick="reviseChapter(${idx})">Rigenera</button>
         </div>
       </div>
       <div class="tutor-inline" id="chapTutor-${idx}">
-        <div class="tutor-panel-head">
-          <div class="tutor-panel-title">Osservazioni del relatore</div>
-          <div class="tutor-panel-subtitle">Flusso separato dalla normale revisione capitolo. Incolla qui le indicazioni del relatore e applicale come revisione mirata del capitolo, anche dopo l'approvazione.</div>
-        </div>
+        <div class="tutor-inline-note">Incolla qui osservazioni, correzioni o richieste specifiche del relatore.</div>
         <div class="tutor-inline-row">
-          <textarea id="chapTutorInput-${idx}" placeholder="Incolla qui osservazioni, correzioni o richieste puntuali del relatore..."></textarea>
+          <textarea id="chapTutorInput-${idx}" placeholder="Osservazioni del relatore..."></textarea>
           <button class="btn-send-tutor" id="chapTutorBtn-${idx}" onclick="tutorReviseChapter(${idx})">Applica osservazioni</button>
         </div>
       </div>
@@ -1963,7 +1916,6 @@ ${getChapterApprovalRow(idx,total,false,false)}
       const chapRow=document.getElementById(`chapApproval-${idx}`); if(chapRow) chapRow.outerHTML=getChapterApprovalRow(idx,total,false,true);
       updateChapterProgressBar(idx,total,false);
       renderRevCounter(idx);
-      syncChapterActionButtons(idx);
       saveProgress();
     });
   }catch(e){showToast('Errore cap.'+(idx+1)+': '+e.message,true);}
@@ -1994,7 +1946,6 @@ function approveLastChapter(){
   document.getElementById('downloadBar').style.display='flex';
   updateWordCount();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
-  syncChapterActionButtons(idx);
   showToast('🎓 Tesi completata!');
   saveProgress();
 }
@@ -2051,13 +2002,19 @@ ISTRUZIONI:
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
-      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisione capitolo';
+      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisionato';
       const revisedRow=document.getElementById(`chapApproval-${idx}`); if(revisedRow) revisedRow.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
       document.getElementById(`chapRevision-${idx}`).classList.remove('open');
       document.getElementById(`chapRevInput-${idx}`).value='';
       updateWordCount();
       renderRevCounter(idx);
-      syncChapterActionButtons(idx);
+      // Se limit raggiunto, cambia il bottone revisione in "Sblocca"
+      if(!canRevise(idx)){
+        const revBtn=document.getElementById(`chapRevBtn-${idx}`);
+        if(revBtn){revBtn.textContent='🔓 Sblocca revisioni';revBtn.onclick=()=>openUnlockModal(idx);}
+        const redoBtn=document.querySelector(`#chapApproval-${idx} .btn-redo`);
+        if(redoBtn){redoBtn.textContent='🔓 Sblocca revisioni';redoBtn.onclick=()=>openUnlockModal(idx);}
+      }
     });
     saveProgress();
     showToast('Capitolo revisionato ✓');
@@ -2115,13 +2072,16 @@ ISTRUZIONI:
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
-      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisione relatore';
+      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisionato';
       const row=document.getElementById(`chapApproval-${idx}`); if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
       const tutorWrap=document.getElementById(`chapTutor-${idx}`); if(tutorWrap) tutorWrap.classList.remove('open');
       const tutorInput=document.getElementById(`chapTutorInput-${idx}`); if(tutorInput) tutorInput.value='';
       updateWordCount();
       renderRevCounter(idx);
-      syncChapterActionButtons(idx);
+      if(!canRevise(idx)){
+        const tutorBtn=document.getElementById(`chapTutorBtn-${idx}`);
+        if(tutorBtn){tutorBtn.textContent='🔓 Sblocca revisioni'; tutorBtn.onclick=()=>openUnlockModal(idx);}
+      }
     });
     saveProgress();
     showToast('Osservazioni del relatore applicate ✓');
@@ -2176,19 +2136,13 @@ function toggleRevision(key){
   const el=document.getElementById(`chapRevision-${idx}`);
   const tutor=document.getElementById(`chapTutor-${idx}`);
   if(tutor) tutor.classList.remove('open');
-  if(el){
-    const open=el.classList.toggle('open');
-    if(open) el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
+  if(el)el.classList.toggle('open');
 }
 function toggleTutorRevision(idx){
   const el=document.getElementById(`chapTutor-${idx}`);
   const rev=document.getElementById(`chapRevision-${idx}`);
   if(rev) rev.classList.remove('open');
-  if(el){
-    const open=el.classList.toggle('open');
-    if(open) el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
+  if(el) el.classList.toggle('open');
 }
 
 // ══════════════════════════════════════════════
