@@ -129,50 +129,55 @@ const TASK_CONFIG = {
   },
   chapter_draft: {
     provider: 'anthropic',
-    maxTokens: 6000,
+    maxTokens: 7000,
     timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
-    prompt: `Scrivi il capitolo richiesto in modo accademico, chiaro e realmente sviluppato sulla base dei soli dati ricevuti.
-- Rispetta titolo, sottocapitoli, funzione del capitolo e posizione nell'impianto complessivo della tesi.
-- Sviluppa davvero i sottocapitoli con paragrafi sostanziosi, evitando testo riempitivo, ripetizioni e aperture troppo generiche.
-- Non inventare autori, teorie, anni, enti, statistiche, dati, sentenze, riferimenti normativi o bibliografici non inclusi nei dati.
-- Se i dati non forniscono riferimenti specifici, mantieni il discorso su piano concettuale generale e prudente.
-- Evita di riscrivere l'indice in forma discorsiva: il capitolo deve argomentare, non elencare.
-- Non aggiungere sezioni finali artificiali come “Analisi critica”, “Sintesi finale”, “Raccordo verso il capitolo successivo” o simili, salvo richiesta esplicita.
-- Non chiudere con formule che anticipano esplicitamente il capitolo successivo.
+    prompt: `Scrivi il capitolo richiesto in modo accademico, realmente sviluppato e coerente con l'impianto complessivo della tesi.
+- Rispetta con precisione titolo del capitolo, eventuali sottocapitoli, posizione del capitolo nell'indice, facoltà, corso di laurea e approccio dichiarato.
+- Ogni sottocapitolo deve avere una funzione riconoscibile: fondazione teorica, chiarimento concettuale, sviluppo del nucleo argomentativo, applicazione interpretativa o chiusura interna del capitolo. Evita sottosezioni che dicano quasi la stessa cosa con parole diverse.
+- Sviluppa davvero il ragionamento: non limitarti a riformulare l'indice, non procedere per definizioni generiche ripetute e non riempire con frasi ornamentali.
+- Mantieni progressione e densità: ogni paragrafo deve aggiungere un passaggio logico, una distinzione, una conseguenza o una precisazione utile.
+- Se i materiali non contengono autori, studi, dati, sentenze o riferimenti specifici, non inventarli: mantieni il discorso su un piano concettuale generale ma rigoroso.
+- Non trasformare il capitolo in un elenco di formule astratte o in una sequenza di titoletti mascherati da prosa.
+- Evita ripetizioni ravvicinate della stessa espressione chiave, frasi ridondanti e chiusure prevedibili.
+- Non aggiungere sezioni artificiali come “Analisi critica”, “Sintesi finale”, “Considerazioni conclusive” o raccordi espliciti verso il capitolo successivo, salvo richiesta esplicita.
+- Il testo deve sembrare un vero capitolo universitario: sobrio, continuo, argomentato e difendibile.
 - Restituisci solo il capitolo finale.`
   },
   chapter_review: {
     provider: 'anthropic',
-    maxTokens: 6500,
+    maxTokens: 7500,
     timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
-    prompt: `Revisiona criticamente il capitolo ricevuto con impostazione da supervisore accademico.
-- Controlla coerenza logica, chiarezza, densità argomentativa, precisione terminologica e continuità stilistica.
-- Individua ridondanze, passaggi deboli, accumuli descrittivi e slittamenti di registro.
-- Segnala se il testo introduce riferimenti, dati, autori o informazioni non supportati dai materiali di partenza.
-- Elimina chiusure artificiali o raccordi espliciti al capitolo successivo.
-- Mantieni un approccio conservativo: migliora davvero, ma senza stravolgere inutilmente il testo.
+    prompt: `Revisiona criticamente il capitolo ricevuto con impostazione da supervisore accademico esigente.
+- Valuta anzitutto se il capitolo sviluppa davvero la funzione assegnata nell'indice o se resta descrittivo, ripetitivo o genericamente corretto.
+- Controlla coerenza logica, chiarezza espositiva, densità argomentativa, precisione terminologica, continuità stilistica e differenziazione reale tra i sottocapitoli.
+- Individua ridondanze, parafrasi interne, accumuli descrittivi, passaggi troppo generici, slittamenti di registro e chiusure artificiali.
+- Segnala se il testo introduce riferimenti, dati, autori, sentenze, norme o informazioni non supportati dai materiali di partenza.
+- Intervieni in modo conservativo ma sostanziale: elimina il superfluo, rafforza i passaggi deboli e rendi il testo più universitario senza riscriverlo inutilmente da zero.
+- Se il capitolo è troppo scolastico, troppo schematico o troppo simile all'indice in forma discorsiva, correggilo apertamente.
 - Struttura l'output in tre parti con questi titoli esatti: Criticità rilevate | Interventi prioritari | Testo revisionato.`
   },
   tutor_revision: {
     provider: 'anthropic',
-    maxTokens: 6500,
+    maxTokens: 7500,
     timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
     prompt: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
-- Intervieni in modo conservativo ma effettivo, limitandoti ai punti richiesti.
-- Se un'osservazione è ambigua, privilegia l'interpretazione più prudente e compatibile con i dati.
-- Non aggiungere contenuti, fonti o riferimenti non richiesti e non presenti nei materiali.
-- Mantieni tono, livello accademico e coerenza interna del testo.
+- Dai priorità alle richieste del relatore rispetto a preferenze stilistiche secondarie.
+- Intervieni in modo conservativo ma effettivo: modifica il minimo necessario per risolvere davvero le criticità indicate.
+- Se un'osservazione richiede più precisione, maggiore profondità o minore ridondanza, adegua il testo in quella direzione senza allontanarti dai materiali disponibili.
+- Se un'osservazione è ambigua, scegli l'interpretazione più prudente e difendibile, senza introdurre contenuti non supportati.
+- Non aggiungere fonti, dati, autori, norme, sentenze o riferimenti non presenti nei materiali.
+- Mantieni tono, livello accademico, coerenza interna e continuità con titolo, indice e abstract.
 - Restituisci solo il testo revisionato.`
   },
   final_consistency_review: {
     provider: 'anthropic',
-    maxTokens: 5000,
+    maxTokens: 5500,
     timeoutMs: DEFAULT_ANTHROPIC_TIMEOUT_MS,
-    prompt: `Esegui un controllo finale di coerenza complessiva dell'elaborato.
-- Verifica coerenza tra titolo, indice, abstract, capitoli, terminologia e approccio dichiarato.
-- Individua ripetizioni strutturali, salti logici, incoerenze terminologiche, promesse non mantenute e riferimenti non supportati dai dati.
-- Distingui i problemi veramente bloccanti dalle criticità secondarie.
-- Non riscrivere l'elaborato: valuta e segnala in modo ordinato.
+    prompt: `Esegui un controllo finale di coerenza complessiva dell'elaborato con criterio accademico severo.
+- Verifica coerenza tra titolo, indice, abstract, capitoli, terminologia, taglio disciplinare e approccio dichiarato.
+- Individua ripetizioni strutturali, capitoli troppo simili tra loro, promesse non mantenute, slittamenti disciplinari, incoerenze terminologiche e riferimenti non supportati dai dati.
+- Distingui chiaramente i problemi che compromettono la tenuta accademica dell'elaborato dalle criticità secondarie o solo stilistiche.
+- Non riscrivere la tesi e non proporre soluzioni decorative: segnala ciò che conta davvero per una revisione finale seria.
 - Struttura l'output in tre sezioni con questi titoli esatti: Criticità ad alta priorità | Criticità medie | Osservazioni finali.`
   }
 };
