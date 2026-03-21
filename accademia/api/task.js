@@ -219,17 +219,20 @@ function buildPrompt(task, input) {
 - Assicurati che la riga "Parole chiave:" sia separata dal corpo del testo.
 - Non introdurre fonti, dati o riferimenti non forniti.`,
 
-    chapter_review: `Revisiona il capitolo ricevuto come farebbe un correttore accademico esigente ma sobrio.
-- L'obiettivo non è una semplice pulizia stilistica: devi migliorare davvero il testo quando presenti ridondanze, tono troppo manualistico, meta-commento, passaggi solo descrittivi, chiusure generiche o sviluppo argomentativo debole.
-- Trasforma i passaggi che spiegano soltanto cosa farà il capitolo in passaggi che iniziano effettivamente a sviluppare il contenuto.
-- Riduci parafrasi interne, ripetizioni concettuali e frasi che ribadiscono l'indice in prosa.
-- Rafforza la funzione specifica di ciascun sottocapitolo: ogni sezione deve aggiungere un passaggio reale del ragionamento, non ripetere in altra forma quanto già detto.
-- Mantieni il contenuto sostanziale, la struttura generale e il taglio disciplinare del testo, ma intervieni in modo più deciso quando la qualità lo richiede.
-- Elimina aperture enfatiche, chiusure generiche, formule troppo scolastiche o troppo da manuale.
+    chapter_review: `Revisiona il capitolo ricevuto come farebbe un correttore accademico esigente, non cosmetico.
+- Devi produrre una revisione percepibilmente migliore del testo di partenza, non una semplice ripulitura stilistica.
+- Intervieni con decisione quando il testo appare troppo introduttivo, manualistico, descrittivo, ridondante o eccessivamente vicino all'indice in prosa.
+- Taglia o riscrivi i passaggi che spiegano soltanto cosa farà il capitolo; sostituiscili con sviluppo effettivo del contenuto.
+- Riduci parafrasi interne, ripetizioni concettuali, frasi gemelle e richiami inutili agli stessi nuclei teorici.
+- Rafforza la funzione specifica di ciascun sottocapitolo: ogni sezione deve far avanzare il ragionamento, non solo esporre nozioni corrette.
+- Se il testo resta troppo generale, rendilo più analitico e più aderente al problema specifico della tesi senza inventare contenuti non presenti nei materiali.
+- Elimina aperture enfatiche, formulazioni da manuale, chiusure generiche, conclusioni intercambiabili e raccordi deboli.
+- Preferisci formulazioni più sobrie, più dense e più argomentative; evita di diluire il testo in spiegazioni ovvie o scolastiche.
+- Mantieni contenuto sostanziale, struttura generale, disciplina e headings, ma non essere conservativo quando la qualità richiede una riscrittura più netta di frasi o paragrafi.
 - Se trovi affermazioni troppo ampie, indimostrabili o non supportate dai materiali ricevuti, rendile più prudenti invece di ampliarle.
 - Non aggiungere fonti, autori, date, norme, sentenze, dati o riferimenti bibliografici non presenti nei materiali forniti.
-- Non mostrare diagnosi, commenti redazionali, intestazioni di servizio, elenchi di criticità o spiegazioni del lavoro svolto.
-- Restituisci esclusivamente il capitolo revisionato finale, pronto da usare, senza sezioni come "Criticità rilevate", "Interventi prioritari", "Testo revisionato" o simili.`,
+- Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
+- Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
     tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
 - Intervieni in modo conservativo.
