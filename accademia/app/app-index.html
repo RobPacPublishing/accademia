@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=JahI-A-HV9tvWp9VOI0nZkNNmCWRLqBax1ckoIoP3yaq5jxIhIHua-7OzR5DwFTpi6elYCZSrQUCE2lHSVA3qRXQYGBpgsK4J39M2x_WZDzrGaAhcF7jGOCWUi7hoZYGlA_n_7FP5jjC6vWXhMzGSxlNPsIlGgcCy3hO9bHUxQB0Wb4Q6fudKBE0900gG1434EGezqoP1MeSM1VzeIDBVXUmCzX7Aqr_iY8aanHQpr6ITmJpW03R6D9bhWXzIejnqqrrilIKnBbSzfxeUoujLg" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UgFlEgricLDtA9S8yLwSSTj5mvhSUPF2y-cpHY9n7zvA-ujze2-zcX0a19hIYaymhzOMYlaDzvhARWRrUMUJv95DimdqFmyXefFvH7g10t56xOAkHGS6ajQrKUe3fc02lesTxFK5Q_ENNbxZ6LgywN0nRFhMcJPmm5ySCPbeDkT3daP8IfwbJ3Pzyhz3x2gfOHS81Q02jlK3fclGUhU-zaPKNK5rzwPc7WkVL4DflrUDFJdkbkUmqe-SUZwqtybCeWt4vbxYeSmKyha2zEuB1Q" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -565,7 +565,7 @@
 
     <div class="unlock-panel active" id="unlockPanelBuy">
       <div class="unlock-price-row">
-        <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')">
+        <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')" style="display:none;">
           <div class="price">0€</div>
           <div class="desc"><strong>Rinnovo revisioni</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
         </div>
@@ -1033,7 +1033,8 @@ function openUnlockModal(chapIdx){
   document.getElementById('cardPremium').classList.remove('selected');
   document.getElementById('btnGoToPurchase').disabled=true;
   document.getElementById('btnGoToPurchase').textContent='Prosegui →';
-  document.getElementById('unlockBuyNote').textContent='Seleziona un'opzione per continuare.';
+  document.getElementById('unlockBuyNote').textContent="Seleziona un'opzione per continuare.";
+  refreshUnlockPlansUI();
   document.getElementById('unlockCodeInput').value='';
   document.getElementById('unlockCodeMsg').textContent='';
   setUnlockTab('buy');
@@ -1047,20 +1048,46 @@ function setUnlockTab(tab){
   });
 }
 
+function isPersonalFreeRenewalEnabled(){
+  return hasPersonalRevisionBypass();
+}
+
+function refreshUnlockPlansUI(){
+  const baseCard=document.getElementById('cardBase');
+  const premiumCard=document.getElementById('cardPremium');
+  const note=document.getElementById('unlockBuyNote');
+  if(baseCard) baseCard.style.display = isPersonalFreeRenewalEnabled() ? '' : 'none';
+  if(unlockPlan==='base' && !isPersonalFreeRenewalEnabled()) unlockPlan='';
+  if(baseCard) baseCard.classList.toggle('selected',unlockPlan==='base');
+  if(premiumCard) premiumCard.classList.toggle('selected',unlockPlan==='premium');
+  const btn=document.getElementById('btnGoToPurchase');
+  if(btn){
+    btn.disabled=!unlockPlan;
+    btn.textContent = unlockPlan==='base' ? 'Attiva rinnovo gratuito →' : "Prosegui all'attivazione →";
+  }
+  if(note){
+    note.textContent = unlockPlan==='base' && isPersonalFreeRenewalEnabled()
+      ? 'Rinnovo gratuito personale: +3 revisioni sul capitolo selezionato. Disponibile solo sul tuo accesso locale.'
+      : "Dopo l'attivazione ricevi il codice via email. Torna qui e inserisci il codice nel tab 'Inserisci codice' per sbloccare le revisioni aggiuntive.";
+  }
+}
+
 function selectUnlockPlan(plan){
+  if(plan==='base' && !isPersonalFreeRenewalEnabled()){
+    showToast('Rinnovo gratuito non disponibile su questo profilo', true);
+    return;
+  }
   unlockPlan=plan;
-  document.getElementById('cardBase').classList.toggle('selected',plan==='base');
-  document.getElementById('cardPremium').classList.toggle('selected',plan==='premium');
-  document.getElementById('btnGoToPurchase').disabled=false;
-  document.getElementById('btnGoToPurchase').textContent = plan==='base' ? 'Attiva rinnovo gratuito →' : 'Prosegui all'attivazione →';
-  document.getElementById('unlockBuyNote').textContent = plan==='base'
-    ? 'Il rinnovo gratuito applica subito +3 revisioni al capitolo selezionato, senza pagamento e senza codice.'
-    : 'Dopo l'attivazione ricevi il codice via email. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni aggiuntive.';
+  refreshUnlockPlansUI();
 }
 
 const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM';
 
 function grantFreeBaseRenewal(){
+  if(!isPersonalFreeRenewalEnabled()){
+    showToast('Rinnovo gratuito non disponibile su questo profilo', true);
+    return;
+  }
   const targetIdx = revState.unlockTargetChapter ?? findFirstExhaustedChapter();
   if(targetIdx===null){
     showToast('Nessun capitolo da sbloccare', true);
@@ -1077,6 +1104,10 @@ function grantFreeBaseRenewal(){
 
 function goToPurchase(){
   if(unlockPlan==='base'){
+    if(!isPersonalFreeRenewalEnabled()){
+      showToast('Rinnovo gratuito non disponibile su questo profilo', true);
+      return;
+    }
     grantFreeBaseRenewal();
     return;
   }
