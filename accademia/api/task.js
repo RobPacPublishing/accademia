@@ -234,18 +234,18 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica le osservazioni del relatore o tutor come farebbe un revisore accademico esigente.
-- Le osservazioni del relatore hanno priorità alta: devi recepirle davvero nel testo finale, non trattarle come suggerimenti ornamentali.
-- Produci una revisione sostanziale e riconoscibile del capitolo, non una semplice pulizia stilistica.
-- Intervieni con decisione quando il testo resta troppo introduttivo, manualistico, descrittivo, ridondante, scolastico o troppo generale rispetto al tema specifico della tesi.
-- Mantieni perimetro, struttura e headings del capitolo, ma non essere conservativo quando la qualità richiede di riscrivere frasi, raccordi o interi paragrafi.
-- Rafforza in ogni sottosezione il legame tra il capitolo, la domanda di ricerca, l'argomento specifico della tesi e la funzione del sottocapitolo nel ragionamento complessivo.
+    tutor_revision: `Applica le osservazioni del relatore o tutor come farebbe un revisore accademico severo, orientato alla qualità accademica finale.
+- Le osservazioni del relatore hanno priorità massima: devono produrre cambiamenti sostanziali e riconoscibili nel testo finale, non semplici ritocchi stilistici.
+- Mantieni perimetro, struttura e headings del capitolo, ma riscrivi con decisione frasi, raccordi e paragrafi ogni volta che il testo resta troppo introduttivo, manualistico, descrittivo, scolastico, ridondante o generico.
+- Ogni sottosezione deve far capire in modo esplicito perché il concetto trattato è necessario per rispondere alla domanda di ricerca di questa tesi; se un passaggio potrebbe valere per qualunque elaborato, riscrivilo finché diventa specifico per questo lavoro.
+- In ogni sottosezione inserisci almeno un momento chiaramente interpretativo: non limitarti a esporre concetti o letteratura, ma mostra che cosa implicano per il problema centrale della tesi.
 - Aumenta densità argomentativa, precisione terminologica, coesione logica, gerarchia del ragionamento e qualità delle transizioni tra paragrafi e sottosezioni.
-- Riduci o elimina aperture generiche, frasi-programma, chiusure deboli, ripetizioni, parafrasi interne, formule da manuale e spiegazioni ovvie.
-- Se le osservazioni del relatore chiedono più analisi critica, sposta il testo da semplice esposizione della letteratura o dei concetti a ragionamento più selettivo, più mirato, più interpretativo e più funzionale al problema di ricerca.
-- Se nei materiali ricevuti compaiono già autori, teorie, modelli o riferimenti scientifici pertinenti, rendili più visibili e meglio integrati nel testo finale; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
-- Se viene richiesto maggiore rigore bibliografico o maggiore supporto delle affermazioni e i materiali non contengono riferimenti sufficienti, rendi il testo più prudente, più circoscritto e strutturalmente pronto a ricevere riferimenti reali.
-- Evita sezioni che potrebbero valere per qualunque tesi: il capitolo deve risultare chiaramente costruito per questo specifico elaborato.
+- Riduci o elimina aperture generiche, frasi-programma, chiuse deboli, ripetizioni, parafrasi interne, esempi ornamentali, formule da manuale e spiegazioni ovvie.
+- Se le osservazioni del relatore chiedono più analisi critica, sposta il testo da esposizione neutra o compilativa a ragionamento più selettivo, più tesi-centrico, più interpretativo e più funzionale al problema di ricerca.
+- Se nei materiali compaiono già autori, teorie, modelli o riferimenti scientifici pertinenti, rendili più visibili e più organicamente integrati nel testo; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
+- Se viene richiesto maggiore rigore bibliografico o maggiore supporto delle affermazioni e i materiali non contengono riferimenti sufficienti, non inventare nulla: restringi le formulazioni, rendile più prudenti e struttura il testo in modo da poter accogliere riferimenti reali.
+- Evita conclusioni di sottosezione e chiuse finali generiche: preferisci chiuse che mostrino la funzione teorica di quel blocco per la tesi.
+- Prima di restituire il testo, verifica silenziosamente che ogni sottosezione soddisfi questi criteri: specificità rispetto alla tesi, contributo chiaro alla domanda di ricerca, tono accademico non manualistico, presenza di almeno un passaggio interpretativo reale, assenza di fonti inventate.
 - Non aggiungere commenti redazionali, spiegazioni del lavoro svolto, elenchi di modifiche o formule di servizio.
 - Restituisci solo il capitolo revisionato finale, già pronto da usare.`,
 
