@@ -234,20 +234,18 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica le osservazioni del relatore o tutor come farebbe un revisore accademico severo, orientato alla qualità accademica finale.
-- Le osservazioni del relatore hanno priorità massima: devono produrre cambiamenti sostanziali e riconoscibili nel testo finale, non semplici ritocchi stilistici.
-- Mantieni perimetro, struttura e headings del capitolo, ma riscrivi con decisione frasi, raccordi e paragrafi ogni volta che il testo resta troppo introduttivo, manualistico, descrittivo, scolastico, ridondante o generico.
-- Ogni sottosezione deve far capire in modo esplicito perché il concetto trattato è necessario per rispondere alla domanda di ricerca di questa tesi; se un passaggio potrebbe valere per qualunque elaborato, riscrivilo finché diventa specifico per questo lavoro.
-- In ogni sottosezione inserisci almeno un momento chiaramente interpretativo: non limitarti a esporre concetti o letteratura, ma mostra che cosa implicano per il problema centrale della tesi.
-- Aumenta densità argomentativa, precisione terminologica, coesione logica, gerarchia del ragionamento e qualità delle transizioni tra paragrafi e sottosezioni.
-- Riduci o elimina aperture generiche, frasi-programma, chiuse deboli, ripetizioni, parafrasi interne, esempi ornamentali, formule da manuale e spiegazioni ovvie.
-- Se le osservazioni del relatore chiedono più analisi critica, sposta il testo da esposizione neutra o compilativa a ragionamento più selettivo, più tesi-centrico, più interpretativo e più funzionale al problema di ricerca.
-- Se nei materiali compaiono già autori, teorie, modelli o riferimenti scientifici pertinenti, rendili più visibili e più organicamente integrati nel testo; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
-- Se viene richiesto maggiore rigore bibliografico o maggiore supporto delle affermazioni e i materiali non contengono riferimenti sufficienti, non inventare nulla: restringi le formulazioni, rendile più prudenti e struttura il testo in modo da poter accogliere riferimenti reali.
-- Evita conclusioni di sottosezione e chiuse finali generiche: preferisci chiuse che mostrino la funzione teorica di quel blocco per la tesi.
-- Prima di restituire il testo, verifica silenziosamente che ogni sottosezione soddisfi questi criteri: specificità rispetto alla tesi, contributo chiaro alla domanda di ricerca, tono accademico non manualistico, presenza di almeno un passaggio interpretativo reale, assenza di fonti inventate.
-- Non aggiungere commenti redazionali, spiegazioni del lavoro svolto, elenchi di modifiche o formule di servizio.
-- Restituisci solo il capitolo revisionato finale, già pronto da usare.`,
+    tutor_revision: `Applica in modo rigoroso e sostanziale le osservazioni del relatore o tutor al testo ricevuto.
+- Le osservazioni del relatore sono vincolanti e prioritarie: la revisione deve mostrare in modo riconoscibile che cosa è stato realmente corretto.
+- Non limitarti a ripulire lo stile: se necessario riscrivi in profondità frasi, raccordi o paragrafi per aumentare rigore, precisione e coerenza argomentativa.
+- Mantieni headings, perimetro e funzione del capitolo nell'indice, ma rendi il testo più selettivo, critico e tesi-centrico.
+- Ogni sottosezione deve: definire con precisione il concetto, interpretarne il significato teorico e chiarire esplicitamente perché è necessario per rispondere alla domanda di ricerca.
+- Ogni sottosezione deve contenere almeno un passaggio interpretativo reale e una chiusa che espliciti il contributo della sezione al problema centrale della tesi.
+- Riduci passaggi generici, manualistici, scolastici, compilativi o troppo simili a un indice commentato.
+- Se nei dati forniti compaiono già autori, teorie, modelli o categorie pertinenti, rendili più visibili e meglio integrati nel ragionamento; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
+- Se il materiale non consente di aumentare davvero il supporto teorico, rendi il testo più prudente e circoscritto, senza simulare riferimenti inesistenti.
+- Dove utile, problematizza brevemente limiti, tensioni o implicazioni del concetto discusso, purché serva alla tesi e non divaghi.
+- Non aggiungere contenuti estranei alle osservazioni o al perimetro del capitolo.
+- Restituisci solo il testo revisionato.`,
 
     final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
 - Verifica coerenza tra indice, abstract e capitoli.
