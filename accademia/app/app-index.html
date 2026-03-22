@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UgFlEgricLDtA9S8yLwSSTj5mvhSUPF2y-cpHY9n7zvA-ujze2-zcX0a19hIYaymhzOMYlaDzvhARWRrUMUJv95DimdqFmyXefFvH7g10t56xOAkHGS6ajQrKUe3fc02lesTxFK5Q_ENNbxZ6LgywN0nRFhMcJPmm5ySCPbeDkT3daP8IfwbJ3Pzyhz3x2gfOHS81Q02jlK3fclGUhU-zaPKNK5rzwPc7WkVL4DflrUDFJdkbkUmqe-SUZwqtybCeWt4vbxYeSmKyha2zEuB1Q" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=rrXb-wF5c8NEof-PhVS4MRbs7nukKeojsffDi9vIjxCDRWfqsg7KPlVmL1d64C9r9BLZj_svKds_ZErsE_F8pIm784byGK5P5l_6Mp7s_XSs9I6WTl9Afan07G-quiLfCK-eVncbAUomF3P0BtCqjqZ2pTXFoz6GPJjUwo_N3PAWkbzV1ipXrcCiWewlUI-dafsBWKfvKpAcFhp4UBL7xmOmH_52bhdz8xooZHhiHQFPmsOlggQQHMHByq03pgNMObHsiISPOt1qjWwirlC_GQ" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -881,6 +881,7 @@ function refreshRevisionUi(){
 // ── DISCLAIMER ──
 const ACCESS_CODE = 'robpac-accademia-2026';
 const ACCESS_SESSION_KEY = '_td_gate_v12';
+const OWNER_FREE_RENEWAL_SESSION_KEY = '_td_owner_free_renewal_v1';
 
 function getAccessElements(){
   return {
@@ -930,6 +931,7 @@ function applyAccessState(unlocked){
   if(bypass) bypass.style.display = unlocked ? 'inline-flex' : 'none';
   updateBypassButton();
   if(!unlocked){
+    sessionStorage.removeItem(OWNER_FREE_RENEWAL_SESSION_KEY);
     if(code) code.value = '';
     ['check1','check2','check3'].forEach(id=>{
       const el=document.getElementById(id);
@@ -972,12 +974,14 @@ function acceptDisclaimer(){
   }
   sessionStorage.setItem(ACCESS_SESSION_KEY,'1');
   sessionStorage.setItem('_td_accepted','1');
+  sessionStorage.setItem(OWNER_FREE_RENEWAL_SESSION_KEY,'1');
   applyAccessState(true);
 }
 
 function logoutAccess(){
   sessionStorage.removeItem(ACCESS_SESSION_KEY);
   sessionStorage.removeItem('_td_accepted');
+  sessionStorage.removeItem(OWNER_FREE_RENEWAL_SESSION_KEY);
   applyAccessState(false);
 }
 
@@ -1049,7 +1053,7 @@ function setUnlockTab(tab){
 }
 
 function isPersonalFreeRenewalEnabled(){
-  return hasPersonalRevisionBypass();
+  return sessionStorage.getItem(OWNER_FREE_RENEWAL_SESSION_KEY)==='1';
 }
 
 function refreshUnlockPlansUI(){
@@ -1067,7 +1071,7 @@ function refreshUnlockPlansUI(){
   }
   if(note){
     note.textContent = unlockPlan==='base' && isPersonalFreeRenewalEnabled()
-      ? 'Rinnovo gratuito personale: +3 revisioni sul capitolo selezionato. Disponibile solo sul tuo accesso locale.'
+      ? 'Rinnovo gratuito personale: +3 revisioni sul capitolo selezionato. Disponibile solo sul tuo accesso autorizzato.'
       : "Dopo l'attivazione ricevi il codice via email. Torna qui e inserisci il codice nel tab 'Inserisci codice' per sbloccare le revisioni aggiuntive.";
   }
 }
