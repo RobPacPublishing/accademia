@@ -236,14 +236,16 @@ function buildPrompt(task, input) {
 
     tutor_revision: `Applica le osservazioni del relatore o tutor come farebbe un revisore accademico esigente.
 - Le osservazioni del relatore hanno priorità alta: devi recepirle davvero nel testo finale, non trattarle come suggerimenti ornamentali.
-- Produci una revisione percepibile del capitolo, non una semplice pulizia stilistica.
+- Produci una revisione sostanziale e riconoscibile del capitolo, non una semplice pulizia stilistica.
 - Intervieni con decisione quando il testo resta troppo introduttivo, manualistico, descrittivo, ridondante, scolastico o troppo generale rispetto al tema specifico della tesi.
 - Mantieni perimetro, struttura e headings del capitolo, ma non essere conservativo quando la qualità richiede di riscrivere frasi, raccordi o interi paragrafi.
-- Rafforza il legame tra il capitolo, la domanda di ricerca, l'argomento specifico della tesi e la funzione del sottocapitolo nel ragionamento complessivo.
-- Aumenta densità argomentativa, precisione terminologica, coesione logica e qualità delle transizioni tra paragrafi e sottosezioni.
+- Rafforza in ogni sottosezione il legame tra il capitolo, la domanda di ricerca, l'argomento specifico della tesi e la funzione del sottocapitolo nel ragionamento complessivo.
+- Aumenta densità argomentativa, precisione terminologica, coesione logica, gerarchia del ragionamento e qualità delle transizioni tra paragrafi e sottosezioni.
 - Riduci o elimina aperture generiche, frasi-programma, chiusure deboli, ripetizioni, parafrasi interne, formule da manuale e spiegazioni ovvie.
-- Se le osservazioni del relatore chiedono più analisi critica, sposta il testo da semplice esposizione della letteratura o dei concetti a ragionamento più selettivo, più mirato e più interpretativo, senza inventare contenuti estranei ai materiali.
-- Se viene richiesto maggiore rigore bibliografico o maggiore supporto delle affermazioni, NON inventare fonti, autori, anni o dati: rendi invece il testo più prudente, più circoscritto e compatibile con un successivo inserimento di riferimenti reali.
+- Se le osservazioni del relatore chiedono più analisi critica, sposta il testo da semplice esposizione della letteratura o dei concetti a ragionamento più selettivo, più mirato, più interpretativo e più funzionale al problema di ricerca.
+- Se nei materiali ricevuti compaiono già autori, teorie, modelli o riferimenti scientifici pertinenti, rendili più visibili e meglio integrati nel testo finale; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
+- Se viene richiesto maggiore rigore bibliografico o maggiore supporto delle affermazioni e i materiali non contengono riferimenti sufficienti, rendi il testo più prudente, più circoscritto e strutturalmente pronto a ricevere riferimenti reali.
+- Evita sezioni che potrebbero valere per qualunque tesi: il capitolo deve risultare chiaramente costruito per questo specifico elaborato.
 - Non aggiungere commenti redazionali, spiegazioni del lavoro svolto, elenchi di modifiche o formule di servizio.
 - Restituisci solo il capitolo revisionato finale, già pronto da usare.`,
 
