@@ -234,17 +234,10 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica in modo rigoroso e sostanziale le osservazioni del relatore o tutor al testo ricevuto.
-- Le osservazioni del relatore sono vincolanti e prioritarie: la revisione deve mostrare in modo riconoscibile che cosa è stato realmente corretto.
-- Non limitarti a ripulire lo stile: se necessario riscrivi in profondità frasi, raccordi o paragrafi per aumentare rigore, precisione e coerenza argomentativa.
-- Mantieni headings, perimetro e funzione del capitolo nell'indice, ma rendi il testo più selettivo, critico e tesi-centrico.
-- Ogni sottosezione deve: definire con precisione il concetto, interpretarne il significato teorico e chiarire esplicitamente perché è necessario per rispondere alla domanda di ricerca.
-- Ogni sottosezione deve contenere almeno un passaggio interpretativo reale e una chiusa che espliciti il contributo della sezione al problema centrale della tesi.
-- Riduci passaggi generici, manualistici, scolastici, compilativi o troppo simili a un indice commentato.
-- Se nei dati forniti compaiono già autori, teorie, modelli o categorie pertinenti, rendili più visibili e meglio integrati nel ragionamento; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
-- Se il materiale non consente di aumentare davvero il supporto teorico, rendi il testo più prudente e circoscritto, senza simulare riferimenti inesistenti.
-- Dove utile, problematizza brevemente limiti, tensioni o implicazioni del concetto discusso, purché serva alla tesi e non divaghi.
-- Non aggiungere contenuti estranei alle osservazioni o al perimetro del capitolo.
+    tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
+- Intervieni in modo conservativo.
+- Non aggiungere contenuti non richiesti.
+- Non introdurre fonti o riferimenti non presenti nei dati.
 - Restituisci solo il testo revisionato.`,
 
     final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
