@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=sbpie27ykOMTaHg_Gp6BgL7AmVml2y9M3vFJpBKxrQE6u39cxb-rs8T3j9eK0y3ytY5PFFuyNE5jnB6aV32Y3JGrSiHo1RhVHWUpOHmCmCqqlrsDN52FtDGvsecjxveTwvcQNZVat8qWEenPJP4DK39iHl5XeVVu3hFXyqvkx4SpqZMX_QN6Yy_-on8cp3Uo-g2CLa-HLR00t5qR-jl3EFIdkbqgF3l1bcsmmAcy0fO8o-wSltSXZLatjGUpL0l7JdvXjIgyIZbGB9xWctocuA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=_pzfPg7Biw82VO71Jbvjz9FKtAFgYMsdFEDpjv5rmjaPhpOBrmA2livx_aOrIv4rQJ2qTiNVD44bo5soOSAubtbnWV-CScEDORWaIOiUR482RQx8HMCRYfeY-qzWWmMJy7upKHJmj2Lh_9AZcQMoVjO5oVoLwH1qhtChWBvKxQJoFiN-xi8z6dt2ptCxLTEtbHcD6lWzHI-0iGTsQLXOJMBQl83NgyR-EUdMBBTqfCwVKnj9kDAvrmdtcAtKCZjJzcFkDW95IFEHhItnbpX25Q" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -1063,6 +1063,7 @@ function selectUnlockPlan(plan){
 const GUMROAD_BASE_URL='https://gumroad.com/l/TESIA-BASE';
 const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM';
 const DEFAULT_UNLOCK_EMAIL='robpacpublishing@gmail.com';
+const PERSONAL_FREE_TEST_CODE='TESIA-ROBP-TEST';
 
 async function requestBaseUnlockCode(){
   const btn=document.getElementById('btnGoToPurchase');
@@ -1123,6 +1124,20 @@ async function applyUnlockCode(){
   const msgEl=document.getElementById('unlockCodeMsg');
   msgEl.style.color='var(--text3)';
   msgEl.textContent='⏳ Verifica in corso...';
+
+  if(raw===PERSONAL_FREE_TEST_CODE){
+    const targetIdx = revState.unlockTargetChapter ?? findFirstExhaustedChapter() ?? thesis.currentChapterIdx ?? 0;
+    if(targetIdx!==null){
+      revState.perChapter[targetIdx]=Math.max(0,(revState.perChapter[targetIdx]||0)-3);
+      revState.totalUsed=Math.max(0,revState.totalUsed-3);
+      renderRevCounter(targetIdx);
+    }
+    renderGlobalCounter();
+    saveProgress();
+    closeModal('unlockModal');
+    showToast(`✦ Revisioni aggiuntive attivate — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
+    return;
+  }
 
   let result;
   try{

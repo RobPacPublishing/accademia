@@ -1,8 +1,8 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
-const FALLBACK_SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
-const FALLBACK_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_30WGAbZRVjNR8vujs0kQnQ_fZtoHpZr';
 const DEFAULT_UNLOCK_CODE_RECIPIENT = process.env.UNLOCK_CODE_EMAIL || 'robpacpublishing@gmail.com';
+const PERSONAL_FREE_TEST_CODE = process.env.FREE_UNLOCK_TEST_CODE || 'TESIA-ROBP-TEST';
+const PERSONAL_PREMIUM_TEST_CODE = process.env.PREMIUM_UNLOCK_TEST_CODE || 'TESIA-ROBP-PREM';
 const UNLOCK_CODE_TASKS = new Set([
   'issue_unlock_code',
   'request_unlock_code',
@@ -121,15 +121,14 @@ async function handleUnlockCodeRequest({ task, normalized, res }) {
   const recipient = pickUnlockRecipient(normalized);
   const codeType = plan === 'premium' ? 'premium' : 'base';
   const planLabel = codeType === 'premium' ? 'Pacchetto Premium' : 'Pacchetto Base';
-  const code = await generateUniqueCode();
+  const code = codeType === 'premium' ? PERSONAL_PREMIUM_TEST_CODE : PERSONAL_FREE_TEST_CODE;
 
-  await saveUnlockCode({ code, type: codeType });
   await sendUnlockCodeEmail({ recipient, code, planLabel });
 
   return res.status(200).json({
     ok: true,
     task,
-    text: `Codice ${planLabel} generato e inviato via email.`,
+    text: `Codice ${planLabel} inviato via email.`,
     recipient,
     plan: codeType
   });
@@ -173,92 +172,8 @@ function pickUnlockRecipient(normalized) {
   return DEFAULT_UNLOCK_CODE_RECIPIENT;
 }
 
-async function generateUniqueCode() {
-  for (let i = 0; i < 8; i += 1) {
-    const candidate = `TESIA-${randomChunk(4)}-${randomChunk(4)}`;
-    const exists = await unlockCodeExists(candidate);
-    if (!exists) return candidate;
-  }
-
-  throw new Error('Impossibile generare un codice univoco');
-}
-
-function randomChunk(length) {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out = '';
-  for (let i = 0; i < length; i += 1) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return out;
-}
-
-function getSupabaseServerConfig() {
-  const url = process.env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    FALLBACK_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!url || !key) {
-    throw new Error('Configurazione server Supabase mancante');
-  }
-
-  return { url, key };
-}
-
-async function unlockCodeExists(code) {
-  const { url, key } = getSupabaseServerConfig();
-  const response = await fetchWithTimeout(
-    `${url}/rest/v1/codes?code=eq.${encodeURIComponent(code)}&select=id&limit=1`,
-    {
-      method: 'GET',
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`
-      }
-    },
-    20000
-  );
-
-  const data = await safeJson(response);
-
-  if (!response.ok) {
-    throw new Error(`Errore verifica codice Supabase: ${simplifyProviderError(data)}`);
-  }
-
-  return Array.isArray(data) && data.length > 0;
-}
-
-async function saveUnlockCode({ code, type }) {
-  const { url, key } = getSupabaseServerConfig();
-  const response = await fetchWithTimeout(
-    `${url}/rest/v1/codes`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        Prefer: 'return=minimal'
-      },
-      body: JSON.stringify({
-        code,
-        type,
-        used: false
-      })
-    },
-    20000
-  );
-
-  if (!response.ok) {
-    const data = await safeJson(response);
-    throw new Error(`Errore salvataggio codice Supabase: ${simplifyProviderError(data)}`);
-  }
-}
-
 async function sendUnlockCodeEmail({ recipient, code, planLabel }) {
+
   const resendKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
