@@ -1,5 +1,7 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
+const FALLBACK_SUPABASE_URL = 'https://urdfepyosbsrminucfsc.supabase.co';
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_30WGAbZRVjNR8vujs0kQnQ_fZtoHpZr';
 const DEFAULT_UNLOCK_CODE_RECIPIENT = process.env.UNLOCK_CODE_EMAIL || 'robpacpublishing@gmail.com';
 const UNLOCK_CODE_TASKS = new Set([
   'issue_unlock_code',
@@ -191,12 +193,13 @@ function randomChunk(length) {
 }
 
 function getSupabaseServerConfig() {
-  const url = process.env.SUPABASE_URL;
+  const url = process.env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY;
+    process.env.SUPABASE_ANON_KEY ||
+    FALLBACK_SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !key) {
     throw new Error('Configurazione server Supabase mancante');

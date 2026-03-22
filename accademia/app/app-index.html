@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=H7xmAoEHIjJaPumneBJH6ANjl5359HLX_4sNnd0Z1skO5lGFiVXkGKbrUcZJU7R2letSC8aVtIVDEWEcNWAJd_NTX1ZhlmvbcxLcLJfuxQ3QA2fzTpLan6MHXxT7UeNUATEpregLc31-HYfoe6jdro7YRp6s_pNRCvcGzGy41_204qtALAFBoIhHXA8YLLc34GN4tJzn_3EcGOKUc9Tvs6T2OIv5jt0c8XnXgwDC8GJQjmKB9DcMXuYte2zGPbIJxZHSbJkvcWhrmCWTdoQr8A" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=sbpie27ykOMTaHg_Gp6BgL7AmVml2y9M3vFJpBKxrQE6u39cxb-rs8T3j9eK0y3ytY5PFFuyNE5jnB6aV32Y3JGrSiHo1RhVHWUpOHmCmCqqlrsDN52FtDGvsecjxveTwvcQNZVat8qWEenPJP4DK39iHl5XeVVu3hFXyqvkx4SpqZMX_QN6Yy_-on8cp3Uo-g2CLa-HLR00t5qR-jl3EFIdkbqgF3l1bcsmmAcy0fO8o-wSltSXZLatjGUpL0l7JdvXjIgyIZbGB9xWctocuA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -1033,6 +1033,7 @@ function openUnlockModal(chapIdx){
       ? `Hai esaurito le revisioni per il Capitolo ${chapIdx+1} "${thesis.chapterTitles[chapIdx]||''}". Budget totale rimanente: ${rem}/${revState.totalBudget}.`
       : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade di piano per continuare.`;
   unlockPlan='';
+  document.getElementById('cardFree').classList.remove('selected');
   document.getElementById('cardBase').classList.remove('selected');
   document.getElementById('cardPremium').classList.remove('selected');
   document.getElementById('btnGoToPurchase').disabled=true;
@@ -1051,11 +1052,12 @@ function setUnlockTab(tab){
 
 function selectUnlockPlan(plan){
   unlockPlan=plan;
+  document.getElementById('cardFree').classList.toggle('selected',plan==='free');
   document.getElementById('cardBase').classList.toggle('selected',plan==='base');
   document.getElementById('cardPremium').classList.toggle('selected',plan==='premium');
   const btn=document.getElementById('btnGoToPurchase');
   btn.disabled=false;
-  btn.textContent = plan==='base' ? 'Ricevi codice via email →' : 'Prosegui all\'attivazione →';
+  btn.textContent = plan==='free' ? 'Ricevi codice via email →' : 'Prosegui all\'attivazione →';
 }
 
 const GUMROAD_BASE_URL='https://gumroad.com/l/TESIA-BASE';
