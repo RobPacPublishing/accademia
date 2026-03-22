@@ -234,21 +234,18 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica le osservazioni del relatore al testo ricevuto come farebbe un revisore universitario esigente e sostanziale, non cosmetico.
-- Le osservazioni del relatore hanno priorità alta: devi recepirle davvero nel testo finale, non limitarti a una ripulitura stilistica.
-- Intervieni in modo preciso ma non timido: se le osservazioni implicano riscritture nette, riorganizzazione di paragrafi, maggiore focalizzazione teorica o maggiore densità argomentativa, esegui tali modifiche.
-- Non trattare la revisione come una semplice correzione di forma: elimina passaggi generici, introduttivi, manualistici, ridondanti, ripetitivi o troppo scolastici se contrastano con le osservazioni.
-- Mantieni il perimetro del capitolo, la sua funzione nell'indice, i headings e la disciplina di riferimento, ma migliora in profondità il contenuto dove necessario.
-- Se il relatore chiede maggiore chiarezza dell'obiettivo, rendi esplicita fin dall'apertura la funzione del capitolo rispetto alla domanda di ricerca della tesi.
-- Se il relatore chiede maggiore aderenza al tema specifico, riduci il materiale troppo generale e riallinea il testo al problema centrale della tesi.
-- Se il relatore chiede più analisi critica, aumenta il peso interpretativo e argomentativo del testo rispetto alla semplice esposizione descrittiva.
-- Se il relatore segnala transizioni deboli o struttura poco coesa, riscrivi i raccordi in modo che il ragionamento proceda con continuità reale.
-- Se il relatore segnala problemi terminologici, uniforma il lessico tecnico ed evita di usare come equivalenti concetti che non coincidono perfettamente.
-- Se il relatore richiede maggiore rigore accademico, rendi le formulazioni più prudenti, precise e difendibili, evitando affermazioni troppo ampie o categoriche.
-- Non aggiungere fonti, autori, anni, dati, norme o riferimenti bibliografici non presenti nei materiali forniti.
-- Se nei materiali esistono già riferimenti o autori, puoi preservarli e integrarli meglio; se non esistono, non inventarli.
-- Non inserire commenti sul lavoro svolto, note al relatore, spiegazioni metatestuali, elenchi di modifiche o formule introduttive/finali di servizio.
-- Restituisci solo il testo revisionato finale, pronto da usare, facendo percepire chiaramente che le osservazioni del relatore sono state recepite punto per punto.`,
+    tutor_revision: `Applica le osservazioni del relatore o tutor come farebbe un revisore accademico esigente.
+- Le osservazioni del relatore hanno priorità alta: devi recepirle davvero nel testo finale, non trattarle come suggerimenti ornamentali.
+- Produci una revisione percepibile del capitolo, non una semplice pulizia stilistica.
+- Intervieni con decisione quando il testo resta troppo introduttivo, manualistico, descrittivo, ridondante, scolastico o troppo generale rispetto al tema specifico della tesi.
+- Mantieni perimetro, struttura e headings del capitolo, ma non essere conservativo quando la qualità richiede di riscrivere frasi, raccordi o interi paragrafi.
+- Rafforza il legame tra il capitolo, la domanda di ricerca, l'argomento specifico della tesi e la funzione del sottocapitolo nel ragionamento complessivo.
+- Aumenta densità argomentativa, precisione terminologica, coesione logica e qualità delle transizioni tra paragrafi e sottosezioni.
+- Riduci o elimina aperture generiche, frasi-programma, chiusure deboli, ripetizioni, parafrasi interne, formule da manuale e spiegazioni ovvie.
+- Se le osservazioni del relatore chiedono più analisi critica, sposta il testo da semplice esposizione della letteratura o dei concetti a ragionamento più selettivo, più mirato e più interpretativo, senza inventare contenuti estranei ai materiali.
+- Se viene richiesto maggiore rigore bibliografico o maggiore supporto delle affermazioni, NON inventare fonti, autori, anni o dati: rendi invece il testo più prudente, più circoscritto e compatibile con un successivo inserimento di riferimenti reali.
+- Non aggiungere commenti redazionali, spiegazioni del lavoro svolto, elenchi di modifiche o formule di servizio.
+- Restituisci solo il capitolo revisionato finale, già pronto da usare.`,
 
     final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
 - Verifica coerenza tra indice, abstract e capitoli.
