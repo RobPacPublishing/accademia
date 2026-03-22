@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=m5meyXFD9yf2afd3ufURr8uH0MaKxI1O14bUWwiGDWcDjNcOUcpgR-di-T_CZhBfP2pPJYvIkA8jX08YEXtmhF_PBPCHrMaLX-ZYkYlxuvqn2I-_zqjt4YvOq8fXXNDfRI6rIsIElwyYOlNetUz8xX_pNOpQea5DhjxRObmnGkbgY-qIL57HB7wx4kx1SzD_GYXfpDmkO4GVyuCIxy1pjyqTAC8QIOlbU-qCBzvVemYsi9xNjS2BoaPlIpvQcTFVA5Uf1XvC_ZNiaUUfXD5r8w" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=H7xmAoEHIjJaPumneBJH6ANjl5359HLX_4sNnd0Z1skO5lGFiVXkGKbrUcZJU7R2letSC8aVtIVDEWEcNWAJd_NTX1ZhlmvbcxLcLJfuxQ3QA2fzTpLan6MHXxT7UeNUATEpregLc31-HYfoe6jdro7YRp6s_pNRCvcGzGy41_204qtALAFBoIhHXA8YLLc34GN4tJzn_3EcGOKUc9Tvs6T2OIv5jt0c8XnXgwDC8GJQjmKB9DcMXuYte2zGPbIJxZHSbJkvcWhrmCWTdoQr8A" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -565,6 +565,10 @@
 
     <div class="unlock-panel active" id="unlockPanelBuy">
       <div class="unlock-price-row">
+        <div class="unlock-price-card" id="cardFree" onclick="selectUnlockPlan('free')">
+          <div class="price">€0</div>
+          <div class="desc"><strong>Pacchetto gratuito</strong><br>ricevi il codice via email<br>su robpacpublishing@gmail.com</div>
+        </div>
         <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')">
           <div class="price">+3</div>
           <div class="desc"><strong>Revisioni aggiuntive</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
@@ -575,7 +579,7 @@
         </div>
       </div>
       <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Prosegui all'attivazione →</button>
-      <div class="unlock-note">Pacchetto base: il codice viene inviato a robpacpublishing@gmail.com. Pacchetto premium: completa prima l'attivazione e poi inserisci qui il codice ricevuto.</div>
+      <div class="unlock-note">Pacchetto gratuito: il codice viene inviato a robpacpublishing@gmail.com. Pacchetto +3 e pacchetto premium: completa prima l'attivazione e poi inserisci qui il codice ricevuto.</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
@@ -1102,11 +1106,11 @@ async function requestBaseUnlockCode(){
 }
 
 async function goToPurchase(){
-  if(unlockPlan==='base'){
+  if(unlockPlan==='free'){
     await requestBaseUnlockCode();
     return;
   }
-  const url=GUMROAD_PREMIUM_URL;
+  const url = unlockPlan==='base' ? GUMROAD_BASE_URL : GUMROAD_PREMIUM_URL;
   window.open(url,'_blank');
   setUnlockTab('enter');
 }
