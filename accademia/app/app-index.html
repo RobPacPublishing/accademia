@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=rrXb-wF5c8NEof-PhVS4MRbs7nukKeojsffDi9vIjxCDRWfqsg7KPlVmL1d64C9r9BLZj_svKds_ZErsE_F8pIm784byGK5P5l_6Mp7s_XSs9I6WTl9Afan07G-quiLfCK-eVncbAUomF3P0BtCqjqZ2pTXFoz6GPJjUwo_N3PAWkbzV1ipXrcCiWewlUI-dafsBWKfvKpAcFhp4UBL7xmOmH_52bhdz8xooZHhiHQFPmsOlggQQHMHByq03pgNMObHsiISPOt1qjWwirlC_GQ" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UgKKaabDEwSOl4l_h7cw4LCaWYGYdKuj0YurAIg9JDmkc7qiXBiS7yI709wnot9Y5VpbV1VlcnyFkezB-h72gRVXITZCr3E-AmH3u_vklhnZrCGql_uQE-tRCn3cNcE0OUgixDf6L8dQKDS1o7NlhKr3J2f4ScClbx8rmNbXibkopQqFqa9x2EVVwurceT21xPkpyJOBLTnIOJ2laUOuWUjd0KARNJuuK3t9ahHb_m6OkYGoO6KtFFNjqArPwD7pthszWhkYKzAUKNoft9dKWA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -1097,9 +1097,12 @@ function grantFreeBaseRenewal(){
     showToast('Nessun capitolo da sbloccare', true);
     return;
   }
-  revState.perChapter[targetIdx]=Math.max(0,(revState.perChapter[targetIdx]||0)-3);
-  revState.totalUsed=Math.max(0,revState.totalUsed-3);
+  const usedBefore = revState.perChapter[targetIdx]||0;
+  const restoreCount = Math.min(3, usedBefore || MAX_REV_PER_CHAPTER);
+  revState.perChapter[targetIdx]=Math.max(0, usedBefore-restoreCount);
+  revState.totalUsed=Math.max(0, revState.totalUsed-restoreCount);
   renderRevCounter(targetIdx);
+  syncChapterActionButtons(targetIdx);
   renderGlobalCounter();
   saveProgress();
   closeModal('unlockModal');
@@ -1155,9 +1158,12 @@ async function applyUnlockCode(){
   if(result.type==='base'){
     const targetIdx = revState.unlockTargetChapter ?? findFirstExhaustedChapter();
     if(targetIdx!==null){
-      revState.perChapter[targetIdx]=Math.max(0,(revState.perChapter[targetIdx]||0)-3);
-      revState.totalUsed=Math.max(0,revState.totalUsed-3);
+      const usedBefore = revState.perChapter[targetIdx]||0;
+      const restoreCount = Math.min(3, usedBefore || MAX_REV_PER_CHAPTER);
+      revState.perChapter[targetIdx]=Math.max(0, usedBefore-restoreCount);
+      revState.totalUsed=Math.max(0, revState.totalUsed-restoreCount);
       renderRevCounter(targetIdx);
+      syncChapterActionButtons(targetIdx);
     }
     renderGlobalCounter();
     saveProgress();
