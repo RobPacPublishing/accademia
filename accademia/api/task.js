@@ -1,16 +1,5 @@
 const OPENAI_TIMEOUT_MS = 90000;
 const ANTHROPIC_TIMEOUT_MS = 90000;
-const DEFAULT_UNLOCK_CODE_RECIPIENT = process.env.UNLOCK_CODE_EMAIL || 'robpacpublishing@gmail.com';
-const PERSONAL_FREE_TEST_CODE = process.env.FREE_UNLOCK_TEST_CODE || 'TESIA-ROBP-TEST';
-const PERSONAL_PREMIUM_TEST_CODE = process.env.PREMIUM_UNLOCK_TEST_CODE || 'TESIA-ROBP-PREM';
-const UNLOCK_CODE_TASKS = new Set([
-  'issue_unlock_code',
-  'request_unlock_code',
-  'send_unlock_code',
-  'create_unlock_code',
-  'free_unlock_code',
-  'unlock_code_request'
-]);
 
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
@@ -46,15 +35,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const normalized = normalizeBody(req.body);
-    const { task, input } = normalized;
+    const { task, input } = normalizeBody(req.body);
 
     if (!task) {
       return res.status(400).json({ error: 'Task mancante' });
-    }
-
-    if (UNLOCK_CODE_TASKS.has(task)) {
-      return await handleUnlockCodeRequest({ task, normalized, res });
     }
 
     const provider = pickProvider(task);
@@ -75,7 +59,7 @@ export default async function handler(req, res) {
 function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
-  const rawInput =
+  const input =
     typeof safe.input === 'string'
       ? safe.input
       : typeof safe.payload === 'string'
@@ -84,25 +68,7 @@ function normalizeBody(body) {
           ? safe.content
           : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
 
-  return {
-    task,
-    input: rawInput,
-    body: safe,
-    parsedInput: parseMaybeJson(rawInput)
-  };
-}
-
-function parseMaybeJson(value) {
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  if (!trimmed) return {};
-  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return {};
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return {};
-  }
+  return { task, input };
 }
 
 function pickProvider(task) {
@@ -114,128 +80,6 @@ function pickProvider(task) {
   ]);
 
   return anthropicTasks.has(task) ? 'anthropic' : 'openai';
-}
-
-async function handleUnlockCodeRequest({ task, normalized, res }) {
-  const plan = pickUnlockPlan(normalized, task);
-  const recipient = pickUnlockRecipient(normalized);
-  const codeType = plan === 'premium' ? 'premium' : 'base';
-  const planLabel = codeType === 'premium' ? 'Pacchetto Premium' : 'Pacchetto Base';
-  const code = codeType === 'premium' ? PERSONAL_PREMIUM_TEST_CODE : PERSONAL_FREE_TEST_CODE;
-
-  await sendUnlockCodeEmail({ recipient, code, planLabel });
-
-  return res.status(200).json({
-    ok: true,
-    task,
-    text: `Codice ${planLabel} inviato via email.`,
-    recipient,
-    plan: codeType
-  });
-}
-
-function pickUnlockPlan(normalized, task) {
-  const sources = [
-    normalized.body,
-    normalized.body?.input,
-    normalized.parsedInput
-  ];
-
-  for (const source of sources) {
-    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
-    const raw = source.plan || source.package || source.tier || source.type;
-    if (typeof raw === 'string') {
-      const value = raw.trim().toLowerCase();
-      if (value === 'premium') return 'premium';
-      if (value === 'base' || value === 'free' || value === 'gratuito') return 'base';
-    }
-  }
-
-  return task === 'free_unlock_code' ? 'base' : 'base';
-}
-
-function pickUnlockRecipient(normalized) {
-  const sources = [
-    normalized.body,
-    normalized.body?.input,
-    normalized.parsedInput
-  ];
-
-  for (const source of sources) {
-    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
-    const raw = source.email || source.recipient || source.to;
-    if (typeof raw === 'string' && raw.trim()) {
-      return raw.trim();
-    }
-  }
-
-  return DEFAULT_UNLOCK_CODE_RECIPIENT;
-}
-
-async function sendUnlockCodeEmail({ recipient, code, planLabel }) {
-
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-
-  if (!resendKey) {
-    throw new Error('RESEND_API_KEY non configurata');
-  }
-
-  if (!from) {
-    throw new Error('RESEND_FROM_EMAIL non configurata');
-  }
-
-  const subject = `${planLabel} AccademIA - Codice di attivazione`;
-  const text = [
-    `È stato generato un nuovo codice per ${planLabel}.`,
-    '',
-    `Codice: ${code}`,
-    '',
-    'Inseriscilo nella sezione "Inserisci codice" dell’app AccademIA per sbloccare le revisioni aggiuntive.'
-  ].join('\n');
-
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f1f1f">
-      <h2 style="margin:0 0 12px">${escapeHtml(planLabel)} AccademIA</h2>
-      <p style="margin:0 0 10px">È stato generato un nuovo codice di attivazione.</p>
-      <p style="margin:0 0 16px"><strong>Codice:</strong> <span style="font-size:18px;letter-spacing:2px">${escapeHtml(code)}</span></p>
-      <p style="margin:0">Inseriscilo nella sezione <strong>Inserisci codice</strong> dell’app AccademIA per sbloccare le revisioni aggiuntive.</p>
-    </div>
-  `;
-
-  const response = await fetchWithTimeout(
-    'https://api.resend.com/emails',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${resendKey}`
-      },
-      body: JSON.stringify({
-        from,
-        to: [recipient],
-        subject,
-        text,
-        html
-      })
-    },
-    30000
-  );
-
-  const data = await safeJson(response);
-
-  if (!response.ok) {
-    throw new Error(`Errore invio email Resend: ${simplifyProviderError(data)}`);
-  }
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 async function handleOpenAI({ task, input, res }) {
@@ -390,13 +234,21 @@ function buildPrompt(task, input) {
 - Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
-    tutor_revision: `Applica in modo rigoroso e prioritario le osservazioni del relatore o tutor al testo ricevuto.
-- Tratta le osservazioni come istruzioni vincolanti di revisione del capitolo, non come semplice prompt di rigenerazione generica.
-- Mantieni struttura, funzione del capitolo e coerenza con indice e abstract, salvo correzione esplicitamente richiesta.
-- Intervieni in modo mirato ma sostanziale dove le osservazioni lo richiedono.
-- Non aggiungere contenuti non richiesti.
-- Non introdurre fonti o riferimenti non presenti nei dati.
-- Restituisci solo il testo revisionato finale.`,
+    tutor_revision: `Applica le osservazioni del relatore al testo ricevuto come farebbe un revisore universitario esigente e sostanziale, non cosmetico.
+- Le osservazioni del relatore hanno priorità alta: devi recepirle davvero nel testo finale, non limitarti a una ripulitura stilistica.
+- Intervieni in modo preciso ma non timido: se le osservazioni implicano riscritture nette, riorganizzazione di paragrafi, maggiore focalizzazione teorica o maggiore densità argomentativa, esegui tali modifiche.
+- Non trattare la revisione come una semplice correzione di forma: elimina passaggi generici, introduttivi, manualistici, ridondanti, ripetitivi o troppo scolastici se contrastano con le osservazioni.
+- Mantieni il perimetro del capitolo, la sua funzione nell'indice, i headings e la disciplina di riferimento, ma migliora in profondità il contenuto dove necessario.
+- Se il relatore chiede maggiore chiarezza dell'obiettivo, rendi esplicita fin dall'apertura la funzione del capitolo rispetto alla domanda di ricerca della tesi.
+- Se il relatore chiede maggiore aderenza al tema specifico, riduci il materiale troppo generale e riallinea il testo al problema centrale della tesi.
+- Se il relatore chiede più analisi critica, aumenta il peso interpretativo e argomentativo del testo rispetto alla semplice esposizione descrittiva.
+- Se il relatore segnala transizioni deboli o struttura poco coesa, riscrivi i raccordi in modo che il ragionamento proceda con continuità reale.
+- Se il relatore segnala problemi terminologici, uniforma il lessico tecnico ed evita di usare come equivalenti concetti che non coincidono perfettamente.
+- Se il relatore richiede maggiore rigore accademico, rendi le formulazioni più prudenti, precise e difendibili, evitando affermazioni troppo ampie o categoriche.
+- Non aggiungere fonti, autori, anni, dati, norme o riferimenti bibliografici non presenti nei materiali forniti.
+- Se nei materiali esistono già riferimenti o autori, puoi preservarli e integrarli meglio; se non esistono, non inventarli.
+- Non inserire commenti sul lavoro svolto, note al relatore, spiegazioni metatestuali, elenchi di modifiche o formule introduttive/finali di servizio.
+- Restituisci solo il testo revisionato finale, pronto da usare, facendo percepire chiaramente che le osservazioni del relatore sono state recepite punto per punto.`,
 
     final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
 - Verifica coerenza tra indice, abstract e capitoli.
@@ -414,8 +266,7 @@ function extractOpenAIText(data) {
 
     return data.output
       .flatMap(item => item.content || [])
-      .filter(part => part?.type === 'output_text' && part?.text)
-      .map(part => part.text)
+      .map(part => part.text || '')
       .join('\n')
       .trim();
   } catch {
