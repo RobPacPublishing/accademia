@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=_pzfPg7Biw82VO71Jbvjz9FKtAFgYMsdFEDpjv5rmjaPhpOBrmA2livx_aOrIv4rQJ2qTiNVD44bo5soOSAubtbnWV-CScEDORWaIOiUR482RQx8HMCRYfeY-qzWWmMJy7upKHJmj2Lh_9AZcQMoVjO5oVoLwH1qhtChWBvKxQJoFiN-xi8z6dt2ptCxLTEtbHcD6lWzHI-0iGTsQLXOJMBQl83NgyR-EUdMBBTqfCwVKnj9kDAvrmdtcAtKCZjJzcFkDW95IFEHhItnbpX25Q" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=9Q7pzvJHK7eO-Yd3r5uQlCpFSJkP7_6yZFTHl5sTzorhC0T---13f8P0t-Nqh501I6zlFK7pB6PMOzxGku14PgXYt0E5RrfmsO0XSZkhhdEg_ImTqqnceQuKv8yHZYgCAek2dspvceRAt-VavTyJ8BC3mp8H776KK-xozWgKEC7Gh54CZZhzjqFuX2bcPM4rbynEr3Sfo0MoqC2U53DmRcFb6hCLkPL1pyncomqqxHojSD8q1SHF1Jb4FOv3DhzyBIAHCz_Hn1M_jGIkkdKKeA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -565,10 +565,6 @@
 
     <div class="unlock-panel active" id="unlockPanelBuy">
       <div class="unlock-price-row">
-        <div class="unlock-price-card" id="cardFree" onclick="selectUnlockPlan('free')">
-          <div class="price">€0</div>
-          <div class="desc"><strong>Pacchetto gratuito</strong><br>ricevi il codice via email<br>su robpacpublishing@gmail.com</div>
-        </div>
         <div class="unlock-price-card" id="cardBase" onclick="selectUnlockPlan('base')">
           <div class="price">+3</div>
           <div class="desc"><strong>Revisioni aggiuntive</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
@@ -579,7 +575,7 @@
         </div>
       </div>
       <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Prosegui all'attivazione →</button>
-      <div class="unlock-note">Pacchetto gratuito: il codice viene inviato a robpacpublishing@gmail.com. Pacchetto +3 e pacchetto premium: completa prima l'attivazione e poi inserisci qui il codice ricevuto.</div>
+      <div class="unlock-note">Dopo l'attivazione ricevi il codice via email. Torna qui e inseriscilo nel tab "Inserisci codice" per sbloccare le revisioni aggiuntive.</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
@@ -1033,7 +1029,6 @@ function openUnlockModal(chapIdx){
       ? `Hai esaurito le revisioni per il Capitolo ${chapIdx+1} "${thesis.chapterTitles[chapIdx]||''}". Budget totale rimanente: ${rem}/${revState.totalBudget}.`
       : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade di piano per continuare.`;
   unlockPlan='';
-  document.getElementById('cardFree').classList.remove('selected');
   document.getElementById('cardBase').classList.remove('selected');
   document.getElementById('cardPremium').classList.remove('selected');
   document.getElementById('btnGoToPurchase').disabled=true;
@@ -1052,68 +1047,16 @@ function setUnlockTab(tab){
 
 function selectUnlockPlan(plan){
   unlockPlan=plan;
-  document.getElementById('cardFree').classList.toggle('selected',plan==='free');
   document.getElementById('cardBase').classList.toggle('selected',plan==='base');
   document.getElementById('cardPremium').classList.toggle('selected',plan==='premium');
-  const btn=document.getElementById('btnGoToPurchase');
-  btn.disabled=false;
-  btn.textContent = plan==='free' ? 'Ricevi codice via email →' : 'Prosegui all\'attivazione →';
+  document.getElementById('btnGoToPurchase').disabled=false;
 }
 
 const GUMROAD_BASE_URL='https://gumroad.com/l/TESIA-BASE';
 const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM';
-const DEFAULT_UNLOCK_EMAIL='robpacpublishing@gmail.com';
-const PERSONAL_FREE_TEST_CODE='TESIA-ROBP-TEST';
 
-async function requestBaseUnlockCode(){
-  const btn=document.getElementById('btnGoToPurchase');
-  const msgEl=document.getElementById('unlockCodeMsg');
-  const prevLabel=btn.textContent;
-  btn.disabled=true;
-  btn.textContent='Invio in corso...';
-  if(msgEl){
-    msgEl.style.color='var(--text3)';
-    msgEl.textContent='⏳ Generazione e invio del codice in corso...';
-  }
-
-  try{
-    const r=await fetch('/api/task',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        task:'free_unlock_code',
-        plan:'base',
-        email:DEFAULT_UNLOCK_EMAIL
-      })
-    });
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok){
-      throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);
-    }
-    setUnlockTab('enter');
-    if(msgEl){
-      msgEl.style.color='var(--gold)';
-      msgEl.textContent=`✉️ Codice inviato a ${DEFAULT_UNLOCK_EMAIL}. Controlla anche Spam/Promozioni.`;
-    }
-    showToast('Codice inviato via email ✓');
-  }catch(e){
-    if(msgEl){
-      msgEl.style.color='var(--red)';
-      msgEl.textContent=`❌ Invio non riuscito: ${e.message||'errore sconosciuto'}`;
-    }
-    showToast('Invio codice non riuscito',true);
-  }finally{
-    btn.disabled=false;
-    btn.textContent=prevLabel;
-  }
-}
-
-async function goToPurchase(){
-  if(unlockPlan==='free'){
-    await requestBaseUnlockCode();
-    return;
-  }
-  const url = unlockPlan==='base' ? GUMROAD_BASE_URL : GUMROAD_PREMIUM_URL;
+function goToPurchase(){
+  const url=unlockPlan==='premium'?GUMROAD_PREMIUM_URL:GUMROAD_BASE_URL;
   window.open(url,'_blank');
   setUnlockTab('enter');
 }
@@ -1124,20 +1067,6 @@ async function applyUnlockCode(){
   const msgEl=document.getElementById('unlockCodeMsg');
   msgEl.style.color='var(--text3)';
   msgEl.textContent='⏳ Verifica in corso...';
-
-  if(raw===PERSONAL_FREE_TEST_CODE){
-    const targetIdx = revState.unlockTargetChapter ?? findFirstExhaustedChapter() ?? thesis.currentChapterIdx ?? 0;
-    if(targetIdx!==null){
-      revState.perChapter[targetIdx]=Math.max(0,(revState.perChapter[targetIdx]||0)-3);
-      revState.totalUsed=Math.max(0,revState.totalUsed-3);
-      renderRevCounter(targetIdx);
-    }
-    renderGlobalCounter();
-    saveProgress();
-    closeModal('unlockModal');
-    showToast(`✦ Revisioni aggiuntive attivate — +3 revisioni su Capitolo ${(targetIdx??0)+1}`);
-    return;
-  }
 
   let result;
   try{
@@ -2170,10 +2099,13 @@ OSSERVAZIONI DEL RELATORE:
 ${notes}
 
 ISTRUZIONI:
-- Riscrivi il capitolo COMPLETO integrando davvero le osservazioni.
-- Mantieni il perimetro del capitolo e la sua funzione nell'indice.
-- Non limitarti a ripulire lo stile: correggi punti deboli, ridondanze, passaggi generici, chiusure deboli e tono troppo manualistico se presenti.
-- Conserva tono accademico sobrio e disciplinare.
+- Tratta queste note come vere osservazioni del relatore e recepiscile in modo sostanziale, non cosmetico.
+- Riscrivi il capitolo COMPLETO mantenendo titolo, perimetro, funzione nell'indice e coerenza con abstract e domanda di ricerca.
+- Integra davvero le correzioni richieste: chiarisci obiettivo della sezione, rafforza il legame con la tesi, aumenta il livello di analisi critica e riduci esposizione troppo manualistica o compilativa.
+- Migliora transizioni, progressione argomentativa, precisione terminologica e coesione interna tra paragrafi e sottosezioni.
+- Se le note del relatore chiedono maggiore rigore accademico, inserisci richiami bibliografici o segnaposto citazionali pertinenti solo se coerenti con il testo; non inventare opere, dati o fonti inesistenti.
+- Evita di ignorare anche solo una richiesta rilevante del relatore: il risultato deve sembrare una vera revisione richiesta da un docente.
+- Mantieni tono accademico sobrio, analitico e disciplinare.
 - Nessun elenco, nessun commento introduttivo o finale. Restituisci solo il testo revisionato del capitolo.
 - Lunghezza orientativa: ${lung.min}-${lung.max} parole.
 - NON inventare fonti.`;
