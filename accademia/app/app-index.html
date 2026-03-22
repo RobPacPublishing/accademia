@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=47Na_Q_0BEbG_hsSz3WxNQ0gUDNM73UOb5nTgY6SIz_4xtiScNGcsscJKrB11bdXAEdxJWBPVyYYXUMYZSVYTbk-juCC3mMsKjQDYv2Rjk7p5EJC7utFv334uOh_ZVT_rwCWCG0WvEMx_z-h0Zl23zP0RI5LQmxPFQZ--M76yXZmX9KTXfcEBxK8zSGS6akPMdbJ1Eh7IezvyXxkpX17CtnKjcJbKUYjWh0vfGdbYzYQTWumg1POxgNpHUyix83TuxDVBLTaW2jN0_rRw4jrKA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=khD2PydlXJBQJS6gAMYCSB6unMvZE6Pav79MX4CjUPFFpR8rIjagPPPm-d0-reJb9j6u_wMKfWuH26mX2-O2DSE5j5FtdZZZ1UVifFPAFNrl9XJVrqb38U7o5NSl7Eow9k_w2Dz-49v6xQIcZqYut2iurVAaDpU3UoAP13ug0L7K04JfunBoAoNJTnQ04-hSNIXqi2y1pJVOCqFp3xVgE00zHhTdTKDvBTwL7UNDsR-TD2gErMh2Rr1yff55w8ijpykNEBLagLsc5bhkpXtxcA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=47Na_Q_0BEbG_hsSz3WxNQ0gUDNM73UOb5nTgY6SIz_4xtiScNGcsscJKrB11bdXAEdxJWBPVyYYXUMYZSVYTbk-juCC3mMsKjQDYv2Rjk7p5EJC7utFv334uOh_ZVT_rwCWCG0WvEMx_z-h0Zl23zP0RI5LQmxPFQZ--M76yXZmX9KTXfcEBxK8zSGS6akPMdbJ1Eh7IezvyXxkpX17CtnKjcJbKUYjWh0vfGdbYzYQTWumg1POxgNpHUyix83TuxDVBLTaW2jN0_rRw4jrKA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=CnmL9XNqt3A5aQCS95YbQlTKAKoKjpkgT5aVL_7PL_jq6jZCS_QlDhZKx6KDxXozHdU1h9CoQKgAs7xnsBnJ1etl5nA8lt_nQsE631xrVZ0fgjMK-m8JjBKh3I5HJqi4CpK5wBO-i18fPw8D6Fz26SB_J0ImQz4ylgxNPoIZwBPPI8U2Rl_4gpygeoCibEwhwMQc3Db_n0BMCKqVzwT2Dif2Aci5VGejZZVdsZwgMvAHBfdl9C498qJ4AiwaqKv7E9AwoEzwMx1HpOllk1CJlw" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -2064,7 +2064,6 @@ function approveLastChapter(){
 }
 
 async function reviseChapter(idx){
-  // ── REVISION LIMIT GUARD ──
   if(!canRevise(idx)){
     const perCh=revState.perChapter[idx]||0;
     const reason = perCh>=MAX_REV_PER_CHAPTER ? 'chapter' : 'total';
@@ -2073,14 +2072,27 @@ async function reviseChapter(idx){
   }
   const fb=document.getElementById(`chapRevInput-${idx}`).value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
-  consumeRevision(idx);
+
   const ch=thesis.chapters[idx];const cp=thesis.contextPacket;
-  const btn=document.getElementById(`chapRevBtn-${idx}`);btn.disabled=true;
-  document.getElementById(`chapOutput-${idx}`).classList.add('typing');
-  document.getElementById(`chapChip-${idx}`).className='status-chip searching';
-  document.getElementById(`chapChip-${idx}`).innerHTML='<span class="spinner-blue"></span>Ricerca aggiornata...';
-  const approvalEl=document.getElementById(`chapApproval-${idx}`); if(approvalEl) approvalEl.style.display='none';
-  const tutorEl=document.getElementById(`chapTutor-${idx}`); if(tutorEl) tutorEl.classList.remove('open');
+  const btn=document.getElementById(`chapRevBtn-${idx}`);
+  const output=document.getElementById(`chapOutput-${idx}`);
+  const chip=document.getElementById(`chapChip-${idx}`);
+  const approvalEl=document.getElementById(`chapApproval-${idx}`);
+  const tutorEl=document.getElementById(`chapTutor-${idx}`);
+  const revisionWrap=document.getElementById(`chapRevision-${idx}`);
+  const previousChipHtml=chip?chip.innerHTML:'';
+  const previousChipClass=chip?chip.className:'';
+  const previousApprovalDisplay=approvalEl?approvalEl.style.display:'';
+
+  if(btn) btn.disabled=true;
+  if(output) output.classList.add('typing');
+  if(chip){
+    chip.className='status-chip searching';
+    chip.innerHTML='<span class="spinner-blue"></span>Ricerca aggiornata...';
+  }
+  if(approvalEl) approvalEl.style.display='none';
+  if(tutorEl) tutorEl.classList.remove('open');
+
   const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const prompt=`Revisiona Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
@@ -2102,6 +2114,9 @@ ISTRUZIONI:
   try{
     const result=await callClaudeWithSearch(prompt,'chapter_review');
     const text=result.text;
+    if(!text || !text.trim()) throw new Error('Risposta vuota dal server.');
+
+    consumeRevision(idx);
     ch.versions.push({content:text,timestamp:now(),label:`Rev: "${fb.substring(0,35)}"`});
     ch.currentVersion=ch.versions.length-1;ch.content=text;
     document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${ch.currentVersion+1}`;
@@ -2113,11 +2128,13 @@ ISTRUZIONI:
       document.getElementById(`chapSourcesWarn-${idx}`).style.display='block';
     }
     streamText(`chapText-${idx}`,text,()=>{
-      document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
-      document.getElementById(`chapChip-${idx}`).className='status-chip done';
-      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisione capitolo';
+      if(output) output.classList.remove('typing');
+      if(chip){
+        chip.className='status-chip done';
+        chip.innerHTML='✓ Revisione capitolo';
+      }
       const revisedRow=document.getElementById(`chapApproval-${idx}`); if(revisedRow) revisedRow.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
-      document.getElementById(`chapRevision-${idx}`).classList.remove('open');
+      if(revisionWrap) revisionWrap.classList.remove('open');
       document.getElementById(`chapRevInput-${idx}`).value='';
       updateWordCount();
       renderRevCounter(idx);
@@ -2125,8 +2142,17 @@ ISTRUZIONI:
     });
     saveProgress();
     showToast('Capitolo revisionato ✓');
-  }catch(e){showToast('Errore: '+e.message,true);}
-  btn.disabled=false;
+  }catch(e){
+    if(output) output.classList.remove('typing');
+    if(chip){
+      chip.className=previousChipClass||'status-chip done';
+      chip.innerHTML=previousChipHtml||'✓ Completato';
+    }
+    if(approvalEl) approvalEl.style.display=previousApprovalDisplay||'flex';
+    showToast('Errore: '+e.message,true);
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 }
 
 
@@ -2139,14 +2165,28 @@ async function tutorReviseChapter(idx){
   }
   const notes=(document.getElementById(`chapTutorInput-${idx}`)?.value||'').trim();
   if(!notes){showToast('Inserisci le osservazioni del relatore',true);return;}
-  consumeRevision(idx);
+
   const ch=thesis.chapters[idx]; const cp=thesis.contextPacket;
-  const btn=document.getElementById(`chapTutorBtn-${idx}`); if(btn) btn.disabled=true;
-  document.getElementById(`chapOutput-${idx}`).classList.add('typing');
-  document.getElementById(`chapChip-${idx}`).className='status-chip searching';
-  document.getElementById(`chapChip-${idx}`).innerHTML='<span class="spinner-blue"></span>Revisione relatore...';
-  const approvalEl=document.getElementById(`chapApproval-${idx}`); if(approvalEl) approvalEl.style.display='none';
-  document.getElementById(`chapRevision-${idx}`)?.classList.remove('open');
+  const btn=document.getElementById(`chapTutorBtn-${idx}`);
+  const output=document.getElementById(`chapOutput-${idx}`);
+  const chip=document.getElementById(`chapChip-${idx}`);
+  const approvalEl=document.getElementById(`chapApproval-${idx}`);
+  const revisionEl=document.getElementById(`chapRevision-${idx}`);
+  const tutorWrap=document.getElementById(`chapTutor-${idx}`);
+  const tutorInput=document.getElementById(`chapTutorInput-${idx}`);
+  const previousChipHtml=chip?chip.innerHTML:'';
+  const previousChipClass=chip?chip.className:'';
+  const previousApprovalDisplay=approvalEl?approvalEl.style.display:'';
+
+  if(btn) btn.disabled=true;
+  if(output) output.classList.add('typing');
+  if(chip){
+    chip.className='status-chip searching';
+    chip.innerHTML='<span class="spinner-blue"></span>Revisione relatore...';
+  }
+  if(approvalEl) approvalEl.style.display='none';
+  if(revisionEl) revisionEl.classList.remove('open');
+
   const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const prompt=`Applica le osservazioni del relatore al Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
@@ -2183,24 +2223,38 @@ ISTRUZIONI:
   try{
     const result=await callClaudeWithSearch(prompt,'tutor_revision');
     const text=result.text;
+    if(!text || !text.trim()) throw new Error('Risposta vuota dal server.');
+
+    consumeRevision(idx);
     ch.versions.push({content:text,timestamp:now(),label:`Relatore: "${notes.substring(0,35)}"`});
     ch.currentVersion=ch.versions.length-1; ch.content=text;
     const badge=document.getElementById(`chapVerBadge-${idx}`); if(badge) badge.textContent=`↺ v${ch.currentVersion+1}`;
     streamText(`chapText-${idx}`,text,()=>{
-      document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
-      document.getElementById(`chapChip-${idx}`).className='status-chip done';
-      document.getElementById(`chapChip-${idx}`).innerHTML='✓ Revisione relatore';
+      if(output) output.classList.remove('typing');
+      if(chip){
+        chip.className='status-chip done';
+        chip.innerHTML='✓ Revisione relatore';
+      }
       const row=document.getElementById(`chapApproval-${idx}`); if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
-      const tutorWrap=document.getElementById(`chapTutor-${idx}`); if(tutorWrap) tutorWrap.classList.remove('open');
-      const tutorInput=document.getElementById(`chapTutorInput-${idx}`); if(tutorInput) tutorInput.value='';
+      if(tutorWrap) tutorWrap.classList.remove('open');
+      if(tutorInput) tutorInput.value='';
       updateWordCount();
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
     });
     saveProgress();
     showToast('Osservazioni del relatore applicate ✓');
-  }catch(e){showToast('Errore: '+e.message,true);} 
-  if(btn) btn.disabled=false;
+  }catch(e){
+    if(output) output.classList.remove('typing');
+    if(chip){
+      chip.className=previousChipClass||'status-chip done';
+      chip.innerHTML=previousChipHtml||'✓ Completato';
+    }
+    if(approvalEl) approvalEl.style.display=previousApprovalDisplay||'flex';
+    showToast('Errore: '+e.message,true);
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -2563,15 +2617,29 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // ══════════════════════════════════════════════
 // API TASK — unified chapter call
 // ══════════════════════════════════════════════
+const API_TASK_TIMEOUT_MS = 240000;
+
 async function callClaudeWithSearch(userPrompt, taskName='chapter_draft'){
-  const r=await fetch('/api/task',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
-  });
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok){throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);}
-  return {text:d.text||'',sources:[]};
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), API_TASK_TIMEOUT_MS);
+  try{
+    const r=await fetch('/api/task',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)}),
+      signal: controller.signal
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){throw new Error(d.details||d.error||d.message||`HTTP ${r.status}`);}
+    return {text:d.text||'',sources:[]};
+  }catch(err){
+    if(err && (err.name==='AbortError' || /aborted|abort/i.test(String(err.message||'')))){
+      throw new Error('Tempo massimo superato. Riprova la revisione.');
+    }
+    throw err;
+  }finally{
+    clearTimeout(timeoutId);
+  }
 }
 
 // ══════════════════════════════════════════════
