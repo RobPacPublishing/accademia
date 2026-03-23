@@ -1,5 +1,5 @@
-const OPENAI_TIMEOUT_MS = 90000;
-const ANTHROPIC_TIMEOUT_MS = 90000;
+const OPENAI_TIMEOUT_MS = 180000;
+const ANTHROPIC_TIMEOUT_MS = 180000;
 
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
@@ -43,11 +43,35 @@ export default async function handler(req, res) {
 
     const provider = pickProvider(task);
 
-    if (provider === 'openai') {
-      return await handleOpenAI({ task, input, res });
-    }
+    try {
+      if (provider === 'openai') {
+        return await handleOpenAI({ task, input, res });
+      }
 
-    return await handleAnthropic({ task, input, res });
+      return await handleAnthropic({ task, input, res });
+    } catch (error) {
+      if (provider === 'anthropic' && shouldFallbackToOpenAI(task, error)) {
+        return await handleOpenAI({
+          task,
+          input,
+          res,
+          fallbackMeta: {
+            fallbackFrom: 'anthropic',
+            fallbackReason: error?.message || 'Timeout provider Anthropic'
+          }
+        });
+      }
+
+      if (isTimeoutLikeError(error)) {
+        return res.status(504).json({
+          error: 'Errore provider timeout',
+          code: 'provider_timeout',
+          details: error?.message || 'Timeout provider'
+        });
+      }
+
+      throw error;
+    }
   } catch (error) {
     return res.status(500).json({
       error: 'Errore interno',
@@ -82,7 +106,17 @@ function pickProvider(task) {
   return anthropicTasks.has(task) ? 'anthropic' : 'openai';
 }
 
-async function handleOpenAI({ task, input, res }) {
+function isTimeoutLikeError(error) {
+  const message = error?.message || '';
+  return error?.name === 'AbortError' || /timeout/i.test(message);
+}
+
+function shouldFallbackToOpenAI(task, error) {
+  const fallbackTasks = new Set(['chapter_review', 'tutor_revision']);
+  return fallbackTasks.has(task) && isTimeoutLikeError(error);
+}
+
+async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
   const openaiKey = process.env.OPENAI_API_KEY;
   const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
 
@@ -127,7 +161,8 @@ async function handleOpenAI({ task, input, res }) {
     ok: true,
     provider: 'openai',
     task,
-    text
+    text,
+    ...(fallbackMeta ? { fallback: fallbackMeta } : {})
   });
 }
 
