@@ -1,12 +1,12 @@
-const OPENAI_TIMEOUT_MS = 120000;
-const ANTHROPIC_TIMEOUT_MS = 120000;
+const OPENAI_TIMEOUT_MS = 180000;
+const ANTHROPIC_TIMEOUT_MS = 180000;
 
-const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico italiano per tesi universitarie.
+const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
-REGOLE VINCOLANTI:
-- scrivi sempre in italiano accademico formale, chiaro e sobrio;
-- non inventare mai autori, titoli, anni, DOI, dati, enti, norme, sentenze o riferimenti bibliografici non presenti nei materiali forniti;
-- se i materiali non contengono riferimenti verificabili sufficienti, mantieni formulazioni prudenti o neutre;
+Regole permanenti:
+- lavora solo sui dati effettivamente forniti;
+- non inventare fonti, autori, date, studi, enti, statistiche, risultati di ricerca, teorie specifiche, citazioni, riferimenti normativi o bibliografici non presenti nei dati ricevuti;
+- se nei dati compaiono riferimenti incompleti o dubbi, non completarli per inferenza: mantieni formulazioni prudenti o neutre;
 - non simulare verifiche esterne e non dichiarare di aver consultato letteratura o database se tali fonti non sono state fornite;
 - evita formule meta o scolastiche come “raccordo verso il capitolo successivo”, “nel prossimo capitolo”, “analisi critica” come intestazione separata, “di seguito”, “ecco il testo”, salvo richiesta esplicita;
 - non aggiungere sezioni finali artificiali che svelino la generazione automatica;
@@ -20,7 +20,14 @@ Per i capitoli:
 
 export default async function handler(req, res) {
   if (req.method === 'GET' && req.query?.config === 'supabase') {
-    return handleSupabaseConfig(res);
+    const url = process.env.SUPABASE_URL;
+    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+    if (!url || !publishableKey) {
+      return res.status(500).json({ error: 'Configurazione Supabase mancante' });
+    }
+
+    return res.status(200).json({ url, publishableKey });
   }
 
   if (req.method !== 'POST') {
@@ -28,46 +35,49 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const task = typeof body.task === 'string' ? body.task.trim() : '';
+    const { task, input } = normalizeBody(req.body);
 
     if (!task) {
       return res.status(400).json({ error: 'Task mancante' });
     }
 
-    if (task === 'cloud_save_state') {
-      return await handleCloudSave({ req, res, body });
-    }
-
-    if (task === 'cloud_load_state') {
-      return await handleCloudLoad({ req, res });
-    }
-
-    const { input } = normalizeBody(body);
     const provider = pickProvider(task);
 
-    if (provider === 'openai') {
-      return await handleOpenAI({ task, input, res });
-    }
+    try {
+      if (provider === 'openai') {
+        return await handleOpenAI({ task, input, res });
+      }
 
-    return await handleAnthropic({ task, input, res });
+      return await handleAnthropic({ task, input, res });
+    } catch (error) {
+      if (provider === 'anthropic' && shouldFallbackToOpenAI(task, error)) {
+        return await handleOpenAI({
+          task,
+          input,
+          res,
+          fallbackMeta: {
+            fallbackFrom: 'anthropic',
+            fallbackReason: error?.message || 'Timeout provider Anthropic'
+          }
+        });
+      }
+
+      if (isTimeoutLikeError(error)) {
+        return res.status(504).json({
+          error: 'Errore provider timeout',
+          code: 'provider_timeout',
+          details: error?.message || 'Timeout provider'
+        });
+      }
+
+      throw error;
+    }
   } catch (error) {
     return res.status(500).json({
       error: 'Errore interno',
       details: error?.message || 'Errore sconosciuto'
     });
   }
-}
-
-function handleSupabaseConfig(res) {
-  const url = process.env.SUPABASE_URL;
-  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!url || !publishableKey) {
-    return res.status(500).json({ error: 'Configurazione Supabase mancante' });
-  }
-
-  return res.status(200).json({ url, publishableKey });
 }
 
 function normalizeBody(body) {
@@ -96,7 +106,17 @@ function pickProvider(task) {
   return anthropicTasks.has(task) ? 'anthropic' : 'openai';
 }
 
-async function handleOpenAI({ task, input, res }) {
+function isTimeoutLikeError(error) {
+  const message = error?.message || '';
+  return error?.name === 'AbortError' || /timeout/i.test(message);
+}
+
+function shouldFallbackToOpenAI(task, error) {
+  const fallbackTasks = new Set(['chapter_review', 'tutor_revision']);
+  return fallbackTasks.has(task) && isTimeoutLikeError(error);
+}
+
+async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
   const openaiKey = process.env.OPENAI_API_KEY;
   const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
 
@@ -142,7 +162,7 @@ async function handleOpenAI({ task, input, res }) {
     provider: 'openai',
     task,
     text,
-    sources: []
+    ...(fallbackMeta ? { fallback: fallbackMeta } : {})
   });
 }
 
@@ -151,263 +171,55 @@ async function handleAnthropic({ task, input, res }) {
   const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   if (!anthropicKey) {
-    return await handleOpenAIFallback({ task, input, res, reason: 'ANTHROPIC_API_KEY non configurata' });
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
   }
 
   const prompt = buildPrompt(task, input);
 
-  try {
-    const response = await fetchWithTimeout(
-      'https://api.anthropic.com/v1/messages',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: anthropicModel,
-          system: GENERAL_SYSTEM_PROMPT,
-          max_tokens: 6000,
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ]
-        })
-      },
-      ANTHROPIC_TIMEOUT_MS
-    );
-
-    const data = await safeJson(response);
-
-    if (!response.ok) {
-      const details = simplifyProviderError(data);
-      if (shouldFallbackToOpenAI(response.status, details, task)) {
-        return await handleOpenAIFallback({ task, input, res, reason: details });
-      }
-
-      return res.status(response.status).json({
-        error: 'Errore Anthropic',
-        details
-      });
-    }
-
-    const text =
-      Array.isArray(data?.content)
-        ? data.content.map(part => part?.text || '').join('\n').trim()
-        : '';
-
-    return res.status(200).json({
-      ok: true,
-      provider: 'anthropic',
-      task,
-      text: text || 'Nessun contenuto restituito',
-      sources: []
-    });
-  } catch (error) {
-    if (shouldFallbackToOpenAI(504, error?.message || '', task)) {
-      return await handleOpenAIFallback({ task, input, res, reason: error?.message || 'Timeout provider' });
-    }
-    throw error;
-  }
-}
-
-async function handleOpenAIFallback({ task, input, res, reason }) {
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    return res.status(504).json({
-      error: 'Timeout provider',
-      details: reason || 'Il provider principale non ha risposto in tempo e il fallback non è disponibile.'
-    });
-  }
-  return await handleOpenAI({ task, input, res });
-}
-
-function shouldFallbackToOpenAI(status, details, task) {
-  const fallbackTasks = new Set(['chapter_draft', 'chapter_review', 'tutor_revision']);
-  if (!fallbackTasks.has(task)) return false;
-  const text = (details || '').toLowerCase();
-  return status >= 500 || text.includes('timeout') || text.includes('overloaded') || text.includes('rate limit') || text.includes('capacity');
-}
-
-async function handleCloudSave({ req, res, body }) {
-  const state = body?.state;
-  if (!state || typeof state !== 'object' || Array.isArray(state)) {
-    return res.status(400).json({ error: 'State mancante o non valida' });
-  }
-
-  const runtime = getSupabaseRuntime();
-  const auth = await resolveSupabaseUser(req, runtime);
-  const tables = getStateTableCandidates();
-  let lastFailure = null;
-
-  for (const table of tables) {
-    const result = await upsertUserState({ runtime, auth, table, state });
-    if (result.ok) {
-      return res.status(200).json({ ok: true, table, updated_at: new Date().toISOString() });
-    }
-    lastFailure = result;
-    if (!result.retryable) break;
-  }
-
-  return res.status(lastFailure?.status || 500).json({
-    error: 'Salvataggio cloud non riuscito',
-    details: lastFailure?.details || 'Verifica tabella/policy Supabase per lo stato utente.'
-  });
-}
-
-async function handleCloudLoad({ req, res }) {
-  const runtime = getSupabaseRuntime();
-  const auth = await resolveSupabaseUser(req, runtime);
-  const tables = getStateTableCandidates();
-  let lastFailure = null;
-
-  for (const table of tables) {
-    const result = await loadUserState({ runtime, auth, table });
-    if (result.ok) {
-      return res.status(200).json({ ok: true, table, state: result.state || null, updated_at: result.updatedAt || null });
-    }
-    lastFailure = result;
-    if (!result.retryable) break;
-  }
-
-  if (lastFailure?.status === 404) {
-    return res.status(200).json({ ok: true, state: null, updated_at: null });
-  }
-
-  return res.status(lastFailure?.status || 500).json({
-    error: 'Lettura cloud non riuscita',
-    details: lastFailure?.details || 'Verifica tabella/policy Supabase per lo stato utente.'
-  });
-}
-
-function getSupabaseRuntime() {
-  const url = process.env.SUPABASE_URL;
-  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
-
-  if (!url || !publishableKey) {
-    throw new Error('Configurazione Supabase mancante');
-  }
-
-  return { url, publishableKey, serviceRoleKey };
-}
-
-function getStateTableCandidates() {
-  const raw = [
-    process.env.SUPABASE_STATE_TABLE,
-    'accademia_user_states',
-    'accademia_states',
-    'thesis_states',
-    'user_states'
-  ].filter(Boolean);
-  return [...new Set(raw)];
-}
-
-async function resolveSupabaseUser(req, runtime) {
-  const authHeader = req.headers.authorization || req.headers.Authorization || '';
-  const match = /^Bearer\s+(.+)$/i.exec(String(authHeader).trim());
-  if (!match) {
-    throw new HttpError(401, 'Token account mancante');
-  }
-
-  const token = match[1].trim();
   const response = await fetchWithTimeout(
-    `${runtime.url}/auth/v1/user`,
-    {
-      method: 'GET',
-      headers: {
-        apikey: runtime.publishableKey,
-        Authorization: `Bearer ${token}`
-      }
-    },
-    20000
-  );
-
-  const data = await safeJson(response);
-  if (!response.ok || !data?.id) {
-    throw new HttpError(401, simplifyProviderError(data) || 'Sessione account non valida');
-  }
-
-  return { token, user: data };
-}
-
-async function upsertUserState({ runtime, auth, table, state }) {
-  const url = `${runtime.url}/rest/v1/${encodeURIComponent(table)}?on_conflict=user_id`;
-  const headers = buildRestHeaders(runtime, auth.token, true);
-  headers.Prefer = 'resolution=merge-duplicates,return=representation';
-
-  const response = await fetchWithTimeout(
-    url,
+    'https://api.anthropic.com/v1/messages',
     {
       method: 'POST',
-      headers,
-      body: JSON.stringify([{ user_id: auth.user.id, state, updated_at: new Date().toISOString() }])
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: anthropicModel,
+        system: GENERAL_SYSTEM_PROMPT,
+        max_tokens: 6000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
     },
-    30000
+    ANTHROPIC_TIMEOUT_MS
   );
 
   const data = await safeJson(response);
-  if (response.ok) {
-    return { ok: true };
+
+  if (!response.ok) {
+    return res.status(response.status).json({
+      error: 'Errore Anthropic',
+      details: simplifyProviderError(data)
+    });
   }
 
-  return classifyStateFailure(response.status, data);
-}
+  const text =
+    Array.isArray(data?.content)
+      ? data.content.map(part => part?.text || '').join('\n').trim()
+      : '';
 
-async function loadUserState({ runtime, auth, table }) {
-  const url = `${runtime.url}/rest/v1/${encodeURIComponent(table)}?user_id=eq.${encodeURIComponent(auth.user.id)}&select=state,updated_at&limit=1`;
-  const response = await fetchWithTimeout(
-    url,
-    {
-      method: 'GET',
-      headers: buildRestHeaders(runtime, auth.token, true)
-    },
-    30000
-  );
-
-  const data = await safeJson(response);
-  if (response.ok) {
-    const row = Array.isArray(data) ? data[0] : null;
-    return { ok: true, state: row?.state || null, updatedAt: row?.updated_at || null };
-  }
-
-  return classifyStateFailure(response.status, data, true);
-}
-
-function buildRestHeaders(runtime, token, preferService = false) {
-  const useService = preferService && !!runtime.serviceRoleKey;
-  return {
-    'Content-Type': 'application/json',
-    apikey: useService ? runtime.serviceRoleKey : runtime.publishableKey,
-    Authorization: `Bearer ${useService ? runtime.serviceRoleKey : token}`
-  };
-}
-
-function classifyStateFailure(status, data, isLoad = false) {
-  const details = simplifyProviderError(data);
-  const low = (details || '').toLowerCase();
-  const retryable =
-    status === 404 ||
-    low.includes('relation') ||
-    low.includes('schema cache') ||
-    low.includes('does not exist') ||
-    low.includes('column') ||
-    low.includes('not found');
-
-  if (isLoad && status === 406) {
-    return { ok: true, state: null, updatedAt: null };
-  }
-
-  return {
-    ok: false,
-    status,
-    details,
-    retryable
-  };
+  return res.status(200).json({
+    ok: true,
+    provider: 'anthropic',
+    task,
+    text: text || 'Nessun contenuto restituito'
+  });
 }
 
 function buildPrompt(task, input) {
@@ -458,7 +270,7 @@ function buildPrompt(task, input) {
 - Restituisci solo il capitolo revisionato finale, pronto da usare.`,
 
     tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
-- Intervieni in modo conservativo ma reale: recepisci le osservazioni e riscrivi dove serve.
+- Intervieni in modo conservativo.
 - Non aggiungere contenuti non richiesti.
 - Non introdurre fonti o riferimenti non presenti nei dati.
 - Restituisci solo il testo revisionato.`,
@@ -519,18 +331,10 @@ function simplifyProviderError(data) {
   if (typeof data === 'string') return data;
   if (data.error?.message) return data.error.message;
   if (data.message) return data.message;
-  if (typeof data.error === 'string') return data.error;
 
   try {
     return JSON.stringify(data);
   } catch {
     return 'Errore provider non serializzabile';
-  }
-}
-
-class HttpError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
   }
 }
