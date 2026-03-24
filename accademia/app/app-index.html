@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=BD41jOjPiEr9yf469Btr8Yp4Hbn9ygABiHQo2GFSv0GrZWsFFe3NZ2uflQmnVwTqIM8MH6_VnypOqtPY-muKVqD__-PXBNEadJp5jMPch6Jh_XJrliYw5Znjrq3FXkANqLHJ7pqzp-mNBrNM6ZAgIF_WgzZS6f_9NKe7M-20TjxHJAyhSgxSb3UZDmYMGvXCNU3ef-yBB_GF0VwXyFSun_KhWhWVvjO1A31vW-0IW2Km0vR5mMFrn0GEo_SqKwcGM4r2FDfS7JF-kVuPa7eJ_Q" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=VLeSj04LRLEMzO2C6eSEEoI2WLzCqDITjM7v4hJuc0x6zcoFuFPc-gsIHfgfqoYDU5Qtap1-T01joErrehZOVxLLRaez94WgVZ1yLvFCrKDq_yxQTsjOXGPZUmY8hZhmGgil8QzJiH_8QWIUnQHLY4MOatORwbceb_-zuWfI1ZT0m7L2xNoyNlGLtsLwJasxC3H1WEasqXQSljBMvLSEC2TeuY1pjoLEHbHVQOVyvpLrWJU0__F20XR9QEta_aS_e8J_ZwLeXSEzZJC_ZemMYA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=BIuXt71FlTUOvO6F0fe1N0CGU61zhjaPiqMYndxfnEf6EsClmEG3pIFh2Skcr9DAAw45T2gs1gyCw50p7oXaotksIw8uWK0-11VLi309xtv5TJh78wiZh0T85byEVWmo_fjjI4eS_XsPJhB8-OKmkV78DxT5l6Oh0b-BCkesBE5LtGkivhR_wbTYJyFpactUF4xR-1VtKVWj5riaNE6J3GTO0L4-HqZZ6wuYzHefDcR_spkSq70DGh6e8sntTt76G2I-ZWovism5JY0d-MVJBQ" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=VLeSj04LRLEMzO2C6eSEEoI2WLzCqDITjM7v4hJuc0x6zcoFuFPc-gsIHfgfqoYDU5Qtap1-T01joErrehZOVxLLRaez94WgVZ1yLvFCrKDq_yxQTsjOXGPZUmY8hZhmGgil8QzJiH_8QWIUnQHLY4MOatORwbceb_-zuWfI1ZT0m7L2xNoyNlGLtsLwJasxC3H1WEasqXQSljBMvLSEC2TeuY1pjoLEHbHVQOVyvpLrWJU0__F20XR9QEta_aS_e8J_ZwLeXSEzZJC_ZemMYA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -1585,8 +1585,8 @@ function refreshRevisionUi(){
 // ── DISCLAIMER ──
 const ACCESS_CODE = 'robpac-accademia-2026';
 const ACCESS_SESSION_KEY = '_td_gate_v12';
-const ACCESS_CODE_STORAGE = '_td_access_code_v1';
 const OWNER_FREE_RENEWAL_SESSION_KEY = '_td_owner_free_renewal_v1';
+const ACCESS_CODE_STORAGE_KEY = '_td_access_code_v1';
 
 function getAccessElements(){
   return {
@@ -1607,36 +1607,11 @@ function getAccessElements(){
   };
 }
 
-function getStoredAccessCode(){
-  try{return localStorage.getItem(ACCESS_CODE_STORAGE)||'';}catch(_){return '';}
-}
-
-function saveStoredAccessCode(value){
-  try{
-    if((value||'').trim()) localStorage.setItem(ACCESS_CODE_STORAGE,(value||'').trim());
-    else localStorage.removeItem(ACCESS_CODE_STORAGE);
-  }catch(_){ }
-}
-
-function syncAccessCodeField(){
-  const {code}=getAccessElements();
-  if(!code) return '';
-  const fieldValue=(code.value||'').trim();
-  if(fieldValue) return fieldValue;
-  const stored=getStoredAccessCode();
-  if(stored===ACCESS_CODE){
-    code.value=stored;
-    return stored;
-  }
-  return fieldValue;
-}
-
 function checkDisclaimer(){
   const {c1,c2,c3,btn,code,msg} = getAccessElements();
   if(!c1||!c2||!c3||!btn||!code) return;
   const allChecked = !!(c1.checked && c2.checked && c3.checked);
-  const currentCode = syncAccessCodeField().trim();
-  const hasCode = !!currentCode;
+  const hasCode = !!code.value.trim();
   const enabled = allChecked && hasCode;
   btn.disabled = !enabled;
   btn.setAttribute('aria-disabled', String(!enabled));
@@ -1694,13 +1669,12 @@ function acceptDisclaimer(){
   const {c1,c2,c3,code,msg,btn} = getAccessElements();
   if(!c1||!c2||!c3||!code) return;
   const allChecked = !!(c1.checked && c2.checked && c3.checked);
-  const enteredCode = (code.value.trim() || getStoredAccessCode().trim());
+  const enteredCode = code.value.trim();
   if(enteredCode !== ACCESS_CODE){
     if(msg){
       msg.textContent = 'Chiave di accesso non valida.';
       msg.style.color = '#ff8a8a';
     }
-    saveStoredAccessCode('');
     code.focus();
     code.select();
     return;
@@ -1712,19 +1686,42 @@ function acceptDisclaimer(){
     }
     return;
   }
-  saveStoredAccessCode(enteredCode);
+  try{ localStorage.setItem(ACCESS_CODE_STORAGE_KEY, enteredCode); }catch(_){ }
   sessionStorage.setItem(ACCESS_SESSION_KEY,'1');
   sessionStorage.setItem('_td_accepted','1');
   sessionStorage.setItem(OWNER_FREE_RENEWAL_SESSION_KEY,'1');
-  try{ if(btn) btn.disabled=true; }catch(_){ }
-  ensureSyncKey();
   applyAccessState(true);
-  Promise.resolve(restoreProgressOnLoad(false)).catch(err=>{
-    console.error('Gate restore error', err);
-    showToast('Accesso eseguito, ma il ripristino automatico ha dato errore.', true);
-  }).finally(()=>{
-    try{ if(btn) btn.disabled=false; }catch(_){ }
-  });
+  if(msg){
+    msg.textContent = 'Accesso effettuato. Inizializzazione in corso...';
+    msg.style.color = '#C9A84C';
+  }
+  if(btn){
+    btn.disabled = true;
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.6';
+  }
+  setTimeout(async ()=>{
+    try{ ensureSyncKey(true); }catch(e){ console.warn('sync init failed after gate', e); }
+    try{
+      await restoreProgressOnLoad(false);
+    }catch(e){
+      console.warn('restore after gate failed', e);
+      showToast('Accesso riuscito, ma il ripristino automatico non è riuscito.', true);
+    }finally{
+      const {btn:liveBtn,msg:liveMsg}=getAccessElements();
+      if(liveBtn){
+        liveBtn.disabled = false;
+        liveBtn.style.pointerEvents = 'auto';
+        liveBtn.style.opacity = '1';
+      }
+      if(liveMsg && sessionStorage.getItem(ACCESS_SESSION_KEY)==='1'){
+        liveMsg.textContent = 'Accesso effettuato.';
+        liveMsg.style.color = '#C9A84C';
+      }
+      try{ renderWorkflowHud(); }catch(_){ }
+      try{ pingVisit(); }catch(_){ }
+    }
+  }, 0);
 }
 
 function logoutAccess(){
@@ -1745,14 +1742,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     }
   });
   if(code){
-    syncAccessCodeField();
-    code.addEventListener('input',()=>{
-      const value=(code.value||'').trim();
-      if(value===ACCESS_CODE) saveStoredAccessCode(value);
-      checkDisclaimer();
-    });
-    code.addEventListener('change',checkDisclaimer);
-    code.addEventListener('focus',checkDisclaimer);
+    code.addEventListener('input',checkDisclaimer);
     code.addEventListener('keydown',(e)=>{
       if(e.key === 'Enter'){
         e.preventDefault();
@@ -1768,20 +1758,23 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   if(snapshots) snapshots.addEventListener('click',openSnapshotManager);
   if(recovery) recovery.addEventListener('click',openRecoveryManager);
 
+  try{
+    const savedCode=localStorage.getItem(ACCESS_CODE_STORAGE_KEY)||'';
+    if(code && savedCode && !code.value){
+      code.value=savedCode;
+    }
+  }catch(_){ }
   const unlocked = sessionStorage.getItem(ACCESS_SESSION_KEY) === '1';
-  if(unlocked) ensureSyncKey(true);
+  try{
+    if(unlocked) ensureSyncKey(true);
+  }catch(e){ console.warn('sync init on load failed', e); }
   applyAccessState(unlocked);
   checkDisclaimer();
-  let gateRefreshCount=0;
-  const gateRefreshTimer=setInterval(()=>{
-    gateRefreshCount += 1;
-    syncAccessCodeField();
-    checkDisclaimer();
-    if(gateRefreshCount>=20 || sessionStorage.getItem(ACCESS_SESSION_KEY)==='1') clearInterval(gateRefreshTimer);
-  }, 300);
-  await restoreProgressOnLoad(false);
-  renderWorkflowHud();
-  pingVisit();
+  try{
+    await restoreProgressOnLoad(false);
+  }catch(e){ console.warn('restore on load failed', e); }
+  try{ renderWorkflowHud(); }catch(e){ console.warn('workflow hud failed', e); }
+  try{ pingVisit(); }catch(e){ console.warn('visit ping failed', e); }
 });
 
 // ── GUIDA COLLASSABILE ──
