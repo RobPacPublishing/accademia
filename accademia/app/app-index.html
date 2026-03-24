@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UZNmhlQpsI05lkFXMnUywwI5Ez7T4jjJQhDeXP3MpF3QrqroPJmw6x2jAeiYG6uRMpQ6V8N_dpEDVQn6PxPGuKopRz7ryVrVPBvObyLe4KbCyN_h5O661c8dZaOsxXn_c8zXf-1qu9BsXMMxnmfDxRQnpRmsuTZSzzwb940Mga3D_zcZmBKZS3JUIgZJHctbTrAFrWq4QAKUYXPYw_GVvgYa0fhjB5pJQqkvyqukAQUWBee1Js-sNNfs7xv9_pLtZgN6KYGPh7HgeuudbdFSFA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=VLeSj04LRLEMzO2C6eSEEoI2WLzCqDITjM7v4hJuc0x6zcoFuFPc-gsIHfgfqoYDU5Qtap1-T01joErrehZOVxLLRaez94WgVZ1yLvFCrKDq_yxQTsjOXGPZUmY8hZhmGgil8QzJiH_8QWIUnQHLY4MOatORwbceb_-zuWfI1ZT0m7L2xNoyNlGLtsLwJasxC3H1WEasqXQSljBMvLSEC2TeuY1pjoLEHbHVQOVyvpLrWJU0__F20XR9QEta_aS_e8J_ZwLeXSEzZJC_ZemMYA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -855,6 +855,19 @@ const FACULTY_GOOD_GUIDANCE={
   'Sociologia':{focus:'categorie sociologiche, attori, strutture, istituzioni e mutamento sociale', avoid:'analisi moralistiche o puramente opinionistiche'},
   'Storia':{focus:'periodizzazione, contesto, fonti secondarie affidabili e nesso causale argomentato', avoid:'narrazione cronachistica senza problema storiografico'},
   'Teologia':{focus:'fondamenti teologici, rigore ermeneutico, tradizione, magistero e ricadute pastorali quando pertinenti', avoid:'tono devozionale non accademico'}
+};
+
+
+const FACULTY_PARTIAL_GUIDANCE={
+  'Agraria e Scienze Forestali':{focus:'inquadramento teorico su sostenibilità, politiche agricole, filiere, territorio e gestione delle risorse', allow:'review, confronto di modelli, analisi normativa o caso studio descrittivo non sperimentale', avoid:'prove di campo, rilievi agronomici originali, analisi di laboratorio o misurazioni proprietarie'},
+  'Architettura':{focus:'storia, teoria del progetto, lettura critica dello spazio, rigenerazione urbana e caso studio argomentato', allow:'analisi teorica, comparativa o studio di casi già documentati', avoid:'sviluppo progettuale tecnico completo, calcoli strutturali, tavole esecutive o verifiche specialistiche'},
+  'Design':{focus:'teoria del design, processi, linguaggi visivi, user experience in chiave critica e casi di studio', allow:'analisi comparativa, review, studio di prodotto/servizio senza sperimentazione proprietaria', avoid:'prototipazione tecnica, test utente originali o sviluppo progettuale specialistico'},
+  'Informatica e Ingegneria Informatica':{focus:'cornice teorica su sistemi, algoritmi, AI, etica, impatto organizzativo o revisione dello stato dell'arte', allow:'tesi teorica, review, comparazione di approcci o caso studio documentale', avoid:'implementazioni software da zero, benchmarking proprietario o sperimentazione tecnica originale'},
+  'Ingegneria Civile e Ambientale':{focus:'normativa, modelli teorici, sostenibilità, gestione del rischio, pianificazione e casi studio documentati', allow:'analisi teorica o comparativa non progettuale', avoid:'dimensionamenti, calcoli specialistici, prove sperimentali o progettazione esecutiva'},
+  'Ingegneria Gestionale':{focus:'organizzazione, operations, supply chain, innovazione, processi e decision making con impianto teorico', allow:'review, comparazione di modelli, caso studio organizzativo non quantitativo', avoid:'simulazioni proprietarie, dataset aziendali originali o modellizzazione tecnica avanzata'},
+  'Medicina e Chirurgia':{focus:'inquadramento teorico, etico, organizzativo, comunicativo, educativo o review della letteratura', allow:'revisione narrativa/sistematica, analisi teorica o caso studio documentale', avoid:'tesi cliniche sperimentali, protocolli su pazienti, raccolta dati originale o statistica medica proprietaria'},
+  'Scienze Motorie e Sportive':{focus:'fondamenti teorici, pedagogia dello sport, comunicazione, prevenzione, benessere e review della letteratura', allow:'tesi teorica, comparativa o caso studio non sperimentale', avoid:'test fisici originali, raccolta dati prestativi o protocolli sperimentali'},
+  'Scienze e Tecnologie Alimentari':{focus:'sicurezza, qualità, filiera, consumi, sostenibilità, normativa e review della letteratura', allow:'analisi teorica, comparativa o studio di casi già documentati', avoid:'analisi chimiche originali, prove di laboratorio o sperimentazione tecnologica proprietaria'}
 };
 
 async function apiTask(task,input={}){
@@ -2306,6 +2319,10 @@ function getGoodFacultyGuidance(facolta){
   return FACULTY_GOOD_GUIDANCE[facolta]||null;
 }
 
+function getPartialFacultyGuidance(facolta){
+  return FACULTY_PARTIAL_GUIDANCE[facolta]||null;
+}
+
 function facultyPromptGuidance(facolta,corso,approccio){
   const kind=getFacultyCompatibility(facolta);
   const method=(approccio||'').trim();
@@ -2319,8 +2336,15 @@ function facultyPromptGuidance(facolta,corso,approccio){
     lines.push(`Evita ${good.avoid}.`);
   }
   if(kind==='partial'){
-    lines.push(`Perimetro disciplinare per ${facolta}: sviluppa solo un impianto teorico, comparativo, di review o caso studio non sperimentale.`);
-    lines.push('Escludi raccolta dati originale, protocolli clinici, analisi statistiche proprietarie, sperimentazione di laboratorio o progettazione tecnica specialistica.');
+    const partial=getPartialFacultyGuidance(facolta);
+    if(partial){
+      lines.push(`Perimetro disciplinare per ${facolta}: privilegia ${partial.focus}.`);
+      lines.push(`Impostazioni ammesse: ${partial.allow}.`);
+      lines.push(`Escludi ${partial.avoid}.`);
+    }else{
+      lines.push(`Perimetro disciplinare per ${facolta}: sviluppa solo un impianto teorico, comparativo, di review o caso studio non sperimentale.`);
+      lines.push('Escludi raccolta dati originale, protocolli clinici, analisi statistiche proprietarie, sperimentazione di laboratorio o progettazione tecnica specialistica.');
+    }
   }
   if(corso){
     lines.push(`Ancoraggio al corso di laurea: mantieni sempre esplicita la pertinenza con ${corso}.`);
@@ -2333,7 +2357,10 @@ function facultyPromptGuidance(facolta,corso,approccio){
 
 function facultyNoticeTail(facolta){
   const good=getGoodFacultyGuidance(facolta);
-  return good ? ` Focus da privilegiare: ${good.focus}.` : '';
+  if(good) return ` Focus da privilegiare: ${good.focus}.`;
+  const partial=getPartialFacultyGuidance(facolta);
+  if(partial) return ` Focus da privilegiare: ${partial.focus}. Ammesso: ${partial.allow}.`;
+  return '';
 }
 
 function renderCompatibilityNotice(){
@@ -2376,7 +2403,12 @@ function renderCompatibilityNotice(){
     return;
   }
   if(kind==='partial'){
-    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale. Non è il perimetro giusto per tesi cliniche, di laboratorio, con dati originali o analisi statistiche proprietarie.`;
+    const partial=getPartialFacultyGuidance(facolta);
+    if(partial){
+      box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo entro un perimetro limitato. Focus consigliato: ${escHtml(partial.focus)}. Ammesso: ${escHtml(partial.allow)}. Non ammesso: ${escHtml(partial.avoid)}.`;
+    }else{
+      box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale. Non è il perimetro giusto per tesi cliniche, di laboratorio, con dati originali o analisi statistiche proprietarie.`;
+    }
     ackWrap.style.display='flex';
     return;
   }
@@ -2397,7 +2429,7 @@ function ensureCompatibilityGuard(){
     return false;
   }
   if(kind==='partial' && !document.getElementById('compatibilityAck')?.checked){
-    showToast('Per questa facoltà devi prima confermare i limiti di compatibilità',true);
+    showToast('Per questa facoltà devi prima confermare il perimetro limitato di compatibilità',true);
     return false;
   }
   return true;
