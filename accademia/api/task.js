@@ -1,5 +1,8 @@
 const OPENAI_TIMEOUT_MS = 180000;
 const ANTHROPIC_TIMEOUT_MS = 180000;
+const STATE_TTL_SECONDS = 60 * 60 * 24 * 180;
+const VISIT_GUARD_TTL_SECONDS = 60 * 60 * 24 * 2;
+const CODE_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
@@ -19,23 +22,19 @@ Per i capitoli:
 - chiudi il testo in modo naturale, senza ponti espliciti al capitolo successivo.`;
 
 export default async function handler(req, res) {
-  if (req.method === 'GET' && req.query?.config === 'supabase') {
-    const url = process.env.SUPABASE_URL;
-    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const action = getAction(req, body);
 
-    if (!url || !publishableKey) {
-      return res.status(500).json({ error: 'Configurazione Supabase mancante' });
+    if (action) {
+      return await handleAction({ action, req, res, body });
     }
 
-    return res.status(200).json({ url, publishableKey });
-  }
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { task, input } = normalizeBody(req.body);
+    const { task, input } = normalizeBody(body);
 
     if (!task) {
       return res.status(400).json({ error: 'Task mancante' });
@@ -78,6 +77,188 @@ export default async function handler(req, res) {
       details: error?.message || 'Errore sconosciuto'
     });
   }
+}
+
+function getAction(req, body) {
+  const queryAction = typeof req.query?.action === 'string' ? req.query.action.trim() : '';
+  const bodyAction = typeof body.action === 'string' ? body.action.trim() : '';
+  return bodyAction || queryAction || '';
+}
+
+async function handleAction({ action, req, res, body }) {
+  switch (action) {
+    case 'state_save': {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+      const workspaceId = normalizeWorkspaceId(body.workspaceId);
+      const state = body.state;
+      if (!workspaceId || !state || typeof state !== 'object') {
+        return res.status(400).json({ error: 'workspaceId o state mancanti' });
+      }
+      const payload = {
+        ...state,
+        workspaceId,
+        savedAt: state.savedAt || new Date().toISOString(),
+        serverSavedAt: new Date().toISOString()
+      };
+      await saveWorkspaceState(workspaceId, payload);
+      return res.status(200).json({ ok: true, workspaceId, savedAt: payload.serverSavedAt });
+    }
+
+    case 'state_load': {
+      const workspaceId = normalizeWorkspaceId(body.workspaceId || req.query?.workspaceId);
+      if (!workspaceId) {
+        return res.status(400).json({ error: 'workspaceId mancante' });
+      }
+      const state = await loadWorkspaceState(workspaceId);
+      return res.status(200).json({ ok: true, workspaceId, state });
+    }
+
+    case 'track_visit': {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+      const path = normalizePath(body.path);
+      const sessionKey = normalizeVisitKey(body.sessionKey);
+      const tracked = await trackVisit(path, sessionKey);
+      return res.status(200).json({ ok: true, tracked });
+    }
+
+    case 'unlock_verify': {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+      const code = String(body.code || '').trim().toUpperCase();
+      if (!code) {
+        return res.status(400).json({ valid: false, reason: 'missing_code' });
+      }
+      const result = await verifyAndConsumeUnlockCode(code);
+      const status = result.valid ? 200 : 400;
+      return res.status(status).json(result);
+    }
+
+    default:
+      return res.status(400).json({ error: 'Azione non supportata' });
+  }
+}
+
+function normalizeWorkspaceId(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normalizePath(value) {
+  const path = String(value || '/').trim();
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function normalizeVisitKey(value) {
+  return String(value || '').trim().slice(0, 120);
+}
+
+async function saveWorkspaceState(workspaceId, state) {
+  const key = `accademia:workspace:${workspaceId}:state`;
+  await upstashCommand(['SET', key, JSON.stringify(state), 'EX', String(STATE_TTL_SECONDS)]);
+}
+
+async function loadWorkspaceState(workspaceId) {
+  const key = `accademia:workspace:${workspaceId}:state`;
+  const raw = await upstashCommand(['GET', key]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function trackVisit(path, sessionKey) {
+  let shouldCount = true;
+
+  if (sessionKey) {
+    const guardKey = `accademia:visitguard:${sessionKey}`;
+    const guardResult = await upstashCommand(['SET', guardKey, '1', 'EX', String(VISIT_GUARD_TTL_SECONDS), 'NX']);
+    shouldCount = guardResult === 'OK';
+  }
+
+  if (!shouldCount) return false;
+
+  await upstashCommand(['INCR', 'accademia:visits:total']);
+  await upstashCommand(['INCR', `accademia:visits:path:${path}`]);
+  return true;
+}
+
+async function verifyAndConsumeUnlockCode(code) {
+  const catalog = parseUnlockCatalog(process.env.ACC_UNLOCK_CODES_JSON || process.env.UNLOCK_CODES_JSON || '');
+  const match = catalog[code];
+
+  if (!match) {
+    return { valid: false, reason: 'not_found' };
+  }
+
+  const usedKey = `accademia:unlock:used:${code}`;
+  const setResult = await upstashCommand(['SET', usedKey, '1', 'EX', String(CODE_TTL_SECONDS), 'NX']);
+
+  if (setResult !== 'OK') {
+    return { valid: false, reason: 'already_used' };
+  }
+
+  return { valid: true, type: match.type || 'premium' };
+}
+
+function parseUnlockCatalog(raw) {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.reduce((acc, item) => {
+        if (!item) return acc;
+        const code = String(item.code || '').trim().toUpperCase();
+        if (!code) return acc;
+        acc[code] = { type: String(item.type || 'premium').trim().toLowerCase() || 'premium' };
+        return acc;
+      }, {});
+    }
+    if (parsed && typeof parsed === 'object') {
+      return Object.entries(parsed).reduce((acc, [key, value]) => {
+        const code = String(key || '').trim().toUpperCase();
+        if (!code) return acc;
+        if (value && typeof value === 'object') {
+          acc[code] = { type: String(value.type || 'premium').trim().toLowerCase() || 'premium' };
+        } else {
+          acc[code] = { type: String(value || 'premium').trim().toLowerCase() || 'premium' };
+        }
+        return acc;
+      }, {});
+    }
+  } catch {
+    return {};
+  }
+  return {};
+}
+
+async function upstashCommand(command) {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    throw new Error('UPSTASH_REDIS_REST_URL o UPSTASH_REDIS_REST_TOKEN mancanti');
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(command)
+  });
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Errore Upstash HTTP ${response.status}`);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return data?.result ?? null;
 }
 
 function normalizeBody(body) {
