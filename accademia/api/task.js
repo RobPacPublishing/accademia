@@ -45,6 +45,18 @@ export default async function handler(req, res) {
     if (task === '__verify_unlock') {
       return await handleVerifyUnlock({ input: rawInput || {}, res });
     }
+    if (task === '__account_send_code') {
+      return await handleAccountSendCode({ input: rawInput || {}, res });
+    }
+    if (task === '__account_verify_code') {
+      return await handleAccountVerifyCode({ input: rawInput || {}, res });
+    }
+    if (task === '__account_load') {
+      return await handleAccountLoad({ input: rawInput || {}, res });
+    }
+    if (task === '__account_save') {
+      return await handleAccountSave({ input: rawInput || {}, res });
+    }
 
     const provider = pickProvider(task);
 
@@ -116,6 +128,67 @@ function stateRedisKey(syncKey) {
 
 function usedCodeRedisKey(code) {
   return `accademia:unlock:used:${String(code).trim().toUpperCase()}`;
+}
+
+function emailHash(email) {
+  return crypto.createHash('sha256').update(String(email).trim().toLowerCase()).digest('hex');
+}
+
+function accountOtpRedisKey(email) {
+  return `accademia:account:otp:${emailHash(email)}`;
+}
+
+function accountStateRedisKey(email) {
+  return `accademia:account:state:${emailHash(email)}`;
+}
+
+function accountSessionRedisKey(sessionToken) {
+  return `accademia:account:session:${crypto.createHash('sha256').update(String(sessionToken)).digest('hex')}`;
+}
+
+function createOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function createSessionToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function getResendConfig() {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.ACC_LOGIN_FROM || process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || '';
+  if (!apiKey) throw new Error('RESEND_API_KEY non configurata');
+  if (!from) throw new Error('ACC_LOGIN_FROM non configurata');
+  return { apiKey, from };
+}
+
+async function sendResendEmail({ to, subject, html, text }) {
+  const { apiKey, from } = getResendConfig();
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ from, to: [to], subject, html, text })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || 'Invio email account non riuscito');
+  }
+  return data;
+}
+
+async function resolveAccountEmailFromSession(sessionToken) {
+  if (!sessionToken) return null;
+  const raw = await upstashGet(accountSessionRedisKey(sessionToken));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.email || null;
+  } catch {
+    return null;
+  }
 }
 
 async function upstashCall(path, { method = 'GET', body = null } = {}) {
@@ -229,6 +302,97 @@ async function handleVerifyUnlock({ input, res }) {
   }
   await upstashSet(usedKey, JSON.stringify({ usedAt: new Date().toISOString(), type }));
   return res.status(200).json({ valid: true, type });
+}
+
+async function handleAccountSendCode({ input, res }) {
+  const email = String(input?.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Email non valida' });
+  }
+
+  const otpKey = accountOtpRedisKey(email);
+  const code = createOtpCode();
+  const now = Date.now();
+  const expiresAt = new Date(now + 15 * 60 * 1000).toISOString();
+  await upstashSet(otpKey, JSON.stringify({ code, email, expiresAt, sentAt: new Date(now).toISOString() }));
+
+  await sendResendEmail({
+    to: email,
+    subject: 'AccademIA — codice di accesso account',
+    text: `Il tuo codice di accesso è ${code}. Scade tra 15 minuti.`,
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111"><h2>AccademIA</h2><p>Il tuo codice di accesso è:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</p><p>Il codice scade tra 15 minuti.</p></div>`
+  });
+
+  return res.status(200).json({ ok: true, sent: true });
+}
+
+async function handleAccountVerifyCode({ input, res }) {
+  const email = String(input?.email || '').trim().toLowerCase();
+  const code = String(input?.code || '').trim();
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email o codice mancanti' });
+  }
+  const raw = await upstashGet(accountOtpRedisKey(email));
+  if (!raw) {
+    return res.status(400).json({ error: 'Codice assente o scaduto' });
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  if (!parsed?.code || parsed.code !== code) {
+    return res.status(400).json({ error: 'Codice non valido' });
+  }
+  if (parsed?.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) {
+    return res.status(400).json({ error: 'Codice scaduto' });
+  }
+
+  const sessionToken = createSessionToken();
+  await upstashSet(accountSessionRedisKey(sessionToken), JSON.stringify({ email, createdAt: new Date().toISOString() }));
+  return res.status(200).json({ ok: true, email, sessionToken });
+}
+
+async function handleAccountLoad({ input, res }) {
+  const sessionToken = String(input?.sessionToken || '').trim();
+  if (!sessionToken) {
+    return res.status(400).json({ error: 'Sessione account mancante' });
+  }
+  const email = await resolveAccountEmailFromSession(sessionToken);
+  if (!email) {
+    return res.status(401).json({ error: 'Sessione account non valida' });
+  }
+  const raw = await upstashGet(accountStateRedisKey(email));
+  if (!raw) {
+    return res.status(200).json({ ok: true, state: null });
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  return res.status(200).json({ ok: true, state: parsed, email });
+}
+
+async function handleAccountSave({ input, res }) {
+  const sessionToken = String(input?.sessionToken || '').trim();
+  const payload = input?.payload;
+  if (!sessionToken || !payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Dati account mancanti' });
+  }
+  const email = await resolveAccountEmailFromSession(sessionToken);
+  if (!email) {
+    return res.status(401).json({ error: 'Sessione account non valida' });
+  }
+  const record = {
+    ...payload,
+    savedAt: payload.savedAt || new Date().toISOString(),
+    accountEmail: email
+  };
+  await upstashSet(accountStateRedisKey(email), JSON.stringify(record));
+  return res.status(200).json({ ok: true, savedAt: record.savedAt, email });
 }
 
 function pickProvider(task) {
