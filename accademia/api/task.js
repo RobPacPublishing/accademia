@@ -63,6 +63,12 @@ export default async function handler(req, res) {
     if (task === '__snapshot_list') {
       return await handleSnapshotList({ input: rawInput || {}, res });
     }
+    if (task === '__recovery_save') {
+      return await handleRecoverySave({ input: rawInput || {}, res });
+    }
+    if (task === '__recovery_load') {
+      return await handleRecoveryLoad({ input: rawInput || {}, res });
+    }
 
     const provider = pickProvider(task);
 
@@ -168,6 +174,15 @@ function snapshotSyncRedisKey(syncKey) {
 
 function snapshotAccountRedisKey(email) {
   return `accademia:account:snapshots:${emailHash(email)}`;
+}
+
+function recoverySyncRedisKey(syncKey) {
+  const digest = crypto.createHash('sha256').update(String(syncKey)).digest('hex');
+  return `accademia:recovery:sync:${digest}`;
+}
+
+function recoveryAccountRedisKey(email) {
+  return `accademia:recovery:account:${emailHash(email)}`;
 }
 
 async function loadSnapshotArray(key) {
@@ -482,6 +497,57 @@ async function handleSnapshotList({ input, res }) {
   }
 
   return res.status(400).json({ error: 'Identità snapshot mancante' });
+}
+
+async function handleRecoverySave({ input, res }) {
+  const record = input?.record;
+  if (!record || typeof record !== 'object' || !record?.payload || typeof record.payload !== 'object') {
+    return res.status(400).json({ error: 'Record recupero mancante' });
+  }
+  const sessionToken = String(input?.sessionToken || '').trim();
+  const syncKey = String(input?.syncKey || '').trim();
+  const cleanRecord = {
+    savedAt: record.savedAt || new Date().toISOString(),
+    reason: String(record.reason || 'manuale').trim(),
+    payload: record.payload
+  };
+
+  if (sessionToken) {
+    const email = await resolveAccountEmailFromSession(sessionToken);
+    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
+    await upstashSet(recoveryAccountRedisKey(email), JSON.stringify({ ...cleanRecord, accountEmail: email }));
+    return res.status(200).json({ ok: true, savedAt: cleanRecord.savedAt, scope: 'account' });
+  }
+
+  if (syncKey) {
+    await upstashSet(recoverySyncRedisKey(syncKey), JSON.stringify(cleanRecord));
+    return res.status(200).json({ ok: true, savedAt: cleanRecord.savedAt, scope: 'sync' });
+  }
+
+  return res.status(400).json({ error: 'Identità recupero mancante' });
+}
+
+async function handleRecoveryLoad({ input, res }) {
+  const sessionToken = String(input?.sessionToken || '').trim();
+  const syncKey = String(input?.syncKey || '').trim();
+
+  if (sessionToken) {
+    const email = await resolveAccountEmailFromSession(sessionToken);
+    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
+    const raw = await upstashGet(recoveryAccountRedisKey(email));
+    let record = null;
+    try { record = raw ? JSON.parse(raw) : null; } catch { record = null; }
+    return res.status(200).json({ ok: true, record, scope: 'account' });
+  }
+
+  if (syncKey) {
+    const raw = await upstashGet(recoverySyncRedisKey(syncKey));
+    let record = null;
+    try { record = raw ? JSON.parse(raw) : null; } catch { record = null; }
+    return res.status(200).json({ ok: true, record, scope: 'sync' });
+  }
+
+  return res.status(400).json({ error: 'Identità recupero mancante' });
 }
 
 function pickProvider(task) {
