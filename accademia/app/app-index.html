@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=xmUajX3oLalYL2VAIWoX909ZiAs4kB9RznwzDEUqLXxpT9ewU0rduxyZjDYrozfUTRaxCYQC9UHVRoxAsmTAOr3IoneuhQjBQvGG4aK5G7ehxDDHWjUEy4yiJt71i5Xqu6ta9mZsOyi8nEVSfjnJB-5feWrk5AeijAJ-j4m0ofPLa89xTHJm1oWugUHXmCGFCtHnFfANjE2cMwHPyOgYEWDCV1TCZkEpAtQ7Sf85nM4n_c2VzSjQA1nkUArDIT2j0tVU6oQ2B_w9iG83jBaL-g" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=UZNmhlQpsI05lkFXMnUywwI5Ez7T4jjJQhDeXP3MpF3QrqroPJmw6x2jAeiYG6uRMpQ6V8N_dpEDVQn6PxPGuKopRz7ryVrVPBvObyLe4KbCyN_h5O661c8dZaOsxXn_c8zXf-1qu9BsXMMxnmfDxRQnpRmsuTZSzzwb940Mga3D_zcZmBKZS3JUIgZJHctbTrAFrWq4QAKUYXPYw_GVvgYa0fhjB5pJQqkvyqukAQUWBee1Js-sNNfs7xv9_pLtZgN6KYGPh7HgeuudbdFSFA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -840,6 +840,21 @@ const FACULTY_COMPATIBILITY={
   veryGood:['Psicologia','Giurisprudenza','Scienze Politiche e Relazioni Internazionali'],
   good:['Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Filosofia','Lettere e Filosofia','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell'Educazione e della Formazione','Scienze Sociali e Sociologia','Sociologia','Storia','Teologia'],
   partial:['Agraria e Scienze Forestali','Architettura','Design','Informatica e Ingegneria Informatica','Ingegneria Civile e Ambientale','Ingegneria Gestionale','Medicina e Chirurgia','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari']
+};
+
+const FACULTY_GOOD_GUIDANCE={
+  'Beni Culturali e Turismo':{focus:'inquadramento storico-critico, valorizzazione, fruizione e sostenibilità', avoid:'taglio promozionale o turistico-commerciale non accademico'},
+  'Economia e Management':{focus:'quadro teorico solido, modelli di management, assetti organizzativi e implicazioni strategiche', avoid:'linguaggio consulenziale o aziendalistico generico'},
+  'Economia Aziendale':{focus:'governance, organizzazione, controllo, performance e ricadute operative', avoid:'impostazioni troppo descrittive o prive di cornice teorica'},
+  'Filosofia':{focus:'ricostruzione teorica, confronto tra autori, precisione concettuale e rigore argomentativo', avoid:'tono divulgativo o eccessivamente assertivo'},
+  'Lettere e Filosofia':{focus:'inquadramento storico-critico, uso controllato delle categorie interpretative e analisi testuale coerente', avoid:'generalizzazioni o giudizi impressionistici'},
+  'Lingue e Letterature Straniere':{focus:'cornice storico-letteraria, analisi del testo, confronto critico e contestualizzazione culturale', avoid:'parafrasi semplice o taglio scolastico'},
+  'Scienze della Comunicazione':{focus:'teorie della comunicazione, media framing, discorso pubblico e impatto sociale', avoid:'taglio giornalistico o marketing puro se non motivato'},
+  'Scienze dell'Educazione e della Formazione':{focus:'fondamenti pedagogici, processi educativi, modelli formativi e implicazioni didattiche', avoid:'manualismo pratico senza quadro teorico'},
+  'Scienze Sociali e Sociologia':{focus:'concetti sociologici chiari, processi sociali, letteratura di riferimento e lettura strutturale', avoid:'psicologizzazione impropria dei fenomeni'},
+  'Sociologia':{focus:'categorie sociologiche, attori, strutture, istituzioni e mutamento sociale', avoid:'analisi moralistiche o puramente opinionistiche'},
+  'Storia':{focus:'periodizzazione, contesto, fonti secondarie affidabili e nesso causale argomentato', avoid:'narrazione cronachistica senza problema storiografico'},
+  'Teologia':{focus:'fondamenti teologici, rigore ermeneutico, tradizione, magistero e ricadute pastorali quando pertinenti', avoid:'tono devozionale non accademico'}
 };
 
 async function apiTask(task,input={}){
@@ -2287,6 +2302,40 @@ function compatibilityBadge(kind){
   return 'Da selezionare';
 }
 
+function getGoodFacultyGuidance(facolta){
+  return FACULTY_GOOD_GUIDANCE[facolta]||null;
+}
+
+function facultyPromptGuidance(facolta,corso,approccio){
+  const kind=getFacultyCompatibility(facolta);
+  const method=(approccio||'').trim();
+  const good=getGoodFacultyGuidance(facolta);
+  const lines=[];
+  if(kind==='veryGood'){
+    lines.push('Rafforzamento disciplinare: usa il lessico tecnico proprio della facoltà, evita genericità e costruisci una progressione accademica netta tra quadro teorico, stato dell’arte, metodologia e proposta analitica.');
+  }
+  if(kind==='good' && good){
+    lines.push(`Rafforzamento disciplinare per ${facolta}: privilegia ${good.focus}.`);
+    lines.push(`Evita ${good.avoid}.`);
+  }
+  if(kind==='partial'){
+    lines.push(`Perimetro disciplinare per ${facolta}: sviluppa solo un impianto teorico, comparativo, di review o caso studio non sperimentale.`);
+    lines.push('Escludi raccolta dati originale, protocolli clinici, analisi statistiche proprietarie, sperimentazione di laboratorio o progettazione tecnica specialistica.');
+  }
+  if(corso){
+    lines.push(`Ancoraggio al corso di laurea: mantieni sempre esplicita la pertinenza con ${corso}.`);
+  }
+  if(method){
+    lines.push(`Approccio metodologico vincolante: mantieni coerenza piena con l’impostazione ${method.replace(/_/g,' ')}.`);
+  }
+  return lines.join(' ');
+}
+
+function facultyNoticeTail(facolta){
+  const good=getGoodFacultyGuidance(facolta);
+  return good ? ` Focus da privilegiare: ${good.focus}.` : '';
+}
+
 function renderCompatibilityNotice(){
   const facolta=(document.getElementById('facolta')?.value||'').trim();
   const box=document.getElementById('compatibilityNotice');
@@ -2321,7 +2370,7 @@ function renderCompatibilityNotice(){
     return;
   }
   if(kind==='good'){
-    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative, di review o con forte impianto argomentativo.`;
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative, di review o con forte impianto argomentativo.${escHtml(facultyNoticeTail(facolta))}`;
     ackWrap.style.display='none';
     ack.checked=false;
     return;
@@ -3451,7 +3500,7 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
   const tipo=(document.getElementById('tipoLaurea')?.value||thesis.tipo||'').trim();
   const chapterTitles=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[];
   return {
-    prompt:userPrompt,
+    prompt:[userPrompt,facultyPromptGuidance(facolta,corso,metodologia||thesis.metodologia||'')].filter(Boolean).join('\n\n'),
     taskName,
     theme:argomento,
     faculty:facolta,
@@ -3472,6 +3521,8 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
       preserveAcademicTone:true,
       preferSobriety:true
     },
+    facultyCompatibility:getFacultyCompatibility(facolta),
+    facultyGuidance:facultyPromptGuidance(facolta,corso,metodologia||thesis.metodologia||''),
     extra
   };
 }
@@ -3504,15 +3555,15 @@ function facultyTitleProfile(facolta){
   const name=(facolta||'').toLowerCase();
   if(name.includes('psicologia')) return {adj:'psicologici', a:'determinanti psicologiche e psicosociali', b:'ricadute su benessere, comportamento e adattamento', c:'processi cognitivi ed emotivi', d:'fattori di rischio e protezione', app:'prospettive di intervento e ricerca'};
   if(name.includes('giurisprudenza')) return {adj:'giuridici', a:'profili normativi e costituzionali', b:'orientamenti giurisprudenziali e dottrinali', c:'criticità interpretative', d:'bilanciamento degli interessi coinvolti', app:'implicazioni applicative e sistematiche'};
-  if(name.includes('economia')) return {adj:'economici', a:'determinanti economiche', b:'ricadute organizzative e manageriali', c:'governance', d:'performance e sostenibilità', app:'prospettive operative'};
+  if(name.includes('economia')) return {adj:'economico-manageriali', a:'determinanti economiche e assetti organizzativi', b:'ricadute strategiche e manageriali', c:'governance e processi decisionali', d:'performance, sostenibilità e controllo', app:'prospettive operative e manageriali'};
   if(name.includes('ingegneria') || name.includes('informatica')) return {adj:'tecnico-progettuali', a:'modelli architetturali', b:'ricadute operative', c:'ottimizzazione dei processi', d:'scalabilità e affidabilità', app:'sviluppi progettuali'};
   if(name.includes('medicina') || name.includes('farmacia') || name.includes('biologia') || name.includes('biotecnologie') || name.includes('veterinaria')) return {adj:'clinico-scientifici', a:'evidenze scientifiche', b:'implicazioni cliniche o assistenziali', c:'prevenzione', d:'gestione del rischio', app:'ricadute professionali'};
-  if(name.includes('educazione') || name.includes('formazione')) return {adj:'pedagogici', a:'processi educativi', b:'ricadute formative', c:'strategie didattiche', d:'contesti di apprendimento', app:'prospettive educative'};
-  if(name.includes('comunicazione')) return {adj:'comunicativi', a:'dinamiche comunicative', b:'implicazioni mediatiche e strategiche', c:'narrazioni digitali', d:'processi persuasivi', app:'sviluppi applicativi'};
-  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali e istituzionali', b:'implicazioni di governance', c:'trasformazioni culturali e politiche', d:'politiche pubbliche e attori coinvolti', app:'sviluppi di policy'};
-  if(name.includes('lettere') || name.includes('lingue') || name.includes('filosofia') || name.includes('storia')) return {adj:'storico-critici', a:'quadri teorici', b:'linee interpretative', c:'genealogie concettuali', d:'letture critiche', app:'prospettive ermeneutiche'};
-  if(name.includes('architettura') || name.includes('design') || name.includes('beni culturali') || name.includes('turismo')) return {adj:'progettuali', a:'criteri progettuali', b:'ricadute fruitive e operative', c:'valorizzazione', d:'sostenibilità', app:'sviluppi operativi'};
-  if(name.includes('teologia')) return {adj:'teologico-pastorali', a:'fondamenti teologici', b:'ricadute ecclesiali e pastorali', c:'ermeneutica', d:'prassi pastorale', app:'prospettive pastorali'};
+  if(name.includes('educazione') || name.includes('formazione')) return {adj:'pedagogico-formativi', a:'processi educativi e dispositivi formativi', b:'ricadute didattiche e formative', c:'strategie pedagogiche', d:'contesti di apprendimento e inclusione', app:'prospettive educative'};
+  if(name.includes('comunicazione')) return {adj:'comunicativo-mediatici', a:'dinamiche comunicative e dispositivi mediali', b:'implicazioni mediatiche, sociali e strategiche', c:'narrazioni digitali e framing', d:'processi persuasivi e discorso pubblico', app:'sviluppi applicativi'};
+  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali, istituzionali e di policy', b:'implicazioni di governance e regolazione', c:'trasformazioni culturali e politiche', d:'politiche pubbliche, attori e conflitti', app:'sviluppi di policy e letture comparate'};
+  if(name.includes('lettere') || name.includes('lingue') || name.includes('filosofia') || name.includes('storia')) return {adj:'storico-critici', a:'quadri teorici e contesti storico-culturali', b:'linee interpretative e dibattito critico', c:'genealogie concettuali e testuali', d:'letture critiche e problemi storiografici', app:'prospettive ermeneutiche'};
+  if(name.includes('architettura') || name.includes('design') || name.includes('beni culturali') || name.includes('turismo')) return {adj:'storico-progettuali', a:'criteri progettuali e valorizzazione', b:'ricadute fruitive, culturali e operative', c:'lettura del contesto e fruizione', d:'sostenibilità e gestione', app:'sviluppi operativi'};
+  if(name.includes('teologia')) return {adj:'teologico-pastorali', a:'fondamenti teologici e tradizione', b:'ricadute ecclesiali e pastorali', c:'ermeneutica biblica e sistematica', d:'prassi pastorale e discernimento', app:'prospettive pastorali'};
   return {adj:'disciplinari', a:'fondamenti teorici', b:'implicazioni applicative', c:'quadri interpretativi', d:'questioni aperte', app:'sviluppi di ricerca'};
 }
 
@@ -3599,6 +3650,11 @@ function disciplineAngles(context){
   if(source.includes('econom')) return ['assetti organizzativi','comportamenti di consumo','dinamiche decisionali','ricadute manageriali'];
   if(source.includes('giurisprud') || source.includes('diritto')) return ['qualificazione giuridica','bilanciamento degli interessi','profili applicativi','cornice normativa'];
   if(source.includes('educaz') || source.includes('formaz')) return ['contesti di apprendimento','processi educativi','strategie formative','ricadute pedagogiche'];
+  if(source.includes('beni culturali') || source.includes('turismo')) return ['valorizzazione del patrimonio','fruizione culturale','sostenibilità','governance territoriale'];
+  if(source.includes('lettere') || source.includes('lingue')) return ['analisi testuale','contesto storico-culturale','tradizione critica','problemi interpretativi'];
+  if(source.includes('filosof')) return ['nodi concettuali','confronto tra autori','argomentazione teorica','problemi epistemologici'];
+  if(source.includes('storia')) return ['contesto storico','problemi storiografici','periodizzazione','nessi causali'];
+  if(source.includes('teolog')) return ['fondamenti teologici','ermeneutica','tradizione ecclesiale','ricadute pastorali'];
   return ['cornici teoriche','snodi concettuali','dinamiche interpretative','ricadute applicative'];
 }
 
