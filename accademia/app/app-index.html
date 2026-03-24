@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=BncccS7VnSbFl6i1NgFJHouMCYsb7cjG_5rHbjGw0B3RhJBinPgbjsbONpSQo73509ZvTpMjF4F6NUXpPPhl4nlJP_lTJjDvvuMbD8UmRgh8_EwGn12gkVAcIaL5XFKKUQW6QUMTAbIXSSOBKY4-i_MG4kUxMqBf2Swzji2fq5pn4Z6ogF8MDtPGTbf3S61-bf33u_4XXL6cvCd3VGE8FXoQM6sokHGlQPkl1ponOS2jD1_IZCzo3Fo433Vbedb0H7kH9J8kmIpmVRH2Q090Jg" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=VLeSj04LRLEMzO2C6eSEEoI2WLzCqDITjM7v4hJuc0x6zcoFuFPc-gsIHfgfqoYDU5Qtap1-T01joErrehZOVxLLRaez94WgVZ1yLvFCrKDq_yxQTsjOXGPZUmY8hZhmGgil8QzJiH_8QWIUnQHLY4MOatORwbceb_-zuWfI1ZT0m7L2xNoyNlGLtsLwJasxC3H1WEasqXQSljBMvLSEC2TeuY1pjoLEHbHVQOVyvpLrWJU0__F20XR9QEta_aS_e8J_ZwLeXSEzZJC_ZemMYA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=SsYfUvb1Pls4MicXP0S6TvLMUFn-ggBgdq5XjILOoOnrXPT6GQbIfeCpx1d2kOTbDe848gJcgVrUQ858TaXX2wkgonVJNVlCRjZ7QoysxNwLaQwwJvz2t82pfghRdLFKIEsRMDDDG1CBlasVXbX06GuW76BVkgx3CeW8s9zzTjLF5wOIHQsJBe_VLRZ540rYqYQPabiBvzI0IqwaFE3FbakrXlgYZqB-6Vf9RN99jfV255PzqkrhuQPpOucy9HVQMolGBEmU8RF4QZr2BO05qw" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=VLeSj04LRLEMzO2C6eSEEoI2WLzCqDITjM7v4hJuc0x6zcoFuFPc-gsIHfgfqoYDU5Qtap1-T01joErrehZOVxLLRaez94WgVZ1yLvFCrKDq_yxQTsjOXGPZUmY8hZhmGgil8QzJiH_8QWIUnQHLY4MOatORwbceb_-zuWfI1ZT0m7L2xNoyNlGLtsLwJasxC3H1WEasqXQSljBMvLSEC2TeuY1pjoLEHbHVQOVyvpLrWJU0__F20XR9QEta_aS_e8J_ZwLeXSEzZJC_ZemMYA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -3537,8 +3537,7 @@ function buildWordHTML(){
 <pre style="font-family:Arial;font-size:10.5pt;line-height:1.9;white-space:pre-wrap">${escHtml(thesis.indice||'')}</pre>
 <br><hr style="border:none;border-top:1px solid #ccc"><br>
 <h2 style="font-family:Georgia,serif;font-size:15pt">ABSTRACT</h2>
-<p style="font-family:Arial;font-size:11pt;line-height:1.9;text-align:justify">${escHtml(thesis.abstract||'').replace(/
-/g,'<br>')}</p><br>`;
+<p style="font-family:Arial;font-size:11pt;line-height:1.9;text-align:justify">${escHtml(thesis.abstract||'').replace(/\n/g,'<br>')}</p><br>`;
   (thesis.chapters||[]).forEach((ch,i)=>{
     b+=`<div style="page-break-before:always"><h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2><div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(ch.content||'')}</div></div><br>`;
   });
