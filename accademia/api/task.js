@@ -1,8 +1,7 @@
+import crypto from 'node:crypto';
+
 const OPENAI_TIMEOUT_MS = 180000;
 const ANTHROPIC_TIMEOUT_MS = 180000;
-const STATE_TTL_SECONDS = 60 * 60 * 24 * 180;
-const VISIT_GUARD_TTL_SECONDS = 60 * 60 * 24 * 2;
-const CODE_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
@@ -21,23 +20,30 @@ Per i capitoli:
 - non trasformare il capitolo in una lista di teorie o autori se non sono presenti nei dati;
 - chiudi il testo in modo naturale, senza ponti espliciti al capitolo successivo.`;
 
+
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const action = getAction(req, body);
-
-    if (action) {
-      return await handleAction({ action, req, res, body });
-    }
-
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
-
-    const { task, input } = normalizeBody(body);
+    const { task, input, rawInput } = normalizeBody(req.body);
 
     if (!task) {
       return res.status(400).json({ error: 'Task mancante' });
+    }
+
+    if (task === '__state_save') {
+      return await handleStateSave({ input: rawInput || {}, res });
+    }
+    if (task === '__state_load') {
+      return await handleStateLoad({ input: rawInput || {}, res });
+    }
+    if (task === '__visit_ping') {
+      return await handleVisitPing({ input: rawInput || {}, res });
+    }
+    if (task === '__verify_unlock') {
+      return await handleVerifyUnlock({ input: rawInput || {}, res });
     }
 
     const provider = pickProvider(task);
@@ -79,201 +85,150 @@ export default async function handler(req, res) {
   }
 }
 
-function getAction(req, body) {
-  const queryAction = typeof req.query?.action === 'string' ? req.query.action.trim() : '';
-  const bodyAction = typeof body.action === 'string' ? body.action.trim() : '';
-  return bodyAction || queryAction || '';
-}
-
-async function handleAction({ action, req, res, body }) {
-  switch (action) {
-    case 'state_save': {
-      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-      const workspaceId = normalizeWorkspaceId(body.workspaceId);
-      const state = body.state;
-      if (!workspaceId || !state || typeof state !== 'object') {
-        return res.status(400).json({ error: 'workspaceId o state mancanti' });
-      }
-      const payload = {
-        ...state,
-        workspaceId,
-        savedAt: state.savedAt || new Date().toISOString(),
-        serverSavedAt: new Date().toISOString()
-      };
-      await saveWorkspaceState(workspaceId, payload);
-      return res.status(200).json({ ok: true, workspaceId, savedAt: payload.serverSavedAt });
-    }
-
-    case 'state_load': {
-      const workspaceId = normalizeWorkspaceId(body.workspaceId || req.query?.workspaceId);
-      if (!workspaceId) {
-        return res.status(400).json({ error: 'workspaceId mancante' });
-      }
-      const state = await loadWorkspaceState(workspaceId);
-      return res.status(200).json({ ok: true, workspaceId, state });
-    }
-
-    case 'track_visit': {
-      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-      const path = normalizePath(body.path);
-      const sessionKey = normalizeVisitKey(body.sessionKey);
-      const tracked = await trackVisit(path, sessionKey);
-      return res.status(200).json({ ok: true, tracked });
-    }
-
-    case 'unlock_verify': {
-      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-      const code = String(body.code || '').trim().toUpperCase();
-      if (!code) {
-        return res.status(400).json({ valid: false, reason: 'missing_code' });
-      }
-      const result = await verifyAndConsumeUnlockCode(code);
-      const status = result.valid ? 200 : 400;
-      return res.status(status).json(result);
-    }
-
-    default:
-      return res.status(400).json({ error: 'Azione non supportata' });
-  }
-}
-
-function normalizeWorkspaceId(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function normalizePath(value) {
-  const path = String(value || '/').trim();
-  return path.startsWith('/') ? path : `/${path}`;
-}
-
-function normalizeVisitKey(value) {
-  return String(value || '').trim().slice(0, 120);
-}
-
-async function saveWorkspaceState(workspaceId, state) {
-  const key = `accademia:workspace:${workspaceId}:state`;
-  await upstashCommand(['SET', key, JSON.stringify(state), 'EX', String(STATE_TTL_SECONDS)]);
-}
-
-async function loadWorkspaceState(workspaceId) {
-  const key = `accademia:workspace:${workspaceId}:state`;
-  const raw = await upstashCommand(['GET', key]);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-async function trackVisit(path, sessionKey) {
-  let shouldCount = true;
-
-  if (sessionKey) {
-    const guardKey = `accademia:visitguard:${sessionKey}`;
-    const guardResult = await upstashCommand(['SET', guardKey, '1', 'EX', String(VISIT_GUARD_TTL_SECONDS), 'NX']);
-    shouldCount = guardResult === 'OK';
-  }
-
-  if (!shouldCount) return false;
-
-  await upstashCommand(['INCR', 'accademia:visits:total']);
-  await upstashCommand(['INCR', `accademia:visits:path:${path}`]);
-  return true;
-}
-
-async function verifyAndConsumeUnlockCode(code) {
-  const catalog = parseUnlockCatalog(process.env.ACC_UNLOCK_CODES_JSON || process.env.UNLOCK_CODES_JSON || '');
-  const match = catalog[code];
-
-  if (!match) {
-    return { valid: false, reason: 'not_found' };
-  }
-
-  const usedKey = `accademia:unlock:used:${code}`;
-  const setResult = await upstashCommand(['SET', usedKey, '1', 'EX', String(CODE_TTL_SECONDS), 'NX']);
-
-  if (setResult !== 'OK') {
-    return { valid: false, reason: 'already_used' };
-  }
-
-  return { valid: true, type: match.type || 'premium' };
-}
-
-function parseUnlockCatalog(raw) {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.reduce((acc, item) => {
-        if (!item) return acc;
-        const code = String(item.code || '').trim().toUpperCase();
-        if (!code) return acc;
-        acc[code] = { type: String(item.type || 'premium').trim().toLowerCase() || 'premium' };
-        return acc;
-      }, {});
-    }
-    if (parsed && typeof parsed === 'object') {
-      return Object.entries(parsed).reduce((acc, [key, value]) => {
-        const code = String(key || '').trim().toUpperCase();
-        if (!code) return acc;
-        if (value && typeof value === 'object') {
-          acc[code] = { type: String(value.type || 'premium').trim().toLowerCase() || 'premium' };
-        } else {
-          acc[code] = { type: String(value || 'premium').trim().toLowerCase() || 'premium' };
-        }
-        return acc;
-      }, {});
-    }
-  } catch {
-    return {};
-  }
-  return {};
-}
-
-async function upstashCommand(command) {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) {
-    throw new Error('UPSTASH_REDIS_REST_URL o UPSTASH_REDIS_REST_TOKEN mancanti');
-  }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(command)
-  });
-
-  const data = await safeJson(response);
-
-  if (!response.ok) {
-    throw new Error(data?.error || `Errore Upstash HTTP ${response.status}`);
-  }
-
-  if (data?.error) {
-    throw new Error(data.error);
-  }
-
-  return data?.result ?? null;
-}
 
 function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
+  const rawInput = safe.input ?? safe.payload ?? safe.content ?? null;
   const input =
-    typeof safe.input === 'string'
-      ? safe.input
-      : typeof safe.payload === 'string'
-        ? safe.payload
-        : typeof safe.content === 'string'
-          ? safe.content
-          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
+    typeof rawInput === 'string'
+      ? rawInput
+      : JSON.stringify(rawInput ?? {}, null, 2);
 
-  return { task, input };
+  return { task, input, rawInput };
+}
+
+
+
+function getUpstashConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) {
+    throw new Error('Configurazione Upstash mancante');
+  }
+  return { url: url.replace(/\/$/, ''), token };
+}
+
+function stateRedisKey(syncKey) {
+  const digest = crypto.createHash('sha256').update(String(syncKey)).digest('hex');
+  return `accademia:state:${digest}`;
+}
+
+function usedCodeRedisKey(code) {
+  return `accademia:unlock:used:${String(code).trim().toUpperCase()}`;
+}
+
+async function upstashCall(path, { method = 'GET', body = null } = {}) {
+  const { url, token } = getUpstashConfig();
+  const response = await fetch(`${url}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body !== null ? { 'Content-Type': 'text/plain;charset=utf-8' } : {})
+    },
+    body
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error || data?.result || 'Errore Upstash');
+  }
+  return data;
+}
+
+async function upstashGet(key) {
+  const data = await upstashCall(`/get/${encodeURIComponent(key)}`);
+  return data?.result ?? null;
+}
+
+async function upstashSet(key, value) {
+  await upstashCall(`/set/${encodeURIComponent(key)}`, { method: 'POST', body: value });
+}
+
+async function upstashIncr(key) {
+  await upstashCall(`/incr/${encodeURIComponent(key)}`, { method: 'POST' });
+}
+
+function parseUnlockCodesEnv() {
+  const raw = process.env.ACC_UNLOCK_CODES_JSON || '[]';
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = [];
+  }
+
+  const map = new Map();
+  if (Array.isArray(parsed)) {
+    for (const row of parsed) {
+      if (!row) continue;
+      const code = String(row.code || '').trim().toUpperCase();
+      const type = String(row.type || '').trim().toLowerCase();
+      if (code && type) map.set(code, type);
+    }
+  } else if (parsed && typeof parsed === 'object') {
+    for (const [code, type] of Object.entries(parsed)) {
+      if (code && type) map.set(String(code).trim().toUpperCase(), String(type).trim().toLowerCase());
+    }
+  }
+  return map;
+}
+
+async function handleStateSave({ input, res }) {
+  const syncKey = String(input?.syncKey || '').trim();
+  const payload = input?.payload;
+  if (!syncKey || !payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Dati sync mancanti' });
+  }
+  const record = {
+    ...payload,
+    savedAt: payload.savedAt || new Date().toISOString()
+  };
+  await upstashSet(stateRedisKey(syncKey), JSON.stringify(record));
+  return res.status(200).json({ ok: true, savedAt: record.savedAt });
+}
+
+async function handleStateLoad({ input, res }) {
+  const syncKey = String(input?.syncKey || '').trim();
+  if (!syncKey) {
+    return res.status(400).json({ error: 'Chiave sync mancante' });
+  }
+  const raw = await upstashGet(stateRedisKey(syncKey));
+  if (!raw) {
+    return res.status(200).json({ ok: true, state: null });
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  return res.status(200).json({ ok: true, state: parsed });
+}
+
+async function handleVisitPing({ input, res }) {
+  const page = String(input?.page || 'app').trim().toLowerCase();
+  await upstashIncr(`accademia:visits:${page}`);
+  return res.status(200).json({ ok: true });
+}
+
+async function handleVerifyUnlock({ input, res }) {
+  const code = String(input?.code || '').trim().toUpperCase();
+  if (!code) {
+    return res.status(400).json({ valid: false, reason: 'empty' });
+  }
+  const codes = parseUnlockCodesEnv();
+  const type = codes.get(code);
+  if (!type) {
+    return res.status(200).json({ valid: false, reason: 'not_found' });
+  }
+  const usedKey = usedCodeRedisKey(code);
+  const alreadyUsed = await upstashGet(usedKey);
+  if (alreadyUsed) {
+    return res.status(200).json({ valid: false, reason: 'already_used' });
+  }
+  await upstashSet(usedKey, JSON.stringify({ usedAt: new Date().toISOString(), type }));
+  return res.status(200).json({ valid: true, type });
 }
 
 function pickProvider(task) {
