@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=GM1NmI1nn9rdSJkJzJV-Z2m_n7JSDkp5M98p1Rrnv0zNINUDDGYvZt60tGN8z_P6_n03h_XgUvS9hn8I-ZSYPzJL8Q05tHL6yGKUZOocm0oBlBEkZfjTiQYB4ZqXi_qPx5phBO9B8QG-5BTJfAXBFmaf4wVIROypM1dCCjmA08PczAzumSQX6p8opeI9WS0M7dNmzp9ke4kAvfH7JwdkJM7v-mx1d5Uy2tjondJf6WJqmrlRLNNg5z6MuFtL2_PQyQqp628vSoxbC_TKng3zcA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=_QNSDOOeiNdzbxPVe0NoKpLgiMZoQlAbX0W2o7hCV4afpL5aQq_c8G2ujHa5OAG-NoLQ5umqRZCeXTG1hXxUcT6zwx_SYRzx4IOHu7nTk3d0xAsAP64LddbTYRtkvGv0C6qKtrnPdxkCvBHg9-fVhnd8C8BujxSv4q36LVINyG03ZWDCrgJcngMP6oPy6uYbTF9cc3Lv__Moi12iMaKRLcqvjG_TjMHKpQtl2RPuoB9-7I9r70IRfSHBsqS3w6Miy12cTg0WmcZr2a7q565mIQ" charset="UTF-8"></script><style>
+  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=AAB4tFJfS_8cE1Be9jq1dfBFLNiHJDMnod1dbWD6M8lXk_0vUe9eESCWh89CefcQSbjGl-kl3ectPsnQogbQrXAKQklKl1g4UtcCUOy8hunFynJoLsWEG870XO1g6eXMXhv6LldtR6kiP03OCcrugs7m-hm43v9X73db8ATdEtSgGmiP_ICm5inVnV4CinwCLVSEI7mSYXctbxhKCHq86uB3PBIJqQHtWYK7OopbUG1xiiJZHmMavWCeTbu_9ZkJ1NMRaz4zdcLn95KAdOcllA" charset="UTF-8"></script><style>
     :root {
       --bg:#050505;
       --bg2:#0e0e0e;
@@ -630,7 +630,172 @@
   .maintenance-banner{position:sticky;top:0;z-index:120;background:linear-gradient(90deg,rgba(214,174,74,.18),rgba(214,174,74,.08));border-bottom:1px solid rgba(214,174,74,.28);backdrop-filter:blur(10px)}
   .maintenance-banner .container{padding:10px 24px;font-size:13px;line-height:1.5;color:var(--text1)}
   .maintenance-banner strong{color:var(--gold)}
-</style>
+
+    .compat-section {
+      padding-top:8px;
+    }
+    .compat-shell {
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:22px;
+      align-items:start;
+    }
+    .compat-card,
+    .compat-checker,
+    .compat-result,
+    .compat-list-box {
+      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border:1px solid var(--line-soft);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .compat-card,
+    .compat-checker,
+    .compat-list-box {
+      padding:24px;
+    }
+    .compat-card h2,
+    .compat-checker h3,
+    .compat-list-box h3 {
+      margin:0 0 10px;
+    }
+    .compat-lead {
+      color:var(--text-2);
+      margin:0 0 18px;
+    }
+    .compat-grid {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      margin-top:16px;
+    }
+    .compat-list-box h3 {
+      font-size:16px;
+    }
+    .compat-list-box p {
+      margin:0 0 10px;
+      color:var(--text-2);
+      font-size:14px;
+    }
+    .compat-list {
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:grid;
+      gap:8px;
+    }
+    .compat-list li {
+      padding:10px 12px;
+      border-radius:12px;
+      background:rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.05);
+      color:var(--text-2);
+      font-size:14px;
+    }
+    .compat-list-box.good h3,
+    .compat-list-box.good li strong { color:#d7bb64; }
+    .compat-list-box.partial h3,
+    .compat-list-box.partial li strong { color:#f0d48d; }
+    .compat-list-box.blocked h3,
+    .compat-list-box.blocked li strong { color:#f29a9a; }
+    .compat-checker {
+      display:grid;
+      gap:14px;
+    }
+    .compat-form-row {
+      display:grid;
+      gap:8px;
+    }
+    .compat-form-row label,
+    .compat-consent label {
+      font-size:13px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      color:var(--muted);
+      font-weight:700;
+    }
+    .compat-select {
+      min-height:54px;
+      border-radius:14px;
+      border:1px solid rgba(201,168,76,.18);
+      background:#0f0f10;
+      color:var(--text);
+      padding:0 16px;
+      font-family:inherit;
+      font-size:15px;
+      outline:none;
+    }
+    .compat-consent {
+      padding:14px;
+      border-radius:14px;
+      border:1px solid rgba(201,168,76,.14);
+      background:rgba(255,255,255,.015);
+      display:none;
+      gap:10px;
+    }
+    .compat-consent.active { display:grid; }
+    .compat-consent .check-row {
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      color:var(--text-2);
+      font-size:14px;
+      text-transform:none;
+      letter-spacing:normal;
+      font-weight:500;
+    }
+    .compat-result {
+      padding:18px;
+      display:grid;
+      gap:8px;
+    }
+    .compat-result strong {
+      font-size:18px;
+    }
+    .compat-result p {
+      margin:0;
+      color:var(--text-2);
+    }
+    .compat-result.is-good {
+      border:1px solid rgba(201,168,76,.26);
+    }
+    .compat-result.is-partial {
+      border:1px solid rgba(240,212,141,.28);
+    }
+    .compat-result.is-blocked {
+      border:1px solid rgba(242,154,154,.30);
+    }
+    .compat-actions-note {
+      font-size:13px;
+      color:var(--muted);
+    }
+    .plan-gate-note {
+      margin:0 0 18px;
+      padding:14px 16px;
+      border-radius:14px;
+      border:1px solid rgba(201,168,76,.16);
+      background:rgba(255,255,255,.015);
+      color:var(--text-2);
+    }
+    .gate-link.is-locked,
+    .gate-link[aria-disabled="true"] {
+      opacity:.48;
+      filter:saturate(.6);
+      pointer-events:none;
+      cursor:not-allowed;
+    }
+    .gate-link.is-ready {
+      opacity:1;
+      filter:none;
+    }
+    @media (max-width: 980px) {
+      .compat-shell,
+      .compat-grid {
+        grid-template-columns:1fr;
+      }
+    }
+
+  </style>
 </head>
 <body>
   <div class="maintenance-banner">
@@ -723,6 +888,135 @@
       </div>
     </section>
 
+
+    <section id="compatibilita" class="section compat-section">
+      <div class="container compat-shell">
+        <div class="compat-card">
+          <div class="section-head" style="margin-bottom:18px;">
+            <div class="eyebrow">Compatibilità prima dell'acquisto</div>
+            <h2>Verifica subito se AccademIA è adatta al tuo percorso.</h2>
+            <p class="compat-lead">Per evitare acquisti non adatti, AccademIA è disponibile solo per facoltà e tipologie di tesi attualmente supportate. Le aree con maggiore componente clinica, sperimentale, di laboratorio o tecnico-quantitativa non sono previste nel perimetro standard.</p>
+          </div>
+          <div class="compat-grid">
+            <article class="compat-list-box good">
+              <h3>Adatto a</h3>
+              <p>Facoltà con compatibilità piena nell'attuale perimetro del servizio.</p>
+              <ul class="compat-list">
+                <li><strong>Psicologia</strong></li>
+                <li><strong>Giurisprudenza</strong></li>
+                <li><strong>Scienze Politiche e Relazioni Internazionali</strong></li>
+                <li><strong>Economia e Management</strong></li>
+                <li><strong>Economia Aziendale</strong></li>
+                <li><strong>Lettere e Filosofia</strong></li>
+                <li><strong>Scienze della Comunicazione</strong></li>
+              </ul>
+            </article>
+            <article class="compat-list-box partial">
+              <h3>Adatto con limiti</h3>
+              <p>Solo per tesi teoriche, review, comparative o caso studio, senza raccolta dati originale.</p>
+              <ul class="compat-list">
+                <li><strong>Agraria e Scienze Forestali</strong></li>
+                <li><strong>Architettura</strong></li>
+                <li><strong>Design</strong></li>
+                <li><strong>Ingegneria Gestionale</strong></li>
+                <li><strong>Scienze Motorie e Sportive</strong></li>
+                <li><strong>Scienze e Tecnologie Alimentari</strong></li>
+              </ul>
+            </article>
+            <article class="compat-list-box blocked">
+              <h3>Attualmente non previsto per</h3>
+              <p>L'acquisto viene disabilitato per evitare un uso non adatto del servizio.</p>
+              <ul class="compat-list">
+                <li><strong>Medicina e Chirurgia</strong></li>
+                <li><strong>Informatica e Ingegneria Informatica</strong></li>
+                <li><strong>Ingegneria Civile e Ambientale</strong></li>
+                <li><strong>Biotecnologie</strong></li>
+                <li><strong>Fisica</strong></li>
+                <li><strong>Scienze Biologiche</strong></li>
+                <li><strong>Scienze Statistiche</strong></li>
+              </ul>
+            </article>
+          </div>
+        </div>
+
+        <div class="compat-checker">
+          <div>
+            <h3>Test di compatibilità</h3>
+            <p class="compat-lead">Seleziona facoltà e tipologia di tesi. Solo dopo una compatibilità valida potrai procedere ai piani di acquisto.</p>
+          </div>
+          <div class="compat-form-row">
+            <label for="compatFaculty">Facoltà</label>
+            <select id="compatFaculty" class="compat-select">
+              <option value="">Seleziona la tua facoltà</option>
+              <option>Psicologia</option>
+              <option>Giurisprudenza</option>
+              <option>Scienze Politiche e Relazioni Internazionali</option>
+              <option>Beni Culturali e Turismo</option>
+              <option>Economia e Management</option>
+              <option>Economia Aziendale</option>
+              <option>Filosofia</option>
+              <option>Lettere e Filosofia</option>
+              <option>Lingue e Letterature Straniere</option>
+              <option>Scienze della Comunicazione</option>
+              <option>Scienze dell’Educazione e della Formazione</option>
+              <option>Scienze Sociali e Sociologia</option>
+              <option>Sociologia</option>
+              <option>Storia</option>
+              <option>Teologia</option>
+              <option>Agraria e Scienze Forestali</option>
+              <option>Architettura</option>
+              <option>Design</option>
+              <option>Ingegneria Gestionale</option>
+              <option>Scienze Motorie e Sportive</option>
+              <option>Scienze e Tecnologie Alimentari</option>
+              <option>Medicina e Chirurgia</option>
+              <option>Informatica e Ingegneria Informatica</option>
+              <option>Ingegneria Civile e Ambientale</option>
+              <option>Biotecnologie</option>
+              <option>Chimica e Farmacia</option>
+              <option>Farmacia</option>
+              <option>Fisica</option>
+              <option>Ingegneria Aerospaziale</option>
+              <option>Ingegneria Biomedica</option>
+              <option>Ingegneria Elettrica ed Elettronica</option>
+              <option>Ingegneria Meccanica</option>
+              <option>Matematica</option>
+              <option>Medicina Veterinaria</option>
+              <option>Scienze Biologiche</option>
+              <option>Scienze Naturali</option>
+              <option>Scienze Statistiche</option>
+            </select>
+          </div>
+          <div class="compat-form-row">
+            <label for="compatThesis">Tipologia di tesi</label>
+            <select id="compatThesis" class="compat-select">
+              <option value="">Seleziona la tipologia</option>
+              <option value="teorica">Tesi teorica / compilativa</option>
+              <option value="review">Review / revisione della letteratura</option>
+              <option value="comparativa">Comparativa</option>
+              <option value="casostudio">Caso studio</option>
+              <option value="empirica">Empirica con raccolta dati originale</option>
+              <option value="clinica">Clinica / laboratorio / sperimentale</option>
+              <option value="quantitativa">Analisi statistica originale / quantitativa</option>
+              <option value="progettuale">Progettuale / tecnica specialistica</option>
+            </select>
+          </div>
+          <div id="compatConsent" class="compat-consent">
+            <label>Conferma richiesta</label>
+            <div class="check-row">
+              <input type="checkbox" id="compatAcknowledge">
+              <span>Ho compreso che, per questa facoltà, AccademIA è adatta solo a tesi teoriche, review, comparative o caso studio, e non a elaborati clinici, sperimentali, di laboratorio o con analisi dati originali.</span>
+            </div>
+          </div>
+          <div id="compatResult" class="compat-result">
+            <strong>Verifica non ancora completata</strong>
+            <p>Seleziona facoltà e tipologia di tesi per sapere se puoi procedere all'acquisto del piano standard.</p>
+          </div>
+          <div class="compat-actions-note">I pulsanti dei piani restano bloccati finché la compatibilità non risulta valida.</div>
+        </div>
+      </div>
+    </section>
+
     <section id="come-funziona" class="section">
       <div class="container">
         <div class="section-head">
@@ -792,6 +1086,8 @@
 
         <div class="plan-warning"><strong>Perimetro del servizio:</strong> i piani AccademIA riguardano impostazione, sviluppo assistito e revisione di materiali di supporto alla tesi. Non includono raccolta dati reali, interviste, questionari, sperimentazioni, elaborazioni statistiche originali o validazione finale da parte dell'ateneo. Ogni contenuto resta da verificare, rielaborare e adattare prima dell'uso accademico.</div>
 
+        <div class="plan-gate-note"><strong>Accesso ai piani:</strong> prima di procedere è necessario completare il test di compatibilità sopra. Se la tua facoltà o la tua tipologia di tesi non rientrano nel perimetro previsto, l'acquisto standard resta disabilitato.</div>
+
         <div class="plans">
           <article class="plan">
             <h3>Start</h3>
@@ -807,7 +1103,7 @@
               <li>2 revisioni incluse</li>
               <li>Ripresa del lavoro dopo login</li>
             </ul>
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1" data-plan-link="1">Scegli il piano</a>
           </article>
 
           <article class="plan featured">
@@ -825,7 +1121,7 @@
               <li>5 revisioni incluse</li>
               <li>Maggiore continuità tra sviluppo e correzioni</li>
             </ul>
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1" data-plan-link="1">Scegli il piano</a>
           </article>
 
           <article class="plan">
@@ -842,7 +1138,7 @@
               <li>15 revisioni incluse</li>
               <li>Possibilità di attivare pacchetti aggiuntivi in seguito</li>
             </ul>
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1" data-plan-link="1">Scegli il piano</a>
           </article>
         </div>
       </div>
@@ -864,7 +1160,7 @@
               <span class="old-price">39 €</span>
               <span class="new-price">29 €</span>
             </div>
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1" data-plan-link="1">Scegli il piano</a>
           </article>
 
           <article class="extra-card">
@@ -874,7 +1170,7 @@
               <span class="new-price">Da 30 €</span>
             </div>
             <div class="extra-note">Da Start a Pro: 30 € · da Pro a Premium: 40 € · da Start a Premium: 70 €</div>
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Scegli il piano</a>
+            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1" data-plan-link="1">Scegli il piano</a>
           </article>
         </div>
       </div>
@@ -955,12 +1251,113 @@
   (function(){
     const APP_URL = window.location.origin + "/app/app-index.html";
     document.querySelectorAll('[data-app-link="1"]').forEach((link) => {
-      link.addEventListener('click', function(event){
-        event.preventDefault();
-        event.stopPropagation();
-        window.location.assign(APP_URL);
-      });
+      if (!link.dataset.planLink) {
+        link.addEventListener('click', function(event){
+          event.preventDefault();
+          event.stopPropagation();
+          window.location.assign(APP_URL);
+        });
+      }
     });
+
+    const facultyEl = document.getElementById('compatFaculty');
+    const thesisEl = document.getElementById('compatThesis');
+    const consentWrap = document.getElementById('compatConsent');
+    const consentEl = document.getElementById('compatAcknowledge');
+    const resultEl = document.getElementById('compatResult');
+    const gatedLinks = Array.from(document.querySelectorAll('[data-plan-link="1"]'));
+
+    const full = new Set([
+      'Psicologia','Giurisprudenza','Scienze Politiche e Relazioni Internazionali','Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Filosofia','Lettere e Filosofia','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Sociologia','Storia','Teologia'
+    ]);
+    const partial = new Set([
+      'Agraria e Scienze Forestali','Architettura','Design','Ingegneria Gestionale','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari'
+    ]);
+    const supportedTypes = new Set(['teorica','review','comparativa','casostudio']);
+
+    function lockPlans(){
+      gatedLinks.forEach((link)=>{
+        link.classList.add('gate-link','is-locked');
+        link.classList.remove('is-ready');
+        link.setAttribute('aria-disabled','true');
+        link.addEventListener('click', preventLockedClick, true);
+      });
+    }
+
+    function planNavigate(event){
+      event.preventDefault();
+      event.stopPropagation();
+      window.location.assign(APP_URL);
+    }
+
+    function unlockPlans(){
+      gatedLinks.forEach((link)=>{
+        link.classList.remove('is-locked');
+        link.classList.add('gate-link','is-ready');
+        link.setAttribute('aria-disabled','false');
+        link.removeEventListener('click', preventLockedClick, true);
+        link.removeEventListener('click', planNavigate, true);
+        link.addEventListener('click', planNavigate, true);
+      });
+    }
+
+    function preventLockedClick(event){
+      event.preventDefault();
+      event.stopPropagation();
+      document.getElementById('compatibilita')?.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+
+    function setResult(kind, title, message){
+      resultEl.className = 'compat-result';
+      if (kind) resultEl.classList.add('is-' + kind);
+      resultEl.innerHTML = '<strong>' + title + '</strong><p>' + message + '</p>';
+    }
+
+    function evaluate(){
+      const faculty = facultyEl.value.trim();
+      const thesis = thesisEl.value;
+      lockPlans();
+      consentWrap.classList.remove('active');
+      consentEl.checked = false;
+
+      if (!faculty || !thesis) {
+        setResult('', 'Verifica non ancora completata', 'Seleziona facoltà e tipologia di tesi per sapere se puoi procedere all'acquisto del piano standard.');
+        return;
+      }
+
+      if (!supportedTypes.has(thesis)) {
+        setResult('blocked', 'Non compatibile con il perimetro standard', 'AccademIA non è progettata per tesi empiriche con raccolta dati originale, cliniche, sperimentali, di laboratorio, con analisi statistiche originali o con forte componente tecnico-progettuale specialistica. L'acquisto standard resta disabilitato.');
+        return;
+      }
+
+      if (full.has(faculty)) {
+        unlockPlans();
+        setResult('good', 'Compatibile', 'Puoi procedere con i piani standard. Resta comunque necessario verificare e adattare ogni output prima dell'uso accademico.');
+        return;
+      }
+
+      if (partial.has(faculty)) {
+        consentWrap.classList.add('active');
+        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà AccademIA è utilizzabile solo per tesi teoriche, review, comparative o caso studio. Conferma la presa visione per sbloccare i piani.');
+        return;
+      }
+
+      setResult('blocked', 'Attualmente non previsto per questa facoltà', 'Per evitare acquisti non adatti, il piano standard non è disponibile per questa facoltà nel perimetro attuale del servizio.');
+    }
+
+    facultyEl?.addEventListener('change', evaluate);
+    thesisEl?.addEventListener('change', evaluate);
+    consentEl?.addEventListener('change', function(){
+      if (consentEl.checked && partial.has(facultyEl.value.trim()) && supportedTypes.has(thesisEl.value)) {
+        unlockPlans();
+        setResult('partial', 'Compatibile con limiti', 'Compatibilità confermata con presa visione. Puoi procedere ai piani standard solo per un percorso teorico, review, comparativo o caso studio.');
+      } else {
+        lockPlans();
+        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà devi confermare la presa visione prima di procedere ai piani standard.');
+      }
+    });
+
+    lockPlans();
   })();
 </script>
 </body>
