@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=Tknw2OwNGNwDhITXOEot8cqfq9NPshJxdvoRouSewCoHPGGA0znrPMu_KQWyPgObmJ1eE9EZQHtCFH5u_3ZaKItk-tUXrAAHk2Ct559EtOUSnGZse5y4oxBfSLeRgnV1zdppNTwnOQoS7HuGhULJJXwW86nY4hzOaNrh6_xzFvuyM4sVlZbn3pA4zwqX7R6VihUKEajyvj9O22AAS6J4OO8I7fGBrhLUkYHAjOCJPeX4v4eMuzw8pIGFwsOJtIb8LddpD1hjg0Aid0jPPKqCaA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=qWTfKrTCLVB08jvXX-WNNCUwR4Sn_pVC0m6ACX8JO8zBsNFMPL3MZ6_GWtKAzHfZ290mpbgC-sPibMMNVrhVLKm0B_J68ESThOjheHWJIcQkYXO1vpHUiBf11preIy9R5vxPDaHhww8lnqUBR1X1xuTSIcAUij_zk9mmQE8IFCymtcMVk4YUlLeHseoLjyA0GYywsHQDmnmFGVW-Pdx159UylI3W9xJJb1dyqoZntZVBn88AzF6qAAEyhWQqS25BPRFGWHIh_Kqf0OToXi9Rpg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -441,24 +441,18 @@
         <select id="facolta" onchange="handleProjectStructureChange()">
           <option value="">— Seleziona —</option>
           <option>Agraria e Scienze Forestali</option><option>Architettura</option>
-          <option>Beni Culturali e Turismo</option><option>Biotecnologie</option>
-          <option>Chimica e Farmacia</option><option>Design</option>
+          <option>Beni Culturali e Turismo</option><option>Design</option>
           <option>Economia e Management</option><option>Economia Aziendale</option>
-          <option>Farmacia</option><option>Filosofia</option><option>Fisica</option>
-          <option>Giurisprudenza</option>
+          <option>Filosofia</option><option>Giurisprudenza</option>
           <option>Informatica e Ingegneria Informatica</option>
-          <option>Ingegneria Aerospaziale</option><option>Ingegneria Biomedica</option>
           <option>Ingegneria Civile e Ambientale</option>
-          <option>Ingegneria Elettrica ed Elettronica</option>
-          <option>Ingegneria Gestionale</option><option>Ingegneria Meccanica</option>
-          <option>Lettere e Filosofia</option><option>Lingue e Letterature Straniere</option>
-          <option>Matematica</option><option>Medicina e Chirurgia</option>
-          <option>Medicina Veterinaria</option><option>Psicologia</option>
-          <option>Scienze Biologiche</option><option>Scienze della Comunicazione</option>
+          <option>Ingegneria Gestionale</option><option>Lettere e Filosofia</option>
+          <option>Lingue e Letterature Straniere</option><option>Medicina e Chirurgia</option>
+          <option>Psicologia</option><option>Scienze della Comunicazione</option>
           <option>Scienze dell'Educazione e della Formazione</option>
-          <option>Scienze Motorie e Sportive</option><option>Scienze Naturali</option>
+          <option>Scienze Motorie e Sportive</option>
           <option>Scienze Politiche e Relazioni Internazionali</option>
-          <option>Scienze Sociali e Sociologia</option><option>Scienze Statistiche</option>
+          <option>Scienze Sociali e Sociologia</option>
           <option>Scienze e Tecnologie Alimentari</option><option>Sociologia</option>
           <option>Storia</option><option>Teologia</option>
         </select>
@@ -476,6 +470,11 @@
           <div class="metod-chip" onclick="setMetod(this,'comparativa')">Comparativa</div>
         </div>
         <div style="margin-top:10px;font-size:12px;color:var(--text3)">AccademIA è pensata soprattutto per tesi teoriche, comparative, di caso studio e revisioni sistematiche. Non è progettata per raccolta dati originali o analisi statistiche proprietarie.</div>
+        <div id="compatibilityNotice" style="display:none;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;line-height:1.65"></div>
+        <label id="compatibilityAckWrap" style="display:none;margin-top:10px;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,215,102,.18);background:rgba(255,215,102,.06);font-size:12px;line-height:1.6;color:var(--text)">
+          <input type="checkbox" id="compatibilityAck" onchange="handleCompatibilityAck()" style="margin-top:3px">
+          <span>Ho compreso che, per questa facoltà, AccademIA è adatta solo a tesi teoriche, comparative, di review o caso studio non sperimentale.</span>
+        </label>
       </div>
       <div class="form-group full">
         <label>Argomento della tesi</label>
@@ -837,6 +836,11 @@ let syncSaveTimer=null;
 let snapshotCache=[];
 let recoveryCache={local:null,sync:null,account:null,newest:null};
 const ADMIN_DASH_KEY_STORAGE='accademia_admin_dash_key_v1';
+const FACULTY_COMPATIBILITY={
+  veryGood:['Psicologia','Giurisprudenza','Scienze Politiche e Relazioni Internazionali'],
+  good:['Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Filosofia','Lettere e Filosofia','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell'Educazione e della Formazione','Scienze Sociali e Sociologia','Sociologia','Storia','Teologia'],
+  partial:['Agraria e Scienze Forestali','Architettura','Design','Informatica e Ingegneria Informatica','Ingegneria Civile e Ambientale','Ingegneria Gestionale','Medicina e Chirurgia','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari']
+};
 
 async function apiTask(task,input={}){
   const res=await fetch('/api/task',{
@@ -1893,7 +1897,8 @@ function captureFormState(){
     tipoLaurea:document.getElementById('tipoLaurea')?.value||'',
     indiceManuale:document.getElementById('indiceManuale')?.value||'',
     abstractManuale:document.getElementById('abstractManuale')?.value||'',
-    numChapters:document.getElementById('numChapters')?.value||'4'
+    numChapters:document.getElementById('numChapters')?.value||'4',
+    compatibilityAck:!!document.getElementById('compatibilityAck')?.checked
   };
 }
 
@@ -1906,7 +1911,9 @@ function applyFormState(form){
   if(document.getElementById('indiceManuale')) document.getElementById('indiceManuale').value=form.indiceManuale||'';
   if(document.getElementById('abstractManuale')) document.getElementById('abstractManuale').value=form.abstractManuale||'';
   if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
+  if(document.getElementById('compatibilityAck')) document.getElementById('compatibilityAck').checked=!!form.compatibilityAck;
   renderTitleSuggestions();
+  renderCompatibilityNotice();
 }
 
 function saveProgress(){
@@ -1959,6 +1966,7 @@ function removeChapterDomFrom(startIdx){
 }
 
 function skipAbstractAndGoToChapters(){
+  if(!ensureCompatibilityGuard()) return;
   if(!thesis.indice){showToast("Genera e approva prima l'indice",true);return;}
   if(!thesis.chapterTitles?.length) thesis.chapterTitles=extractChapterTitles(thesis.indice);
   thesis.currentChapterIdx=Math.max(0,Math.min(Number(thesis.currentChapterIdx)||0,thesis.chapters.length||0));
@@ -2223,7 +2231,7 @@ async function restoreProgressOnLoad(showToastOnSuccess=true){
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';renderTitleSuggestions();if(!window.__restoringState) saveProgress();}
+function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';renderTitleSuggestions();renderCompatibilityNotice();if(!window.__restoringState) saveProgress();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -2263,12 +2271,96 @@ function setStep(n){
   }
   if(!window.__restoringState) saveProgress();
 }
+
+function getFacultyCompatibility(facolta){
+  if(FACULTY_COMPATIBILITY.veryGood.includes(facolta)) return 'veryGood';
+  if(FACULTY_COMPATIBILITY.good.includes(facolta)) return 'good';
+  if(FACULTY_COMPATIBILITY.partial.includes(facolta)) return 'partial';
+  return facolta ? 'unsupported' : 'unknown';
+}
+
+function compatibilityBadge(kind){
+  if(kind==='veryGood') return 'Molto buona';
+  if(kind==='good') return 'Buona';
+  if(kind==='partial') return 'Parziale';
+  if(kind==='unsupported') return 'Non supportata';
+  return 'Da selezionare';
+}
+
+function renderCompatibilityNotice(){
+  const facolta=(document.getElementById('facolta')?.value||'').trim();
+  const box=document.getElementById('compatibilityNotice');
+  const ackWrap=document.getElementById('compatibilityAckWrap');
+  const ack=document.getElementById('compatibilityAck');
+  if(!box || !ackWrap || !ack) return;
+  if(!facolta){
+    box.style.display='block';
+    box.style.borderColor='rgba(255,255,255,.08)';
+    box.style.background='rgba(255,255,255,.03)';
+    box.innerHTML='<strong>Compatibilità facoltà</strong><br>Nel menu compaiono solo facoltà attualmente supportate. Le aree oggi non presidiate in modo affidabile sono state escluse.';
+    ackWrap.style.display='none';
+    ack.checked=false;
+    return;
+  }
+  const kind=getFacultyCompatibility(facolta);
+  const palettes={
+    veryGood:{border:'rgba(91,224,163,.28)',bg:'rgba(91,224,163,.08)'},
+    good:{border:'rgba(255,215,102,.26)',bg:'rgba(255,215,102,.06)'},
+    partial:{border:'rgba(255,153,102,.26)',bg:'rgba(255,153,102,.07)'},
+    unsupported:{border:'rgba(255,99,132,.28)',bg:'rgba(255,99,132,.08)'},
+    unknown:{border:'rgba(255,255,255,.08)',bg:'rgba(255,255,255,.03)'}
+  };
+  const tone=palettes[kind]||palettes.unknown;
+  box.style.display='block';
+  box.style.borderColor=tone.border;
+  box.style.background=tone.bg;
+  if(kind==='veryGood'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} rientra tra le aree oggi presidiate meglio da AccademIA.`;
+    ackWrap.style.display='none';
+    ack.checked=false;
+    return;
+  }
+  if(kind==='good'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative, di review o con forte impianto argomentativo.`;
+    ackWrap.style.display='none';
+    ack.checked=false;
+    return;
+  }
+  if(kind==='partial'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale. Non è il perimetro giusto per tesi cliniche, di laboratorio, con dati originali o analisi statistiche proprietarie.`;
+    ackWrap.style.display='flex';
+    return;
+  }
+  box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} non rientra tra le facoltà presidiate in modo affidabile da questa versione di AccademIA.`;
+  ackWrap.style.display='none';
+  ack.checked=false;
+}
+
+function handleCompatibilityAck(){
+  saveProgress();
+}
+
+function ensureCompatibilityGuard(){
+  const facolta=(document.getElementById('facolta')?.value||'').trim();
+  const kind=getFacultyCompatibility(facolta);
+  if(kind==='unsupported'){
+    showToast('Facoltà non supportata in modo affidabile da questa versione',true);
+    return false;
+  }
+  if(kind==='partial' && !document.getElementById('compatibilityAck')?.checked){
+    showToast('Per questa facoltà devi prima confermare i limiti di compatibilità',true);
+    return false;
+  }
+  return true;
+}
+
 function validateForm(){
   if(!document.getElementById('tipoLaurea').value){showToast('Seleziona il tipo di laurea',true);return false;}
   if(!document.getElementById('facolta').value){showToast('Seleziona la facoltà',true);return false;}
   if(!document.getElementById('corso').value.trim()){showToast('Inserisci il corso di laurea',true);return false;}
   if(!metodologia){showToast("Seleziona l'approccio metodologico",true);return false;}
   if(!document.getElementById('argomento').value.trim()){showToast("Inserisci l'argomento",true);return false;}
+  if(!ensureCompatibilityGuard()) return false;
   if(indiceMode==='manual'&&!document.getElementById('indiceManuale').value.trim()){showToast("Incolla l'indice del relatore",true);return false;}
   return true;
 }
@@ -2452,6 +2544,7 @@ Riscrivi indice completo. Stesso formato. Solo l'indice.`;
 // PHASE 2 — ABSTRACT
 // ══════════════════════════════════════════════
 async function generateAbstract(){
+  if(!ensureCompatibilityGuard()) return;
   await saveLastValidState('prima_generazione_abstract',{silent:true});
   const manualAbstract=document.getElementById('abstractManuale')?.value.trim()||'';
   document.getElementById('nextAbstract').classList.remove('visible');
@@ -2563,6 +2656,7 @@ function getChapterRole(idx,total,title,metod){
 }
 
 async function generateNextChapter(){
+  if(!ensureCompatibilityGuard()) return;
   await saveLastValidState('prima_generazione_capitolo',{silent:true});
   const idx=thesis.currentChapterIdx;
   const total=thesis.chapterTitles.length;
@@ -3451,6 +3545,7 @@ function applySuggestedTitle(btn){
 
 function handleProjectStructureChange(){
   renderTitleSuggestions();
+  renderCompatibilityNotice();
   saveProgress();
 }
 
