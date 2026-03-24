@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=qWTfKrTCLVB08jvXX-WNNCUwR4Sn_pVC0m6ACX8JO8zBsNFMPL3MZ6_GWtKAzHfZ290mpbgC-sPibMMNVrhVLKm0B_J68ESThOjheHWJIcQkYXO1vpHUiBf11preIy9R5vxPDaHhww8lnqUBR1X1xuTSIcAUij_zk9mmQE8IFCymtcMVk4YUlLeHseoLjyA0GYywsHQDmnmFGVW-Pdx159UylI3W9xJJb1dyqoZntZVBn88AzF6qAAEyhWQqS25BPRFGWHIh_Kqf0OToXi9Rpg" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=xmUajX3oLalYL2VAIWoX909ZiAs4kB9RznwzDEUqLXxpT9ewU0rduxyZjDYrozfUTRaxCYQC9UHVRoxAsmTAOr3IoneuhQjBQvGG4aK5G7ehxDDHWjUEy4yiJt71i5Xqu6ta9mZsOyi8nEVSfjnJB-5feWrk5AeijAJ-j4m0ofPLa89xTHJm1oWugUHXmCGFCtHnFfANjE2cMwHPyOgYEWDCV1TCZkEpAtQ7Sf85nM4n_c2VzSjQA1nkUArDIT2j0tVU6oQ2B_w9iG83jBaL-g" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -2370,14 +2370,134 @@ function validateForm(){
 // ══════════════════════════════════════════════
 function getDisciplineProfile(facolta){
   const P={
-    'Giurisprudenza':{stile:'giuridico-argomentativo con riferimenti normativi',fonti:'dottrina giuridica, giurisprudenza (Cassazione, Corte Costituzionale, CGUE), testi normativi, Foro Italiano, Rivista di Diritto Civile',vocabolario:'fattispecie, locus standi, ratio legis, orientamento giurisprudenziale, interpretazione sistematica',logica:'deduttiva: dalla norma al caso, analisi esegetica'},
-    'Psicologia':{stile:'scientifico-empirico con riferimento a paradigmi consolidati',fonti:'Journal of Personality, Psychological Review, Clinical Psychology Review (APA), DSM-5-TR, studi longitudinali peer-reviewed',vocabolario:'costrutto, variabile dipendente/indipendente, validità ecologica, affidabilità test-retest, p<.05, effect size',logica:'ipotetico-deduttiva: ipotesi → operazionalizzazione → verifica'},
-    'Economia e Management':{stile:'analitico-quantitativo con supporto di dati empirici',fonti:'HBR, Journal of Finance, Strategic Management Journal (ABS-rated), ISTAT, Banca d\'Italia, Eurostat, World Bank',vocabolario:'VAN, EBITDA, elasticità della domanda, esternalità, equilibrio di Nash, indice di Herfindahl',logica:'modelli teorici validati da dati empirici'},
-    'Economia Aziendale':{stile:'analitico-quantitativo con supporto di dati empirici',fonti:'HBR, Journal of Finance, Strategic Management Journal (ABS-rated), ISTAT, Banca d\'Italia, Eurostat',vocabolario:'VAN, EBITDA, ROI, ROE, elasticità, equilibrio di Nash',logica:'modelli teorici validati da dati empirici'},
-    'Medicina e Chirurgia':{stile:'scientifico evidence-based con linee guida cliniche',fonti:'PubMed/MEDLINE, Cochrane Reviews, NEJM, The Lancet, linee guida ERS/ESC/OMS, RCT',vocabolario:'sensibilità/specificità, odds ratio, IC 95%, NNT, metanalisi, livelli di evidenza (I-V)',logica:'evidence-based: dalla revisione sistematica alla pratica clinica'},
-    'Psicologia':{stile:'scientifico-empirico con paradigmi consolidati',fonti:'riviste APA indicizzate, DSM-5-TR, studi peer-reviewed',vocabolario:'costrutto psicologico, validità, affidabilità, significatività statistica',logica:'ipotetico-deduttiva'},
-    'Scienze Politiche e Relazioni Internazionali':{stile:'analitico-comparativo multidisciplinare',fonti:'International Organization, European Journal of Political Research, report ONU/UE/NATO',vocabolario:'governance multilivello, neofunzionalismo, realismo/liberalismo/costruttivismo, sovereignty gap',logica:'comparativa e interpretativa: analisi casi, process tracing'},
-    'default':{stile:'accademico-argomentativo con approccio critico e analitico',fonti:'riviste peer-reviewed indicizzate Scopus/WoS, monografie accademiche, report istituzioni riconosciute',vocabolario:'terminologia tecnica specifica della disciplina, registro formale accademico',logica:'argomentativa: tesi, antitesi, sintesi con supporto bibliografico'}
+    'Giurisprudenza':{
+      stile:'giuridico-argomentativo con riferimenti normativi, ricostruzione sistematica e attenzione al conflitto tra orientamenti',
+      fonti:'codici e testi normativi vigenti, Corte Costituzionale, Cassazione, Consiglio di Stato, CGUE, CEDU, dottrina specialistica e riviste giuridiche autorevoli',
+      vocabolario:'fattispecie, ratio decidendi, interpretazione letterale e sistematica, bilanciamento, legittimità costituzionale, orientamento giurisprudenziale, tutela multilivello',
+      logica:'deduttiva e sistematica: dalla cornice normativa al problema interpretativo, con confronto tra orientamenti e ricadute applicative',
+      struttura:'inquadramento normativo → definizione del problema interpretativo → analisi di dottrina e giurisprudenza → ricadute applicative',
+      errori:'evita taglio giornalistico, moralismi, formule vaghe, riferimenti normativi generici o non contestualizzati, conclusioni apodittiche senza base giuridica'
+    },
+    'Psicologia':{
+      stile:'scientifico-argomentativo con forte controllo terminologico, attenzione ai costrutti e distinzione netta tra teoria, evidenze empiriche e limiti',
+      fonti:'manuali e handbooks accademici, riviste APA o equivalenti peer-reviewed, meta-analisi, revisioni sistematiche, studi longitudinali, linee guida diagnostiche solo se pertinenti',
+      vocabolario:'costrutto, regolazione emotiva, bias, validità, affidabilità, mediazione, moderazione, correlazione, causalità, effect size, limiti metodologici',
+      logica:'dal quadro teorico ai modelli esplicativi, poi confronto critico tra evidenze e limiti, senza confondere descrizione clinica e interpretazione psicosociale',
+      struttura:'definizioni operative → modelli teorici → letteratura rilevante → confronto critico → implicazioni e limiti',
+      errori:'evita psicologismo intuitivo, linguaggio motivazionale, affermazioni cliniche senza fonti, uso improprio di causalità, confusione tra disturbo, tratto e costrutto'
+    },
+    'Scienze Politiche e Relazioni Internazionali':{
+      stile:'analitico-comparativo con lessico istituzionale accurato e inquadramento teorico esplicito',
+      fonti:'manuali accademici, riviste di political science e international relations, documenti UE/ONU/NATO/OCSE, report istituzionali autorevoli, dataset comparativi solo se davvero necessari',
+      vocabolario:'governance, policy, attore istituzionale, regime internazionale, multilevel governance, accountability, securitization, policy design, implementazione, path dependency',
+      logica:'quadro teorico → definizione del problema politico-istituzionale → confronto tra approcci o casi → implicazioni di policy',
+      struttura:'cornice teorica → definizione concetti → analisi comparativa o istituzionale → nodi critici → implicazioni di policy',
+      errori:'evita opinione politica, slogan, cronaca giornalistica, giudizi ideologici, semplificazioni geopolitiche, uso confuso di categorie teoriche'
+    },
+    'Economia e Management':{
+      stile:'analitico-argomentativo con attenzione a modelli, letteratura manageriale e ricadute organizzative',
+      fonti:'riviste accademiche di management ed economia, report istituzionali, dati ufficiali, manuali universitari, letteratura peer-reviewed',
+      vocabolario:'vantaggio competitivo, governance, performance, stakeholder, sostenibilità, efficienza, incentivi, allocazione, strategia, valore',
+      logica:'problema economico-organizzativo → modelli interpretativi → evidenze disponibili → implicazioni operative',
+      struttura:'inquadramento teorico → modelli → analisi critica → implicazioni manageriali',
+      errori:'evita taglio motivazionale/business da blog, consigli pratici non argomentati, buzzword senza definizione, dati non verificati'
+    },
+    'Economia Aziendale':{
+      stile:'analitico-aziendalistico con attenzione a assetti organizzativi, controllo e ricadute operative',
+      fonti:'manuali universitari, riviste accademiche di accounting e management, report ufficiali, dati societari o istituzionali verificabili',
+      vocabolario:'assetto organizzativo, equilibrio economico-finanziario, ROI, ROE, costo-opportunità, pianificazione, controllo, reporting, creazione di valore',
+      logica:'inquadramento teorico → strumenti e modelli → analisi del problema aziendale → implicazioni operative',
+      struttura:'fondamenti → modelli e strumenti → analisi critica → ricadute aziendali',
+      errori:'evita tono consulenziale-promozionale, formule vaghe, linguaggio commerciale, numeri non verificati'
+    },
+    'Beni Culturali e Turismo':{
+      stile:'storico-critico con attenzione a valorizzazione, fruizione e sostenibilità culturale',
+      fonti:'manuali universitari, letteratura specialistica, documenti MiC/UNESCO/ICOMOS, riviste accademiche di settore',
+      vocabolario:'valorizzazione, tutela, fruizione, patrimonializzazione, audience development, sostenibilità culturale, mediazione',
+      logica:'quadro teorico e normativo → problema di valorizzazione/fruizione → analisi critica → implicazioni operative',
+      struttura:'fondamenti → stato dell’arte → criticità → proposte interpretative',
+      errori:'evita promozionalità turistica, descrizioni da brochure, entusiasmo non argomentato'
+    },
+    'Filosofia':{
+      stile:'teorico-argomentativo con distinzione rigorosa tra ricostruzione dell’autore, confronto critico e posizione interpretativa',
+      fonti:'opere primarie, edizioni critiche, commentari autorevoli, saggi peer-reviewed',
+      vocabolario:'ontologia, epistemologia, ermeneutica, normatività, soggettività, mediazione concettuale, statuto teorico',
+      logica:'ricostruzione dei concetti → confronto tra interpretazioni → valutazione critica',
+      struttura:'inquadramento concettuale → ricostruzione teorica → confronto → esito interpretativo',
+      errori:'evita parafrasi scolastiche, semplificazioni divulgative, citazioni ornamentali, assenza di problema teorico'
+    },
+    'Lettere e Filosofia':{
+      stile:'storico-critico e teorico-interpretativo con centralità del problema di ricerca',
+      fonti:'fonti primarie, commenti critici, monografie accademiche, riviste scientifiche',
+      vocabolario:'tradizione, ricezione, contesto storico-culturale, dispositivo retorico, interpretazione critica',
+      logica:'contestualizzazione → analisi del testo/problema → confronto con la critica → sintesi interpretativa',
+      struttura:'quadro storico-critico → analisi → dibattito critico → interpretazione',
+      errori:'evita descrizione manualistica, riassunti narrativi, formule generiche sul contesto'
+    },
+    'Lingue e Letterature Straniere':{
+      stile:'filologico-critico o letterario-comparativo con attenzione a testo, contesto e dibattito critico',
+      fonti:'testi primari, edizioni affidabili, critica specialistica, riviste peer-reviewed',
+      vocabolario:'testualità, intertestualità, ricezione, traduzione, poetica, contesto culturale',
+      logica:'testo e contesto → tradizione critica → lettura interpretativa',
+      struttura:'inquadramento → analisi testuale → confronto critico → interpretazione',
+      errori:'evita riassunto della trama, impressioni soggettive, generalizzazioni sulla cultura di riferimento'
+    },
+    'Scienze della Comunicazione':{
+      stile:'analitico-interpretativo con lessico mediologico e attenzione a modelli comunicativi e contesti digitali',
+      fonti:'manuali universitari, riviste accademiche, report istituzionali o di osservatori affidabili, fonti dati verificate',
+      vocabolario:'frame, agenda setting, engagement, ecosystem mediale, piattaforme, pubblico, narrazione, disintermediazione',
+      logica:'modelli teorici → fenomeno comunicativo → evidenze e criticità → implicazioni',
+      struttura:'quadro teorico → analisi del fenomeno → confronto critico → implicazioni comunicative',
+      errori:'evita linguaggio da marketing operativo, esempi aneddotici, tono da social media manual'
+    },
+    'Scienze dell’Educazione e della Formazione':{
+      stile:'pedagogico-argomentativo con attenzione a modelli educativi, contesti e ricadute formative',
+      fonti:'manuali universitari, riviste pedagogiche, documenti MIUR/UNESCO/UE, letteratura peer-reviewed',
+      vocabolario:'agency, contesto educativo, mediazione didattica, apprendimento significativo, inclusione, riflessività, competenze',
+      logica:'problema educativo → modelli pedagogici → confronto critico → ricadute formative',
+      struttura:'fondamenti → modelli → analisi critica → implicazioni formative',
+      errori:'evita tono edificante, prescrizioni generiche, pedagogia retorica senza ancoraggio teorico'
+    },
+    'Scienze Sociali e Sociologia':{
+      stile:'socio-analitico con attenzione a concetti, processi e strutture, evitando impressionismo descrittivo',
+      fonti:'manuali accademici, classici e contemporanei, riviste peer-reviewed, report istituzionali',
+      vocabolario:'agency, struttura, capitale sociale, stigma, stratificazione, processi di istituzionalizzazione, riconoscimento',
+      logica:'definizione concettuale → modelli interpretativi → analisi del fenomeno → limiti e implicazioni',
+      struttura:'quadro concettuale → stato dell’arte → analisi → implicazioni',
+      errori:'evita sociologismo generico, moralismo, descrizione giornalistica dei fenomeni'
+    },
+    'Sociologia':{
+      stile:'socio-analitico con attenzione a concetti, processi e strutture, evitando impressionismo descrittivo',
+      fonti:'manuali accademici, classici e contemporanei, riviste peer-reviewed, report istituzionali',
+      vocabolario:'agency, struttura, capitale sociale, stigma, stratificazione, processi di istituzionalizzazione, riconoscimento',
+      logica:'definizione concettuale → modelli interpretativi → analisi del fenomeno → limiti e implicazioni',
+      struttura:'quadro concettuale → stato dell’arte → analisi → implicazioni',
+      errori:'evita sociologismo generico, moralismo, descrizione giornalistica dei fenomeni'
+    },
+    'Storia':{
+      stile:'storico-critico con attenzione a periodizzazione, fonti e dibattito storiografico',
+      fonti:'fonti primarie e secondarie affidabili, monografie, saggi e riviste specialistiche',
+      vocabolario:'periodizzazione, contesto, cesura, continuità/discontinuità, storiografia, interpretazione delle fonti',
+      logica:'contestualizzazione → fonti e dibattito → interpretazione storica',
+      struttura:'quadro storico → fonti e storiografia → analisi → esito interpretativo',
+      errori:'evita cronologia piatta, narrazione scolastica, teleologia non argomentata'
+    },
+    'Teologia':{
+      stile:'teologico-argomentativo con rigore esegetico e distinzione tra piano biblico, dogmatico e pastorale',
+      fonti:'testi biblici, magistero, teologi autorevoli, commentari specialistici, riviste accademiche',
+      vocabolario:'ermeneutica, ecclesiologia, antropologia teologica, magistero, esegesi, pastorale, tradizione',
+      logica:'fondamento testuale → interpretazione teologica → confronto critico → ricadute pastorali o dottrinali',
+      struttura:'fonti e fondamenti → interpretazione → confronto → ricadute',
+      errori:'evita devozionismo, moralismo, predicazione, parafrasi spirituale non accademica'
+    },
+    'default':{
+      stile:'accademico-argomentativo con approccio critico e analitico',
+      fonti:'riviste peer-reviewed indicizzate Scopus/WoS, monografie accademiche, report istituzioni riconosciute',
+      vocabolario:'terminologia tecnica specifica della disciplina, registro formale accademico',
+      logica:'argomentativa: tesi, antitesi, sintesi con supporto bibliografico',
+      struttura:'quadro teorico → stato dell’arte → analisi → conclusioni',
+      errori:'evita genericità, ripetizioni, tono divulgativo e assenza di perimetro disciplinare'
+    }
   };
   return P[facolta]||P['default'];
 }
@@ -2459,6 +2579,8 @@ DATI:
 - Argomento: "${thesis.argomento}"
 - Metodologia: ${thesis.metodologia}
 - Stile disciplinare: ${cp.dp.stile}
+- Struttura disciplinare preferita: ${cp.dp.struttura}
+- Errori da evitare: ${cp.dp.errori}
 
 REQUISITI:
 ${numHint}
@@ -2577,6 +2699,8 @@ REQUISITI:
 - Lunghezza: ${cp.isMagistrale?'250-300':'180-220'} parole. Terza persona. Prosa continua (no sottotitoli).
 - Struttura in sequenza: (1) inquadramento problema e rilevanza, (2) obiettivo specifico, (3) metodologia adottata, (4) argomenti sviluppati per capitolo, ${cp.isMagistrale?'(5) contributo originale al dibattito, (6) conclusioni e implicazioni':'(5) conclusioni principali'}.
 - Stile: ${cp.dp.stile}
+- Struttura preferita: ${cp.dp.struttura}
+- Errori da evitare: ${cp.dp.errori}
 - NON citare fonti nell'abstract
 - Inserisci una riga vuota prima della formula finale.
 - Chiudi andando a capo con: "Parole chiave: [5-7 termini rilevanti separati da virgola]"
@@ -2689,6 +2813,8 @@ Stile argomentativo: ${cp.dp.stile}
 Fonti accettabili: ${cp.dp.fonti}
 Vocabolario tecnico: ${cp.dp.vocabolario}
 Logica: ${cp.dp.logica}
+Struttura preferita: ${cp.dp.struttura}
+Errori da evitare: ${cp.dp.errori}
 
 ════════════════════════════════════════
 STRUTTURA COMPLETA DELLA TESI
@@ -2922,7 +3048,7 @@ async function reviseChapter(idx){
   const prompt=`Revisiona Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
 
-PROFILO DISCIPLINARE: ${cp.dp.stile} | Fonti: ${cp.dp.fonti}
+PROFILO DISCIPLINARE: ${cp.dp.stile} | Fonti: ${cp.dp.fonti} | Struttura: ${cp.dp.struttura} | Evita: ${cp.dp.errori}
 INDICE:\n${thesis.indice}
 CAPITOLO ATTUALE:\n${ch.content}
 
@@ -2997,7 +3123,7 @@ async function tutorReviseChapter(idx){
   const prompt=`Applica le osservazioni del relatore al Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
 
-PROFILO DISCIPLINARE: ${cp.dp.stile} | Fonti: ${cp.dp.fonti}
+PROFILO DISCIPLINARE: ${cp.dp.stile} | Fonti: ${cp.dp.fonti} | Struttura: ${cp.dp.struttura} | Evita: ${cp.dp.errori}
 INDICE:
 ${thesis.indice}
 ABSTRACT APPROVATO:
@@ -3376,14 +3502,14 @@ function methodologyFrame(v){
 
 function facultyTitleProfile(facolta){
   const name=(facolta||'').toLowerCase();
-  if(name.includes('psicologia')) return {adj:'psicologici', a:'determinanti psicologiche', b:'ricadute sul benessere e sul comportamento', c:'processi cognitivi', d:'regolazione emotiva', app:'prospettive di intervento'};
-  if(name.includes('giurisprudenza')) return {adj:'giuridici', a:'profili normativi', b:'orientamenti giurisprudenziali', c:'criticità interpretative', d:'tutela degli interessi coinvolti', app:'implicazioni applicative'};
+  if(name.includes('psicologia')) return {adj:'psicologici', a:'determinanti psicologiche e psicosociali', b:'ricadute su benessere, comportamento e adattamento', c:'processi cognitivi ed emotivi', d:'fattori di rischio e protezione', app:'prospettive di intervento e ricerca'};
+  if(name.includes('giurisprudenza')) return {adj:'giuridici', a:'profili normativi e costituzionali', b:'orientamenti giurisprudenziali e dottrinali', c:'criticità interpretative', d:'bilanciamento degli interessi coinvolti', app:'implicazioni applicative e sistematiche'};
   if(name.includes('economia')) return {adj:'economici', a:'determinanti economiche', b:'ricadute organizzative e manageriali', c:'governance', d:'performance e sostenibilità', app:'prospettive operative'};
   if(name.includes('ingegneria') || name.includes('informatica')) return {adj:'tecnico-progettuali', a:'modelli architetturali', b:'ricadute operative', c:'ottimizzazione dei processi', d:'scalabilità e affidabilità', app:'sviluppi progettuali'};
   if(name.includes('medicina') || name.includes('farmacia') || name.includes('biologia') || name.includes('biotecnologie') || name.includes('veterinaria')) return {adj:'clinico-scientifici', a:'evidenze scientifiche', b:'implicazioni cliniche o assistenziali', c:'prevenzione', d:'gestione del rischio', app:'ricadute professionali'};
   if(name.includes('educazione') || name.includes('formazione')) return {adj:'pedagogici', a:'processi educativi', b:'ricadute formative', c:'strategie didattiche', d:'contesti di apprendimento', app:'prospettive educative'};
   if(name.includes('comunicazione')) return {adj:'comunicativi', a:'dinamiche comunicative', b:'implicazioni mediatiche e strategiche', c:'narrazioni digitali', d:'processi persuasivi', app:'sviluppi applicativi'};
-  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali', b:'implicazioni istituzionali', c:'trasformazioni culturali', d:'politiche pubbliche', app:'sviluppi di policy'};
+  if(name.includes('scienze politiche') || name.includes('relazioni internazionali') || name.includes('sociali') || name.includes('sociologia')) return {adj:'socio-politici', a:'dinamiche sociali e istituzionali', b:'implicazioni di governance', c:'trasformazioni culturali e politiche', d:'politiche pubbliche e attori coinvolti', app:'sviluppi di policy'};
   if(name.includes('lettere') || name.includes('lingue') || name.includes('filosofia') || name.includes('storia')) return {adj:'storico-critici', a:'quadri teorici', b:'linee interpretative', c:'genealogie concettuali', d:'letture critiche', app:'prospettive ermeneutiche'};
   if(name.includes('architettura') || name.includes('design') || name.includes('beni culturali') || name.includes('turismo')) return {adj:'progettuali', a:'criteri progettuali', b:'ricadute fruitive e operative', c:'valorizzazione', d:'sostenibilità', app:'sviluppi operativi'};
   if(name.includes('teologia')) return {adj:'teologico-pastorali', a:'fondamenti teologici', b:'ricadute ecclesiali e pastorali', c:'ermeneutica', d:'prassi pastorale', app:'prospettive pastorali'};
