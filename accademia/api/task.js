@@ -57,6 +57,12 @@ export default async function handler(req, res) {
     if (task === '__account_save') {
       return await handleAccountSave({ input: rawInput || {}, res });
     }
+    if (task === '__snapshot_create') {
+      return await handleSnapshotCreate({ input: rawInput || {}, res });
+    }
+    if (task === '__snapshot_list') {
+      return await handleSnapshotList({ input: rawInput || {}, res });
+    }
 
     const provider = pickProvider(task);
 
@@ -153,6 +159,45 @@ function createOtpCode() {
 function createSessionToken() {
   return crypto.randomBytes(24).toString('hex');
 }
+
+
+function snapshotSyncRedisKey(syncKey) {
+  const digest = crypto.createHash('sha256').update(String(syncKey)).digest('hex');
+  return `accademia:snapshots:sync:${digest}`;
+}
+
+function snapshotAccountRedisKey(email) {
+  return `accademia:account:snapshots:${emailHash(email)}`;
+}
+
+async function loadSnapshotArray(key) {
+  const raw = await upstashGet(key);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function appendSnapshotRecord(key, record) {
+  const list = await loadSnapshotArray(key);
+  const next = [record, ...list.filter(item => item?.id !== record.id)].slice(0, 15);
+  await upstashSet(key, JSON.stringify(next));
+}
+
+function buildSnapshotRecord(input) {
+  const payload = input?.payload;
+  return {
+    id: String(input?.snapshotId || crypto.randomUUID()),
+    label: String(input?.label || 'Versione').trim(),
+    reason: String(input?.reason || 'manuale').trim(),
+    savedAt: payload?.savedAt || new Date().toISOString(),
+    payload
+  };
+}
+
 
 function getResendConfig() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -393,6 +438,50 @@ async function handleAccountSave({ input, res }) {
   };
   await upstashSet(accountStateRedisKey(email), JSON.stringify(record));
   return res.status(200).json({ ok: true, savedAt: record.savedAt, email });
+}
+
+
+async function handleSnapshotCreate({ input, res }) {
+  const payload = input?.payload;
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Payload snapshot mancante' });
+  }
+  const sessionToken = String(input?.sessionToken || '').trim();
+  const syncKey = String(input?.syncKey || '').trim();
+  const record = buildSnapshotRecord(input);
+
+  if (sessionToken) {
+    const email = await resolveAccountEmailFromSession(sessionToken);
+    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
+    await appendSnapshotRecord(snapshotAccountRedisKey(email), { ...record, accountEmail: email });
+    return res.status(200).json({ ok: true, id: record.id, savedAt: record.savedAt, scope: 'account' });
+  }
+
+  if (syncKey) {
+    await appendSnapshotRecord(snapshotSyncRedisKey(syncKey), record);
+    return res.status(200).json({ ok: true, id: record.id, savedAt: record.savedAt, scope: 'sync' });
+  }
+
+  return res.status(400).json({ error: 'Identità snapshot mancante' });
+}
+
+async function handleSnapshotList({ input, res }) {
+  const sessionToken = String(input?.sessionToken || '').trim();
+  const syncKey = String(input?.syncKey || '').trim();
+
+  if (sessionToken) {
+    const email = await resolveAccountEmailFromSession(sessionToken);
+    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
+    const snapshots = await loadSnapshotArray(snapshotAccountRedisKey(email));
+    return res.status(200).json({ ok: true, snapshots, scope: 'account' });
+  }
+
+  if (syncKey) {
+    const snapshots = await loadSnapshotArray(snapshotSyncRedisKey(syncKey));
+    return res.status(200).json({ ok: true, snapshots, scope: 'sync' });
+  }
+
+  return res.status(400).json({ error: 'Identità snapshot mancante' });
 }
 
 function pickProvider(task) {
