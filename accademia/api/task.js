@@ -69,6 +69,9 @@ export default async function handler(req, res) {
     if (task === '__recovery_load') {
       return await handleRecoveryLoad({ input: rawInput || {}, res });
     }
+    if (task === '__admin_stats') {
+      return await handleAdminStats({ input: rawInput || {}, res });
+    }
 
     const provider = pickProvider(task);
 
@@ -80,6 +83,8 @@ export default async function handler(req, res) {
       return await handleAnthropic({ task, input, res });
     } catch (error) {
       if (provider === 'anthropic' && shouldFallbackToOpenAI(task, error)) {
+        await recordAdminMetric('provider_timeout', { provider: 'anthropic', task });
+        await recordAdminMetric('provider_fallback', { from: 'anthropic', to: 'openai', task });
         return await handleOpenAI({
           task,
           input,
@@ -92,6 +97,7 @@ export default async function handler(req, res) {
       }
 
       if (isTimeoutLikeError(error)) {
+        await recordAdminMetric('provider_timeout', { provider, task });
         return res.status(504).json({
           error: 'Errore provider timeout',
           code: 'provider_timeout',
@@ -99,6 +105,7 @@ export default async function handler(req, res) {
         });
       }
 
+      await recordAdminMetric('provider_exception', { provider, task, details: error?.message || 'Errore provider' });
       throw error;
     }
   } catch (error) {
@@ -307,6 +314,61 @@ function parseUnlockCodesEnv() {
   return map;
 }
 
+
+function getAdminDashConfig() {
+  const key = String(process.env.ACC_ADMIN_DASH_KEY || '').trim();
+  if (!key) throw new Error('ACC_ADMIN_DASH_KEY non configurata');
+  return { key };
+}
+
+function adminStatsRedisKey(date) {
+  return `accademia:admin:stats:${date}`;
+}
+
+function adminEventsRedisKey() {
+  return 'accademia:admin:events';
+}
+
+function adminTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function loadJsonObject(key) {
+  const raw = await upstashGet(key);
+  if (!raw) return {};
+  try { return JSON.parse(raw) || {}; } catch { return {}; }
+}
+
+async function loadJsonArray(key) {
+  const raw = await upstashGet(key);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function recordAdminMetric(kind, payload = {}) {
+  try {
+    const date = adminTodayDate();
+    const statsKey = adminStatsRedisKey(date);
+    const stats = await loadJsonObject(statsKey);
+    stats.date = date;
+    stats.updatedAt = new Date().toISOString();
+    stats.counts = stats.counts && typeof stats.counts === 'object' ? stats.counts : {};
+    stats.counts[kind] = Number(stats.counts[kind] || 0) + 1;
+    await upstashSet(statsKey, JSON.stringify(stats));
+
+    const events = await loadJsonArray(adminEventsRedisKey());
+    const nextEvents = [{ kind, at: new Date().toISOString(), payload }, ...events].slice(0, 60);
+    await upstashSet(adminEventsRedisKey(), JSON.stringify(nextEvents));
+  } catch (error) {
+    console.warn('recordAdminMetric failed', error?.message || error);
+  }
+}
+
 async function handleStateSave({ input, res }) {
   const syncKey = String(input?.syncKey || '').trim();
   const payload = input?.payload;
@@ -318,6 +380,7 @@ async function handleStateSave({ input, res }) {
     savedAt: payload.savedAt || new Date().toISOString()
   };
   await upstashSet(stateRedisKey(syncKey), JSON.stringify(record));
+  await recordAdminMetric('state_save', { scope: 'sync' });
   return res.status(200).json({ ok: true, savedAt: record.savedAt });
 }
 
@@ -342,6 +405,7 @@ async function handleStateLoad({ input, res }) {
 async function handleVisitPing({ input, res }) {
   const page = String(input?.page || 'app').trim().toLowerCase();
   await upstashIncr(`accademia:visits:${page}`);
+  await recordAdminMetric('visit_ping', { page });
   return res.status(200).json({ ok: true });
 }
 
@@ -375,6 +439,8 @@ async function handleAccountSendCode({ input, res }) {
   const now = Date.now();
   const expiresAt = new Date(now + 15 * 60 * 1000).toISOString();
   await upstashSet(otpKey, JSON.stringify({ code, email, expiresAt, sentAt: new Date(now).toISOString() }));
+
+  await recordAdminMetric('account_code_send', { emailDomain: email.split('@')[1] || '' });
 
   await sendResendEmail({
     to: email,
@@ -411,6 +477,7 @@ async function handleAccountVerifyCode({ input, res }) {
 
   const sessionToken = createSessionToken();
   await upstashSet(accountSessionRedisKey(sessionToken), JSON.stringify({ email, createdAt: new Date().toISOString() }));
+  await recordAdminMetric('account_verify_ok', { emailDomain: email.split('@')[1] || '' });
   return res.status(200).json({ ok: true, email, sessionToken });
 }
 
@@ -452,6 +519,7 @@ async function handleAccountSave({ input, res }) {
     accountEmail: email
   };
   await upstashSet(accountStateRedisKey(email), JSON.stringify(record));
+  await recordAdminMetric('state_save', { scope: 'account' });
   return res.status(200).json({ ok: true, savedAt: record.savedAt, email });
 }
 
@@ -469,11 +537,13 @@ async function handleSnapshotCreate({ input, res }) {
     const email = await resolveAccountEmailFromSession(sessionToken);
     if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
     await appendSnapshotRecord(snapshotAccountRedisKey(email), { ...record, accountEmail: email });
+    await recordAdminMetric('snapshot_create', { scope: 'account', reason: record.reason });
     return res.status(200).json({ ok: true, id: record.id, savedAt: record.savedAt, scope: 'account' });
   }
 
   if (syncKey) {
     await appendSnapshotRecord(snapshotSyncRedisKey(syncKey), record);
+    await recordAdminMetric('snapshot_create', { scope: 'sync', reason: record.reason });
     return res.status(200).json({ ok: true, id: record.id, savedAt: record.savedAt, scope: 'sync' });
   }
 
@@ -516,11 +586,13 @@ async function handleRecoverySave({ input, res }) {
     const email = await resolveAccountEmailFromSession(sessionToken);
     if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
     await upstashSet(recoveryAccountRedisKey(email), JSON.stringify({ ...cleanRecord, accountEmail: email }));
+    await recordAdminMetric('recovery_save', { scope: 'account', reason: cleanRecord.reason });
     return res.status(200).json({ ok: true, savedAt: cleanRecord.savedAt, scope: 'account' });
   }
 
   if (syncKey) {
     await upstashSet(recoverySyncRedisKey(syncKey), JSON.stringify(cleanRecord));
+    await recordAdminMetric('recovery_save', { scope: 'sync', reason: cleanRecord.reason });
     return res.status(200).json({ ok: true, savedAt: cleanRecord.savedAt, scope: 'sync' });
   }
 
@@ -550,6 +622,26 @@ async function handleRecoveryLoad({ input, res }) {
   return res.status(400).json({ error: 'Identità recupero mancante' });
 }
 
+
+async function handleAdminStats({ input, res }) {
+  let config;
+  try {
+    config = getAdminDashConfig();
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Dashboard non configurata' });
+  }
+
+  const adminKey = String(input?.adminKey || '').trim();
+  if (!adminKey || adminKey !== config.key) {
+    return res.status(401).json({ error: 'Chiave dashboard non valida' });
+  }
+
+  const date = adminTodayDate();
+  const stats = await loadJsonObject(adminStatsRedisKey(date));
+  const events = await loadJsonArray(adminEventsRedisKey());
+  return res.status(200).json({ ok: true, stats, events });
+}
+
 function pickProvider(task) {
   const anthropicTasks = new Set([
     'chapter_draft',
@@ -576,6 +668,7 @@ async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
   const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
 
   if (!openaiKey) {
+    await recordAdminMetric('provider_config_error', { provider: 'openai', task });
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
   }
 
@@ -601,6 +694,7 @@ async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
   const data = await safeJson(response);
 
   if (!response.ok) {
+    await recordAdminMetric('provider_error', { provider: 'openai', task, status: response.status });
     return res.status(response.status).json({
       error: 'Errore OpenAI',
       details: simplifyProviderError(data)
@@ -612,6 +706,7 @@ async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
     extractOpenAIText(data) ||
     'Nessun contenuto restituito';
 
+  await recordAdminMetric(fallbackMeta ? 'provider_fallback_success' : 'provider_success', { provider: 'openai', task, fallbackFrom: fallbackMeta?.fallbackFrom || '' });
   return res.status(200).json({
     ok: true,
     provider: 'openai',
@@ -626,6 +721,7 @@ async function handleAnthropic({ task, input, res }) {
   const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   if (!anthropicKey) {
+    await recordAdminMetric('provider_config_error', { provider: 'anthropic', task });
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
   }
 
@@ -658,6 +754,7 @@ async function handleAnthropic({ task, input, res }) {
   const data = await safeJson(response);
 
   if (!response.ok) {
+    await recordAdminMetric('provider_error', { provider: 'anthropic', task, status: response.status });
     return res.status(response.status).json({
       error: 'Errore Anthropic',
       details: simplifyProviderError(data)
@@ -669,6 +766,7 @@ async function handleAnthropic({ task, input, res }) {
       ? data.content.map(part => part?.text || '').join('\n').trim()
       : '';
 
+  await recordAdminMetric('provider_success', { provider: 'anthropic', task });
   return res.status(200).json({
     ok: true,
     provider: 'anthropic',
