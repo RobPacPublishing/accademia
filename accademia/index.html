@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=TOh8_kVVicj5JUcSPpSAUGAiZIBYzz_PH4u5Yef9lp6ZIlSo8MHfBgL3rJZrT5N65Ccr5I3-_ZSh8-bi_7T35Wc5xulzFIirvcIBABENUBVzvIvmhCFf6HLC605olKU70f1qkDQILQUZ8DnsMuQiNKJoB5QmphBLWMYU3xCmiy0Hgek_1X_7WCldlMYgeKPLIFfUn1O-gFq0mrWoshTDAOwajo4VgkwALnbva0241lny-Gea6mANEL58xS1yDC54dwwSzUXm2SOM_7xpMeCY2w" charset="UTF-8"></script><style>
+  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=h98OebTrETtYPqWzujiKq17zTSUMxl-deuLwjTlLbNgFu2460xeKooYd3gneUcG5KlPhYahceO4W_2iF5L9JnirASkTfK5mp_sHL513ATxJIW3kJskC1ZpRmtvf7jv1Pj8h4jDzCwXes5bNivQDbhmOMYHylw77FBWF034Q5xs2DGzlEBiy0iAAMEQPK_IBs_GHJsT3jPA4qFw2-f2QVq_tYJhCs6lEY4AJnEG5Vzm9xo5UVHqOLdi7IPwtbC32_HeLQzx7biwTs5LoXc6Q2MA" charset="UTF-8"></script><style>
     :root {
       --bg:#050505;
       --bg2:#0e0e0e;
@@ -692,6 +692,18 @@
       color:var(--text-2);
       font-size:14px;
     }
+    .compat-list-box.good {
+      border-color:rgba(201,168,76,.28);
+      background:linear-gradient(180deg, rgba(201,168,76,.10), rgba(255,255,255,.015));
+    }
+    .compat-list-box.partial {
+      border-color:rgba(240,212,141,.28);
+      background:linear-gradient(180deg, rgba(240,212,141,.10), rgba(255,255,255,.015));
+    }
+    .compat-list-box.blocked {
+      border-color:rgba(242,154,154,.22);
+      background:linear-gradient(180deg, rgba(242,154,154,.06), rgba(255,255,255,.015));
+    }
     .compat-list-box.good h3,
     .compat-list-box.good li strong { color:#d7bb64; }
     .compat-list-box.partial h3,
@@ -745,9 +757,11 @@
       font-weight:500;
     }
     .compat-result {
-      padding:18px;
+      padding:20px 20px 18px;
       display:grid;
       gap:8px;
+      border-left:4px solid rgba(201,168,76,.26);
+      box-shadow:0 16px 38px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.03);
     }
     .compat-result strong {
       font-size:18px;
@@ -757,13 +771,37 @@
       color:var(--text-2);
     }
     .compat-result.is-good {
-      border:1px solid rgba(201,168,76,.26);
+      border:1px solid rgba(201,168,76,.32);
+      border-left:4px solid #d7bb64;
+      background:linear-gradient(180deg, rgba(201,168,76,.12), rgba(255,255,255,.015));
     }
     .compat-result.is-partial {
-      border:1px solid rgba(240,212,141,.28);
+      border:1px solid rgba(240,212,141,.34);
+      border-left:4px solid #f0d48d;
+      background:linear-gradient(180deg, rgba(240,212,141,.12), rgba(255,255,255,.015));
     }
     .compat-result.is-blocked {
-      border:1px solid rgba(242,154,154,.30);
+      border:1px solid rgba(242,154,154,.36);
+      border-left:4px solid #f29a9a;
+      background:linear-gradient(180deg, rgba(242,154,154,.11), rgba(255,255,255,.015));
+    }
+    .compat-action-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:6px;
+    }
+    .compat-action-row .btn {
+      min-width:190px;
+      justify-content:center;
+    }
+    .compat-action-row .btn.is-hidden {
+      display:none;
+    }
+    .compat-action-row .btn[aria-disabled="true"] {
+      opacity:.55;
+      pointer-events:none;
+      filter:saturate(.7);
     }
     .compat-actions-note {
       font-size:13px;
@@ -1011,6 +1049,10 @@
           <div id="compatResult" class="compat-result">
             <strong>Verifica non ancora completata</strong>
             <p>Seleziona facoltà e tipologia di tesi per sapere se puoi procedere all'acquisto del piano standard.</p>
+            <div class="compat-action-row">
+              <a id="compatPlansBtn" class="btn btn-primary is-hidden" href="#piani">Vai ai piani</a>
+              <a id="compatHasKeyBtn" class="btn btn-secondary" href="/app/app-index.html">Ho già una chiave</a>
+            </div>
           </div>
           <div class="compat-actions-note">I pulsanti dei piani restano bloccati finché la compatibilità non risulta valida.</div>
         </div>
@@ -1268,6 +1310,8 @@
     const consentWrap = document.getElementById('compatConsent');
     const consentEl = document.getElementById('compatAcknowledge');
     const resultEl = document.getElementById('compatResult');
+    const compatPlansBtn = document.getElementById('compatPlansBtn');
+    const compatHasKeyBtn = document.getElementById('compatHasKeyBtn');
     const gatedLinks = Array.from(document.querySelectorAll('[data-plan-link="1"]'));
 
     const full = new Set([
@@ -1298,7 +1342,7 @@
         return;
       }
       scrollToCompatibility();
-      setResult('blocked', 'Per entrare nell’app serve prima una chiave di accesso', 'Se non hai ancora una chiave, completa il test di compatibilità e poi scegli il piano più adatto. Dopo l’acquisto riceverai la chiave via email.');
+      setResult('blocked', 'Per entrare nell’app serve prima una chiave di accesso', 'Se non hai ancora una chiave, completa il test di compatibilità. Se la compatibilità risulta valida, usa il pulsante “Vai ai piani”. Se possiedi già una chiave, usa “Ho già una chiave”.', {showPlans:false, showHasKey:true});
     }
 
     document.querySelectorAll('[data-app-link="1"]').forEach((link) => {
@@ -1353,10 +1397,11 @@
       scrollToCompatibility();
     }
 
-    function setResult(kind, title, message){
+    function setResult(kind, title, message, options){
+      const opts = Object.assign({showPlans:false, showHasKey:true, planEnabled:false}, options || {});
       resultEl.className = 'compat-result';
       if (kind) resultEl.classList.add('is-' + kind);
-      resultEl.innerHTML = '<strong>' + title + '</strong><p>' + message + '</p>';
+      resultEl.innerHTML = '<strong>' + title + '</strong><p>' + message + '</p><div class="compat-action-row"><a id="compatPlansBtn" class="btn btn-primary' + (opts.showPlans ? '' : ' is-hidden') + '" href="#piani" aria-disabled="' + (opts.planEnabled ? 'false' : 'true') + '">Vai ai piani</a><a id="compatHasKeyBtn" class="btn btn-secondary' + (opts.showHasKey ? '' : ' is-hidden') + '" href="' + APP_URL + '">Ho già una chiave</a></div>';
     }
 
     function evaluate(){
@@ -1367,28 +1412,28 @@
       consentEl.checked = false;
 
       if (!faculty || !thesis) {
-        setResult('', 'Verifica non ancora completata', 'Seleziona facoltà e tipologia di tesi per sapere se puoi procedere all’acquisto del piano standard.');
+        setResult('', 'Verifica non ancora completata', 'Seleziona facoltà e tipologia di tesi per sapere se puoi procedere all’acquisto del piano standard.', {showPlans:false, showHasKey:true});
         return;
       }
 
       if (!supportedTypes.has(thesis)) {
-        setResult('blocked', 'Non compatibile con il perimetro standard', 'AccademIA non è progettata per tesi empiriche con raccolta dati originale, cliniche, sperimentali, di laboratorio, con analisi statistiche originali o con forte componente tecnico-progettuale specialistica. L’acquisto standard resta disabilitato.');
+        setResult('blocked', 'Non compatibile con il perimetro standard', 'AccademIA non è progettata per tesi empiriche con raccolta dati originale, cliniche, sperimentali, di laboratorio, con analisi statistiche originali o con forte componente tecnico-progettuale specialistica. L’acquisto standard resta disabilitato.', {showPlans:false, showHasKey:true});
         return;
       }
 
       if (full.has(faculty)) {
         unlockPlans();
-        setResult('good', 'Compatibile', 'Puoi procedere con i piani standard. Dopo l’acquisto riceverai la chiave di accesso via email.');
+        setResult('good', 'Compatibile', 'Puoi procedere con i piani standard. Dopo l’acquisto riceverai la chiave di accesso via email.', {showPlans:true, showHasKey:true, planEnabled:true});
         return;
       }
 
       if (partial.has(faculty)) {
         consentWrap.classList.add('active');
-        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà AccademIA è utilizzabile solo per tesi teoriche, review, comparative o caso studio. Conferma la presa visione per sbloccare i piani.');
+        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà AccademIA è utilizzabile solo per tesi teoriche, review, comparative o caso studio. Conferma la presa visione per sbloccare i piani.', {showPlans:false, showHasKey:true});
         return;
       }
 
-      setResult('blocked', 'Attualmente non previsto per questa facoltà', 'Per evitare acquisti non adatti, il piano standard non è disponibile per questa facoltà nel perimetro attuale del servizio.');
+      setResult('blocked', 'Attualmente non previsto per questa facoltà', 'Per evitare acquisti non adatti, il piano standard non è disponibile per questa facoltà nel perimetro attuale del servizio.', {showPlans:false, showHasKey:true});
     }
 
     facultyEl?.addEventListener('change', evaluate);
@@ -1396,10 +1441,10 @@
     consentEl?.addEventListener('change', function(){
       if (consentEl.checked && partial.has(facultyEl.value.trim()) && supportedTypes.has(thesisEl.value)) {
         unlockPlans();
-        setResult('partial', 'Compatibile con limiti', 'Compatibilità confermata con presa visione. Puoi procedere ai piani standard solo per un percorso teorico, review, comparativo o caso studio. Dopo l’acquisto riceverai la chiave di accesso via email.');
+        setResult('partial', 'Compatibile con limiti', 'Compatibilità confermata con presa visione. Puoi procedere ai piani standard solo per un percorso teorico, review, comparativo o caso studio. Dopo l’acquisto riceverai la chiave di accesso via email.', {showPlans:true, showHasKey:true, planEnabled:true});
       } else {
         lockPlans();
-        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà devi confermare la presa visione prima di procedere ai piani standard.');
+        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà devi confermare la presa visione prima di procedere ai piani standard.', {showPlans:false, showHasKey:true});
       }
     });
 
