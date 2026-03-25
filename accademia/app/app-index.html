@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=xuueT2-OPrh_hKBaffc0fbNFFzUBFm9CjPJnMFiBttKTdJkPPSkcB9kW6Yqo0kDev4bKU6w08n5B9Eikrzyc5ZjwHrCv2Dfr99sRrFf2nPjUTgCfiOmqBmkNYwXWX88QnhoTg9g5vgvCNMe8BIakVGDaxQYv98LUCgUucbkuUqpE5jIHYewCt0Uca9aJNA1RYCZ97uhmtvutWxGZyPVH_NZpxLB1TTQa4TM097g2Ho61P3GTOxBlqFdpEdGFhwisAWFpa2vJlQpcpzxwpgzxCQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=u9R8fwXf1DKvaOkIn6KCjg6UjAgHvjuB129e68N1MOjsgAcLgxyLkynzZRdhus54CRbLrwFDYJIkRNj0Le0o-MkkXOfYD4Q7TsbZzaAFovPmhrmKnHl8nTXL3oIBRZU8UZq0-e48HJkefbtskdRfBoYbbcSeT19m9pVpyH3CWG_-aBUhI0DtBZruqPrX1jKNoWTuorXIeub_7x0ZrJXQ0mudKJyL1T4u7E6E_4G9cN0fE1ZjVDZO9aO0geGO27mR97mHLfcCO7tP6IsLiKeQUA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -87,6 +87,10 @@
   .output-block-body{padding:26px;}
   .content-text{color:var(--text2);font-size:14px;line-height:1.95;white-space:pre-wrap;}
   .typing .content-text::after{content:'▋';color:var(--gold);animation:blink .7s infinite;}
+  .output-block.typing .approval-row{display:none !important;}
+  .output-block.typing .chapter-tools-bar{opacity:.55;pointer-events:none;}
+  .output-block.typing .revision-inline,
+  .output-block.typing .tutor-inline{opacity:.7;}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
   .sources-bar{padding:10px 26px;border-top:1px solid var(--border);background:rgba(91,155,213,.03);display:none;flex-wrap:wrap;gap:7px;align-items:center;}
   .sources-bar.visible{display:flex;}
@@ -133,9 +137,13 @@
   .chapter-progress-wrap{margin-bottom:18px;}
   .chapter-progress-label{font-size:11px;color:var(--text3);margin-bottom:8px;}
   .chapter-progress-bar{display:flex;gap:5px;flex-wrap:wrap;}
-  .chapter-progress-status{margin-top:10px;font-size:12px;color:var(--text2);padding:10px 12px;border:1px solid var(--border2);border-radius:12px;background:rgba(255,255,255,.02);display:none;}
+  .chapter-progress-status{margin-top:10px;font-size:12px;color:var(--text2);padding:10px 12px;border:1px solid var(--border2);border-radius:12px;background:rgba(255,255,255,.02);display:none;line-height:1.55;}
   .chapter-progress-status.active{display:block;}
   .chapter-progress-status.error{color:#ffb3b3;border-color:rgba(255,107,107,.28);background:rgba(255,107,107,.08);}
+  .chapter-progress-track{display:none;margin-top:10px;height:8px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--border2);overflow:hidden;position:relative;}
+  .chapter-progress-track::before{content:'';position:absolute;top:0;bottom:0;left:0;width:34%;border-radius:999px;background:linear-gradient(90deg, rgba(201,168,76,0), rgba(201,168,76,.35), rgba(201,168,76,.95), rgba(201,168,76,.35), rgba(201,168,76,0));transform:translateX(-120%);}
+  .chapter-progress-wrap.busy .chapter-progress-track{display:block;}
+  .chapter-progress-wrap.busy .chapter-progress-track::before{animation:progressSlide 1.2s ease-in-out infinite;}
   .ch-dot{height:4px;flex:1;min-width:18px;border-radius:2px;background:var(--border2);transition:background .4s;}
   .ch-dot.done{background:var(--green);}
   .ch-dot.active{background:var(--gold);}
@@ -173,7 +181,7 @@
   .sync-status{font-size:12px;color:var(--text3);margin-top:12px;line-height:1.5;}
   .revision-inline-row,.tutor-inline-row{align-items:stretch;}
   .chapter-progress-wrap{margin-bottom:22px;}
-  .chapter-progress-status{line-height:1.55;}
+  @keyframes progressSlide{0%{transform:translateX(-120%);}100%{transform:translateX(320%);}}
   @media(max-width:640px){.admin-stats-grid{grid-template-columns:1fr;}}
   .modal-actions{display:flex;gap:10px;margin-top:18px;}
   .btn-modal-save{flex:1;padding:12px;background:linear-gradient(135deg,#b8922a,var(--gold));border:none;border-radius:var(--radius-sm);color:#0a0800;font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .2s;}
@@ -1055,17 +1063,22 @@ function logoutAccount(){
   showToast('Account scollegato');
 }
 
+function deepClone(value){
+  if(value===undefined) return undefined;
+  try{return JSON.parse(JSON.stringify(value));}catch(_){return value;}
+}
+
 function buildProgressPayload(){
   return {
-    thesis,
-    revState,
+    thesis:deepClone(thesis),
+    revState:deepClone(revState),
     currentStep,
     indiceMode,
     abstractMode,
     metodologia,
     chapterOverrideActive,
-    entitlementState,
-    form:captureFormState(),
+    entitlementState:deepClone(entitlementState),
+    form:deepClone(captureFormState()),
     savedAt:new Date().toISOString()
   };
 }
@@ -1358,22 +1371,58 @@ async function openSnapshotManager(){
   await refreshSnapshotManager(true);
 }
 
+function resetRenderedOutputs(){
+  const indiceBlock=document.getElementById('indiceBlock');
+  if(indiceBlock) indiceBlock.style.display='none';
+  const indiceText=document.getElementById('indiceText');
+  if(indiceText) indiceText.textContent='';
+  const indiceApproval=document.getElementById('indiceApproval');
+  if(indiceApproval) indiceApproval.style.display='none';
+  document.getElementById('indiceRevision')?.classList.remove('open');
+
+  const abstractBlock=document.getElementById('abstractBlock');
+  if(abstractBlock) abstractBlock.style.display='none';
+  const abstractText=document.getElementById('abstractText');
+  if(abstractText) abstractText.textContent='';
+  const abstractApproval=document.getElementById('abstractApproval');
+  if(abstractApproval) abstractApproval.style.display='none';
+  document.getElementById('abstractRevision')?.classList.remove('open');
+
+  const nextAbstract=document.getElementById('nextAbstract');
+  if(nextAbstract) nextAbstract.classList.remove('visible');
+
+  const nextChapters=document.getElementById('nextChapters');
+  if(nextChapters){
+    nextChapters.classList.remove('visible');
+    nextChapters.innerHTML='';
+  }
+
+  const chaptersArea=document.getElementById('chaptersArea');
+  if(chaptersArea) chaptersArea.innerHTML='';
+  document.getElementById('chapterProgressWrap')?.remove();
+  document.getElementById('globalRevCounterWrap')?.remove();
+
+  const downloadBar=document.getElementById('downloadBar');
+  if(downloadBar) downloadBar.style.display='none';
+}
+
 function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   if(!saved || !saved.thesis) return false;
   window.__restoringState=true;
-  thesis=saved.thesis;
+  thesis=deepClone(saved.thesis);
   if(thesis && thesis.metodologia==='empirica') thesis.metodologia='teorica';
-  revState=saved.revState||revState;
+  revState=deepClone(saved.revState)||revState;
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   indiceMode=saved.indiceMode||'ai';
   abstractMode=saved.abstractMode||'ai';
   metodologia=(saved.metodologia==='empirica'?'teorica':(saved.metodologia||''));
   chapterOverrideActive=!!saved.chapterOverrideActive;
-  entitlementState=saved.entitlementState||entitlementState;
+  entitlementState=deepClone(saved.entitlementState)||entitlementState;
+  resetRenderedOutputs();
   restoreProgressUI(saved.form||{});
   renderWorkflowHud();
   window.__restoringState=false;
-  try{localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));}catch(_){ }
+  try{localStorage.setItem(STORAGE_KEY, JSON.stringify(deepClone(saved)));}catch(_){ }
   if(toastMessage) showToast(toastMessage);
   return true;
 }
@@ -1432,6 +1481,29 @@ function setSyncStatus(message,isError=false){
   el.style.color=isError?'#ffb3b3':'var(--text3)';
 }
 
+async function copyPlainTextToClipboard(value){
+  const text=String(value||'').trim();
+  if(!text) return false;
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.setAttribute('readonly','readonly');
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok=document.execCommand('copy');
+    ta.remove();
+    return !!ok;
+  }catch(_){
+    return false;
+  }
+}
+
 function openSyncManager(){
   const current=ensureSyncKey(true);
   const input=document.getElementById('syncKeyInput');
@@ -1461,9 +1533,9 @@ async function copySyncKey(){
     setSyncStatus('Nessuna chiave disponibile da copiare.', true);
     return;
   }
-  const ok=await copyTextValue('Chiave sync', value, {successToast:false});
+  const ok=await copyPlainTextToClipboard(value);
   if(ok){
-    setSyncStatus('Chiave copiata davvero negli appunti ✓');
+    setSyncStatus('Chiave copiata negli appunti ✓');
     showToast('Chiave sync copiata ✓');
   }else{
     setSyncStatus('Copia non riuscita. Puoi comunque selezionare e copiare manualmente.', true);
@@ -2214,7 +2286,6 @@ function renderSavedChapterBlock(idx,total){
           <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
           <button class="btn-delete-lite" onclick="downloadChapterDoc(${idx})">⬇ DOC</button>
           <button class="btn-delete-lite" onclick="downloadChapterTxt(${idx})">📝 TXT</button>
-          <button class="btn-delete-lite" onclick="copyChapter(${idx})">📋 Copia</button>
           <button class="btn-delete-lite" onclick="copyChapter(${idx})">📋 Copia</button>
           <button class="btn-delete-lite" onclick="deleteChapter(${idx})">🗑 Elimina</button>
         </div>
@@ -3138,7 +3209,7 @@ ${getChapterApprovalRow(idx,total,false,false)}
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
   document.getElementById(`chapText-${idx}`).textContent='Elaborazione in corso...';
   updateChapterProgressBar(idx,total,false);
-  setChapterOperationStatus(`Generazione del Capitolo ${idx+1} in corso...`);
+  setChapterOperationStatus(`Generazione del Capitolo ${idx+1} in corso...`,false,true);
 
   try{
     const result=await callClaudeWithSearch(prompt,'chapter_draft');
@@ -3162,7 +3233,7 @@ ${getChapterApprovalRow(idx,total,false,false)}
       document.getElementById(`chapVerBadge-${idx}`).style.display='inline-flex';
       const chapRow=document.getElementById(`chapApproval-${idx}`); if(chapRow) chapRow.outerHTML=getChapterApprovalRow(idx,total,false,true);
       updateChapterProgressBar(idx,total,false);
-      setChapterOperationStatus(`Capitolo ${idx+1} generato correttamente.`);
+      setChapterOperationStatus(`Capitolo ${idx+1} generato correttamente.`,false,false);
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
       saveProgress();
@@ -3251,7 +3322,7 @@ async function reviseChapter(idx){
   if(chip){chip.className='status-chip searching';chip.textContent='Revisione in corso...';}
   const tutorEl=document.getElementById(`chapTutor-${idx}`); if(tutorEl) tutorEl.classList.remove('open');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,false);
-  setChapterOperationStatus(`Revisione del Capitolo ${idx+1} in corso...`);
+  setChapterOperationStatus(`Revisione del Capitolo ${idx+1} in corso...`,false,true);
   const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const prompt=`Revisiona Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
@@ -3298,7 +3369,7 @@ ISTRUZIONI:
       updateWordCount();
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
-      setChapterOperationStatus(`Capitolo ${idx+1} revisionato correttamente.`);
+      setChapterOperationStatus(`Capitolo ${idx+1} revisionato correttamente.`,false,false);
     });
     saveProgress();
     triggerAutoSnapshot('revise');
@@ -3330,7 +3401,7 @@ async function tutorReviseChapter(idx){
   if(chip){chip.className='status-chip searching';chip.textContent='Revisione relatore in corso...';}
   document.getElementById(`chapRevision-${idx}`)?.classList.remove('open');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,false);
-  setChapterOperationStatus(`Applicazione osservazioni relatore sul Capitolo ${idx+1} in corso...`);
+  setChapterOperationStatus(`Applicazione osservazioni relatore sul Capitolo ${idx+1} in corso...`,false,true);
   const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const prompt=`Applica le osservazioni del relatore al Capitolo ${idx+1} ("${ch.title}") — tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
@@ -3385,7 +3456,7 @@ ISTRUZIONI:
       updateWordCount();
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
-      setChapterOperationStatus(`Osservazioni del relatore applicate al Capitolo ${idx+1}.`);
+      setChapterOperationStatus(`Osservazioni del relatore applicate al Capitolo ${idx+1}.`,false,false);
     });
     saveProgress();
     triggerAutoSnapshot('tutor');
@@ -3398,11 +3469,11 @@ ISTRUZIONI:
   }
 }
 
-function setChapterOperationStatus(message,isError=false){
+function setChapterOperationStatus(message,isError=false,isBusy=false){
   let wrap=document.getElementById('chapterProgressWrap');
   if(!wrap){
     wrap=document.createElement('div');wrap.id='chapterProgressWrap';wrap.className='chapter-progress-wrap';
-    wrap.innerHTML='<div class="chapter-progress-label" id="chProgressLabel"></div><div class="chapter-progress-bar" id="chProgressBar"></div><div class="chapter-progress-status" id="chProgressStatus"></div>';
+    wrap.innerHTML='<div class="chapter-progress-label" id="chProgressLabel"></div><div class="chapter-progress-bar" id="chProgressBar"></div><div class="chapter-progress-status" id="chProgressStatus"></div><div class="chapter-progress-track" id="chProgressTrack" aria-hidden="true"></div>';
     document.getElementById('chaptersArea').prepend(wrap);
   }
   const status=document.getElementById('chProgressStatus');
@@ -3410,6 +3481,7 @@ function setChapterOperationStatus(message,isError=false){
   const text=(message||'').trim();
   status.textContent=text;
   status.className='chapter-progress-status'+(text?' active':'')+(isError?' error':'');
+  wrap.classList.toggle('busy', !!(text && isBusy && !isError));
 }
 
 function resetChapterUiAfterError(idx,message){
@@ -3432,7 +3504,7 @@ function updateChapterProgressBar(current,total,markDone){
   let wrap=document.getElementById('chapterProgressWrap');
   if(!wrap){
     wrap=document.createElement('div');wrap.id='chapterProgressWrap';wrap.className='chapter-progress-wrap';
-    wrap.innerHTML='<div class="chapter-progress-label" id="chProgressLabel"></div><div class="chapter-progress-bar" id="chProgressBar"></div><div class="chapter-progress-status" id="chProgressStatus"></div>';
+    wrap.innerHTML='<div class="chapter-progress-label" id="chProgressLabel"></div><div class="chapter-progress-bar" id="chProgressBar"></div><div class="chapter-progress-status" id="chProgressStatus"></div><div class="chapter-progress-track" id="chProgressTrack" aria-hidden="true"></div>';
     document.getElementById('chaptersArea').prepend(wrap);
   }
   const bar=document.getElementById('chProgressBar');
@@ -4079,7 +4151,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 (function(){
   const MAX_REVISION_HISTORY = 40;
   function ensureRevisionHistory(){
-    if(!window.thesis || typeof thesis!=='object') return [];
+    if(typeof thesis!=='object' || !thesis) return [];
     if(!Array.isArray(thesis.revisionHistory)) thesis.revisionHistory=[];
     return thesis.revisionHistory;
   }
