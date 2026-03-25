@@ -1,7 +1,5 @@
-import crypto from 'node:crypto';
-
-const OPENAI_TIMEOUT_MS = 180000;
-const ANTHROPIC_TIMEOUT_MS = 180000;
+const OPENAI_TIMEOUT_MS = 90000;
+const ANTHROPIC_TIMEOUT_MS = 90000;
 
 const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
 
@@ -20,94 +18,41 @@ Per i capitoli:
 - non trasformare il capitolo in una lista di teorie o autori se non sono presenti nei dati;
 - chiudi il testo in modo naturale, senza ponti espliciti al capitolo successivo.`;
 
-
 export default async function handler(req, res) {
+  if (req.method === 'GET' && req.query?.config === 'supabase') {
+    const url = process.env.SUPABASE_URL;
+    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+    if (!url || !publishableKey) {
+      return res.status(500).json({ error: 'Configurazione Supabase mancante' });
+    }
+
+    return res.status(200).json({ url, publishableKey });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { task, input, rawInput } = normalizeBody(req.body);
+    const { task, input } = normalizeBody(req.body);
 
     if (!task) {
       return res.status(400).json({ error: 'Task mancante' });
     }
 
-    if (task === '__state_save') {
-      return await handleStateSave({ input: rawInput || {}, res });
-    }
-    if (task === '__state_load') {
-      return await handleStateLoad({ input: rawInput || {}, res });
-    }
-    if (task === '__visit_ping') {
-      return await handleVisitPing({ input: rawInput || {}, res });
-    }
-    if (task === '__verify_unlock') {
-      return await handleVerifyUnlock({ input: rawInput || {}, res });
-    }
-    if (task === '__account_send_code') {
-      return await handleAccountSendCode({ input: rawInput || {}, res });
-    }
-    if (task === '__account_verify_code') {
-      return await handleAccountVerifyCode({ input: rawInput || {}, res });
-    }
-    if (task === '__account_load') {
-      return await handleAccountLoad({ input: rawInput || {}, res });
-    }
-    if (task === '__account_save') {
-      return await handleAccountSave({ input: rawInput || {}, res });
-    }
-    if (task === '__snapshot_create') {
-      return await handleSnapshotCreate({ input: rawInput || {}, res });
-    }
-    if (task === '__snapshot_list') {
-      return await handleSnapshotList({ input: rawInput || {}, res });
-    }
-    if (task === '__recovery_save') {
-      return await handleRecoverySave({ input: rawInput || {}, res });
-    }
-    if (task === '__recovery_load') {
-      return await handleRecoveryLoad({ input: rawInput || {}, res });
-    }
-    if (task === '__admin_stats') {
-      return await handleAdminStats({ input: rawInput || {}, res });
+
+    if (task === 'send_access_key_email') {
+      return await handleAccessKeyEmail({ input, req, res });
     }
 
     const provider = pickProvider(task);
 
-    try {
-      if (provider === 'openai') {
-        return await handleOpenAI({ task, input, res });
-      }
-
-      return await handleAnthropic({ task, input, res });
-    } catch (error) {
-      if (provider === 'anthropic' && shouldFallbackToOpenAI(task, error)) {
-        await recordAdminMetric('provider_timeout', { provider: 'anthropic', task });
-        await recordAdminMetric('provider_fallback', { from: 'anthropic', to: 'openai', task });
-        return await handleOpenAI({
-          task,
-          input,
-          res,
-          fallbackMeta: {
-            fallbackFrom: 'anthropic',
-            fallbackReason: error?.message || 'Timeout provider Anthropic'
-          }
-        });
-      }
-
-      if (isTimeoutLikeError(error)) {
-        await recordAdminMetric('provider_timeout', { provider, task });
-        return res.status(504).json({
-          error: 'Errore provider timeout',
-          code: 'provider_timeout',
-          details: error?.message || 'Timeout provider'
-        });
-      }
-
-      await recordAdminMetric('provider_exception', { provider, task, details: error?.message || 'Errore provider' });
-      throw error;
+    if (provider === 'openai') {
+      return await handleOpenAI({ task, input, res });
     }
+
+    return await handleAnthropic({ task, input, res });
   } catch (error) {
     return res.status(500).json({
       error: 'Errore interno',
@@ -116,530 +61,19 @@ export default async function handler(req, res) {
   }
 }
 
-
 function normalizeBody(body) {
   const safe = body && typeof body === 'object' ? body : {};
   const task = typeof safe.task === 'string' ? safe.task.trim() : '';
-  const rawInput = safe.input ?? safe.payload ?? safe.content ?? null;
   const input =
-    typeof rawInput === 'string'
-      ? rawInput
-      : JSON.stringify(rawInput ?? {}, null, 2);
-
-  return { task, input, rawInput };
-}
-
-
-
-function getUpstashConfig() {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    throw new Error('Configurazione Upstash mancante');
-  }
-  return { url: url.replace(/\/$/, ''), token };
-}
-
-function stateRedisKey(syncKey) {
-  const digest = crypto.createHash('sha256').update(String(syncKey)).digest('hex');
-  return `accademia:state:${digest}`;
-}
-
-function usedCodeRedisKey(code) {
-  return `accademia:unlock:used:${String(code).trim().toUpperCase()}`;
-}
-
-function emailHash(email) {
-  return crypto.createHash('sha256').update(String(email).trim().toLowerCase()).digest('hex');
-}
-
-function accountOtpRedisKey(email) {
-  return `accademia:account:otp:${emailHash(email)}`;
-}
-
-function accountStateRedisKey(email) {
-  return `accademia:account:state:${emailHash(email)}`;
-}
-
-function accountSessionRedisKey(sessionToken) {
-  return `accademia:account:session:${crypto.createHash('sha256').update(String(sessionToken)).digest('hex')}`;
-}
-
-function createOtpCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function createSessionToken() {
-  return crypto.randomBytes(24).toString('hex');
-}
-
-
-function snapshotSyncRedisKey(syncKey) {
-  const digest = crypto.createHash('sha256').update(String(syncKey)).digest('hex');
-  return `accademia:snapshots:sync:${digest}`;
-}
-
-function snapshotAccountRedisKey(email) {
-  return `accademia:account:snapshots:${emailHash(email)}`;
-}
-
-function recoverySyncRedisKey(syncKey) {
-  const digest = crypto.createHash('sha256').update(String(syncKey)).digest('hex');
-  return `accademia:recovery:sync:${digest}`;
-}
-
-function recoveryAccountRedisKey(email) {
-  return `accademia:recovery:account:${emailHash(email)}`;
-}
-
-async function loadSnapshotArray(key) {
-  const raw = await upstashGet(key);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function appendSnapshotRecord(key, record) {
-  const list = await loadSnapshotArray(key);
-  const next = [record, ...list.filter(item => item?.id !== record.id)].slice(0, 15);
-  await upstashSet(key, JSON.stringify(next));
-}
-
-function buildSnapshotRecord(input) {
-  const payload = input?.payload;
-  return {
-    id: String(input?.snapshotId || crypto.randomUUID()),
-    label: String(input?.label || 'Versione').trim(),
-    reason: String(input?.reason || 'manuale').trim(),
-    savedAt: payload?.savedAt || new Date().toISOString(),
-    payload
-  };
-}
-
-
-function getResendConfig() {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.ACC_LOGIN_FROM || process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || '';
-  if (!apiKey) throw new Error('RESEND_API_KEY non configurata');
-  if (!from) throw new Error('ACC_LOGIN_FROM non configurata');
-  return { apiKey, from };
-}
-
-async function sendResendEmail({ to, subject, html, text }) {
-  const { apiKey, from } = getResendConfig();
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ from, to: [to], subject, html, text })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.message || data?.error || 'Invio email account non riuscito');
-  }
-  return data;
-}
-
-async function resolveAccountEmailFromSession(sessionToken) {
-  if (!sessionToken) return null;
-  const raw = await upstashGet(accountSessionRedisKey(sessionToken));
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed?.email || null;
-  } catch {
-    return null;
-  }
-}
-
-async function upstashCall(path, { method = 'GET', body = null } = {}) {
-  const { url, token } = getUpstashConfig();
-  const response = await fetch(`${url}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body !== null ? { 'Content-Type': 'text/plain;charset=utf-8' } : {})
-    },
-    body
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.error || data?.result || 'Errore Upstash');
-  }
-  return data;
-}
-
-async function upstashGet(key) {
-  const data = await upstashCall(`/get/${encodeURIComponent(key)}`);
-  return data?.result ?? null;
-}
-
-async function upstashSet(key, value) {
-  await upstashCall(`/set/${encodeURIComponent(key)}`, { method: 'POST', body: value });
-}
-
-async function upstashIncr(key) {
-  await upstashCall(`/incr/${encodeURIComponent(key)}`, { method: 'POST' });
-}
-
-function parseUnlockCodesEnv() {
-  const raw = process.env.ACC_UNLOCK_CODES_JSON || '[]';
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = [];
-  }
-
-  const map = new Map();
-  if (Array.isArray(parsed)) {
-    for (const row of parsed) {
-      if (!row) continue;
-      const code = String(row.code || '').trim().toUpperCase();
-      const type = String(row.type || '').trim().toLowerCase();
-      if (code && type) map.set(code, type);
-    }
-  } else if (parsed && typeof parsed === 'object') {
-    for (const [code, type] of Object.entries(parsed)) {
-      if (code && type) map.set(String(code).trim().toUpperCase(), String(type).trim().toLowerCase());
-    }
-  }
-  return map;
-}
-
-
-function getAdminDashConfig() {
-  const key = String(process.env.ACC_ADMIN_DASH_KEY || '').trim();
-  if (!key) throw new Error('ACC_ADMIN_DASH_KEY non configurata');
-  return { key };
-}
-
-function adminStatsRedisKey(date) {
-  return `accademia:admin:stats:${date}`;
-}
-
-function adminEventsRedisKey() {
-  return 'accademia:admin:events';
-}
-
-function adminTodayDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-async function loadJsonObject(key) {
-  const raw = await upstashGet(key);
-  if (!raw) return {};
-  try { return JSON.parse(raw) || {}; } catch { return {}; }
-}
-
-async function loadJsonArray(key) {
-  const raw = await upstashGet(key);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function recordAdminMetric(kind, payload = {}) {
-  try {
-    const date = adminTodayDate();
-    const statsKey = adminStatsRedisKey(date);
-    const stats = await loadJsonObject(statsKey);
-    stats.date = date;
-    stats.updatedAt = new Date().toISOString();
-    stats.counts = stats.counts && typeof stats.counts === 'object' ? stats.counts : {};
-    stats.counts[kind] = Number(stats.counts[kind] || 0) + 1;
-    await upstashSet(statsKey, JSON.stringify(stats));
-
-    const events = await loadJsonArray(adminEventsRedisKey());
-    const nextEvents = [{ kind, at: new Date().toISOString(), payload }, ...events].slice(0, 60);
-    await upstashSet(adminEventsRedisKey(), JSON.stringify(nextEvents));
-  } catch (error) {
-    console.warn('recordAdminMetric failed', error?.message || error);
-  }
-}
-
-async function handleStateSave({ input, res }) {
-  const syncKey = String(input?.syncKey || '').trim();
-  const payload = input?.payload;
-  if (!syncKey || !payload || typeof payload !== 'object') {
-    return res.status(400).json({ error: 'Dati sync mancanti' });
-  }
-  const record = {
-    ...payload,
-    savedAt: payload.savedAt || new Date().toISOString()
-  };
-  await upstashSet(stateRedisKey(syncKey), JSON.stringify(record));
-  await recordAdminMetric('state_save', { scope: 'sync' });
-  return res.status(200).json({ ok: true, savedAt: record.savedAt });
-}
-
-async function handleStateLoad({ input, res }) {
-  const syncKey = String(input?.syncKey || '').trim();
-  if (!syncKey) {
-    return res.status(400).json({ error: 'Chiave sync mancante' });
-  }
-  const raw = await upstashGet(stateRedisKey(syncKey));
-  if (!raw) {
-    return res.status(200).json({ ok: true, state: null });
-  }
-  let parsed = null;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = null;
-  }
-  return res.status(200).json({ ok: true, state: parsed });
-}
-
-async function handleVisitPing({ input, res }) {
-  const page = String(input?.page || 'app').trim().toLowerCase();
-  await upstashIncr(`accademia:visits:${page}`);
-  await recordAdminMetric('visit_ping', { page });
-  return res.status(200).json({ ok: true });
-}
-
-async function handleVerifyUnlock({ input, res }) {
-  const code = String(input?.code || '').trim().toUpperCase();
-  if (!code) {
-    return res.status(400).json({ valid: false, reason: 'empty' });
-  }
-  const codes = parseUnlockCodesEnv();
-  const type = codes.get(code);
-  if (!type) {
-    return res.status(200).json({ valid: false, reason: 'not_found' });
-  }
-  const usedKey = usedCodeRedisKey(code);
-  const alreadyUsed = await upstashGet(usedKey);
-  if (alreadyUsed) {
-    return res.status(200).json({ valid: false, reason: 'already_used' });
-  }
-  await upstashSet(usedKey, JSON.stringify({ usedAt: new Date().toISOString(), type }));
-  return res.status(200).json({ valid: true, type });
-}
-
-async function handleAccountSendCode({ input, res }) {
-  const email = String(input?.email || '').trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Email non valida' });
-  }
-
-  const otpKey = accountOtpRedisKey(email);
-  const code = createOtpCode();
-  const now = Date.now();
-  const expiresAt = new Date(now + 15 * 60 * 1000).toISOString();
-  await upstashSet(otpKey, JSON.stringify({ code, email, expiresAt, sentAt: new Date(now).toISOString() }));
-
-  await recordAdminMetric('account_code_send', { emailDomain: email.split('@')[1] || '' });
-
-  await sendResendEmail({
-    to: email,
-    subject: 'AccademIA — codice di accesso account',
-    text: `Il tuo codice di accesso è ${code}. Scade tra 15 minuti.`,
-    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111"><h2>AccademIA</h2><p>Il tuo codice di accesso è:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</p><p>Il codice scade tra 15 minuti.</p></div>`
-  });
-
-  return res.status(200).json({ ok: true, sent: true });
-}
-
-async function handleAccountVerifyCode({ input, res }) {
-  const email = String(input?.email || '').trim().toLowerCase();
-  const code = String(input?.code || '').trim();
-  if (!email || !code) {
-    return res.status(400).json({ error: 'Email o codice mancanti' });
-  }
-  const raw = await upstashGet(accountOtpRedisKey(email));
-  if (!raw) {
-    return res.status(400).json({ error: 'Codice assente o scaduto' });
-  }
-  let parsed = null;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = null;
-  }
-  if (!parsed?.code || parsed.code !== code) {
-    return res.status(400).json({ error: 'Codice non valido' });
-  }
-  if (parsed?.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) {
-    return res.status(400).json({ error: 'Codice scaduto' });
-  }
-
-  const sessionToken = createSessionToken();
-  await upstashSet(accountSessionRedisKey(sessionToken), JSON.stringify({ email, createdAt: new Date().toISOString() }));
-  await recordAdminMetric('account_verify_ok', { emailDomain: email.split('@')[1] || '' });
-  return res.status(200).json({ ok: true, email, sessionToken });
-}
-
-async function handleAccountLoad({ input, res }) {
-  const sessionToken = String(input?.sessionToken || '').trim();
-  if (!sessionToken) {
-    return res.status(400).json({ error: 'Sessione account mancante' });
-  }
-  const email = await resolveAccountEmailFromSession(sessionToken);
-  if (!email) {
-    return res.status(401).json({ error: 'Sessione account non valida' });
-  }
-  const raw = await upstashGet(accountStateRedisKey(email));
-  if (!raw) {
-    return res.status(200).json({ ok: true, state: null });
-  }
-  let parsed = null;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = null;
-  }
-  return res.status(200).json({ ok: true, state: parsed, email });
-}
-
-async function handleAccountSave({ input, res }) {
-  const sessionToken = String(input?.sessionToken || '').trim();
-  const payload = input?.payload;
-  if (!sessionToken || !payload || typeof payload !== 'object') {
-    return res.status(400).json({ error: 'Dati account mancanti' });
-  }
-  const email = await resolveAccountEmailFromSession(sessionToken);
-  if (!email) {
-    return res.status(401).json({ error: 'Sessione account non valida' });
-  }
-  const record = {
-    ...payload,
-    savedAt: payload.savedAt || new Date().toISOString(),
-    accountEmail: email
-  };
-  await upstashSet(accountStateRedisKey(email), JSON.stringify(record));
-  await recordAdminMetric('state_save', { scope: 'account' });
-  return res.status(200).json({ ok: true, savedAt: record.savedAt, email });
-}
-
-
-async function handleSnapshotCreate({ input, res }) {
-  const payload = input?.payload;
-  if (!payload || typeof payload !== 'object') {
-    return res.status(400).json({ error: 'Payload snapshot mancante' });
-  }
-  const sessionToken = String(input?.sessionToken || '').trim();
-  const syncKey = String(input?.syncKey || '').trim();
-  const record = buildSnapshotRecord(input);
-
-  if (sessionToken) {
-    const email = await resolveAccountEmailFromSession(sessionToken);
-    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
-    await appendSnapshotRecord(snapshotAccountRedisKey(email), { ...record, accountEmail: email });
-    await recordAdminMetric('snapshot_create', { scope: 'account', reason: record.reason });
-    return res.status(200).json({ ok: true, id: record.id, savedAt: record.savedAt, scope: 'account' });
-  }
-
-  if (syncKey) {
-    await appendSnapshotRecord(snapshotSyncRedisKey(syncKey), record);
-    await recordAdminMetric('snapshot_create', { scope: 'sync', reason: record.reason });
-    return res.status(200).json({ ok: true, id: record.id, savedAt: record.savedAt, scope: 'sync' });
-  }
-
-  return res.status(400).json({ error: 'Identità snapshot mancante' });
-}
-
-async function handleSnapshotList({ input, res }) {
-  const sessionToken = String(input?.sessionToken || '').trim();
-  const syncKey = String(input?.syncKey || '').trim();
-
-  if (sessionToken) {
-    const email = await resolveAccountEmailFromSession(sessionToken);
-    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
-    const snapshots = await loadSnapshotArray(snapshotAccountRedisKey(email));
-    return res.status(200).json({ ok: true, snapshots, scope: 'account' });
-  }
-
-  if (syncKey) {
-    const snapshots = await loadSnapshotArray(snapshotSyncRedisKey(syncKey));
-    return res.status(200).json({ ok: true, snapshots, scope: 'sync' });
-  }
-
-  return res.status(400).json({ error: 'Identità snapshot mancante' });
-}
-
-async function handleRecoverySave({ input, res }) {
-  const record = input?.record;
-  if (!record || typeof record !== 'object' || !record?.payload || typeof record.payload !== 'object') {
-    return res.status(400).json({ error: 'Record recupero mancante' });
-  }
-  const sessionToken = String(input?.sessionToken || '').trim();
-  const syncKey = String(input?.syncKey || '').trim();
-  const cleanRecord = {
-    savedAt: record.savedAt || new Date().toISOString(),
-    reason: String(record.reason || 'manuale').trim(),
-    payload: record.payload
-  };
-
-  if (sessionToken) {
-    const email = await resolveAccountEmailFromSession(sessionToken);
-    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
-    await upstashSet(recoveryAccountRedisKey(email), JSON.stringify({ ...cleanRecord, accountEmail: email }));
-    await recordAdminMetric('recovery_save', { scope: 'account', reason: cleanRecord.reason });
-    return res.status(200).json({ ok: true, savedAt: cleanRecord.savedAt, scope: 'account' });
-  }
-
-  if (syncKey) {
-    await upstashSet(recoverySyncRedisKey(syncKey), JSON.stringify(cleanRecord));
-    await recordAdminMetric('recovery_save', { scope: 'sync', reason: cleanRecord.reason });
-    return res.status(200).json({ ok: true, savedAt: cleanRecord.savedAt, scope: 'sync' });
-  }
-
-  return res.status(400).json({ error: 'Identità recupero mancante' });
-}
-
-async function handleRecoveryLoad({ input, res }) {
-  const sessionToken = String(input?.sessionToken || '').trim();
-  const syncKey = String(input?.syncKey || '').trim();
-
-  if (sessionToken) {
-    const email = await resolveAccountEmailFromSession(sessionToken);
-    if (!email) return res.status(401).json({ error: 'Sessione account non valida' });
-    const raw = await upstashGet(recoveryAccountRedisKey(email));
-    let record = null;
-    try { record = raw ? JSON.parse(raw) : null; } catch { record = null; }
-    return res.status(200).json({ ok: true, record, scope: 'account' });
-  }
-
-  if (syncKey) {
-    const raw = await upstashGet(recoverySyncRedisKey(syncKey));
-    let record = null;
-    try { record = raw ? JSON.parse(raw) : null; } catch { record = null; }
-    return res.status(200).json({ ok: true, record, scope: 'sync' });
-  }
-
-  return res.status(400).json({ error: 'Identità recupero mancante' });
-}
-
-
-async function handleAdminStats({ input, res }) {
-  let config;
-  try {
-    config = getAdminDashConfig();
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Dashboard non configurata' });
-  }
-
-  const adminKey = String(input?.adminKey || '').trim();
-  if (!adminKey || adminKey !== config.key) {
-    return res.status(401).json({ error: 'Chiave dashboard non valida' });
-  }
-
-  const date = adminTodayDate();
-  const stats = await loadJsonObject(adminStatsRedisKey(date));
-  const events = await loadJsonArray(adminEventsRedisKey());
-  return res.status(200).json({ ok: true, stats, events });
+    typeof safe.input === 'string'
+      ? safe.input
+      : typeof safe.payload === 'string'
+        ? safe.payload
+        : typeof safe.content === 'string'
+          ? safe.content
+          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
+
+  return { task, input };
 }
 
 function pickProvider(task) {
@@ -653,22 +87,11 @@ function pickProvider(task) {
   return anthropicTasks.has(task) ? 'anthropic' : 'openai';
 }
 
-function isTimeoutLikeError(error) {
-  const message = error?.message || '';
-  return error?.name === 'AbortError' || /timeout/i.test(message);
-}
-
-function shouldFallbackToOpenAI(task, error) {
-  const fallbackTasks = new Set(['chapter_review', 'tutor_revision']);
-  return fallbackTasks.has(task) && isTimeoutLikeError(error);
-}
-
-async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
+async function handleOpenAI({ task, input, res }) {
   const openaiKey = process.env.OPENAI_API_KEY;
   const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
 
   if (!openaiKey) {
-    await recordAdminMetric('provider_config_error', { provider: 'openai', task });
     return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
   }
 
@@ -694,7 +117,6 @@ async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
   const data = await safeJson(response);
 
   if (!response.ok) {
-    await recordAdminMetric('provider_error', { provider: 'openai', task, status: response.status });
     return res.status(response.status).json({
       error: 'Errore OpenAI',
       details: simplifyProviderError(data)
@@ -706,13 +128,11 @@ async function handleOpenAI({ task, input, res, fallbackMeta = null }) {
     extractOpenAIText(data) ||
     'Nessun contenuto restituito';
 
-  await recordAdminMetric(fallbackMeta ? 'provider_fallback_success' : 'provider_success', { provider: 'openai', task, fallbackFrom: fallbackMeta?.fallbackFrom || '' });
   return res.status(200).json({
     ok: true,
     provider: 'openai',
     task,
-    text,
-    ...(fallbackMeta ? { fallback: fallbackMeta } : {})
+    text
   });
 }
 
@@ -721,7 +141,6 @@ async function handleAnthropic({ task, input, res }) {
   const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 
   if (!anthropicKey) {
-    await recordAdminMetric('provider_config_error', { provider: 'anthropic', task });
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
   }
 
@@ -754,7 +173,6 @@ async function handleAnthropic({ task, input, res }) {
   const data = await safeJson(response);
 
   if (!response.ok) {
-    await recordAdminMetric('provider_error', { provider: 'anthropic', task, status: response.status });
     return res.status(response.status).json({
       error: 'Errore Anthropic',
       details: simplifyProviderError(data)
@@ -766,7 +184,6 @@ async function handleAnthropic({ task, input, res }) {
       ? data.content.map(part => part?.text || '').join('\n').trim()
       : '';
 
-  await recordAdminMetric('provider_success', { provider: 'anthropic', task });
   return res.status(200).json({
     ok: true,
     provider: 'anthropic',
@@ -774,6 +191,146 @@ async function handleAnthropic({ task, input, res }) {
     text: text || 'Nessun contenuto restituito'
   });
 }
+
+
+async function handleAccessKeyEmail({ input, req, res }) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const from = process.env.ACC_LOGIN_FROM || process.env.RESEND_FROM_EMAIL;
+  const appUrl = process.env.ACC_APP_URL || 'https://www.accademia-tesi.it/app/app-index.html';
+  const accessKey = process.env.ACC_APP_ACCESS_KEY || 'robpac-accademia-2026';
+  const expectedSecret = process.env.ACC_PURCHASE_MAIL_SECRET || '';
+
+  if (!resendKey) {
+    return res.status(500).json({ error: 'RESEND_API_KEY non configurata' });
+  }
+  if (!from) {
+    return res.status(500).json({ error: 'ACC_LOGIN_FROM non configurata' });
+  }
+
+  const raw = safeParseJson(input);
+  const email = typeof raw?.email === 'string' ? raw.email.trim() : '';
+  const plan = typeof raw?.plan === 'string' ? raw.plan.trim() : 'AccademIA';
+  const supportEmail = typeof raw?.supportEmail === 'string' ? raw.supportEmail.trim() : 'accademia-tesi@gmail.com';
+  const providedSecret =
+    (req.headers['x-acc-purchase-secret'] || req.headers['x-acc-mail-secret'] || raw?.secret || '').toString().trim();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Email non valida' });
+  }
+
+  if (expectedSecret && providedSecret !== expectedSecret) {
+    return res.status(401).json({ error: 'Secret acquisto non valido' });
+  }
+
+  const subject = 'La tua chiave di accesso AccademIA';
+  const text = [
+    'Ciao,',
+    '',
+    'grazie per aver scelto AccademIA.',
+    '',
+    'La tua chiave di accesso personale è:',
+    '',
+    accessKey,
+    '',
+    'Con questa chiave puoi:',
+    '- accedere all’app',
+    '- riprendere il lavoro sullo stesso dispositivo',
+    '- continuare anche da un altro dispositivo usando la stessa chiave',
+    '',
+    'Per iniziare:',
+    '1. apri AccademIA',
+    '2. clicca su "Accedi all’app"',
+    '3. inserisci la chiave qui sopra',
+    '4. conferma le tre caselle richieste',
+    '',
+    `Piano associato: ${plan}`,
+    '',
+    `Accesso app: ${appUrl}`,
+    '',
+    'Importante: conserva questa chiave con attenzione. È il riferimento principale per accedere al tuo lavoro e riprenderlo.',
+    '',
+    `Supporto: ${supportEmail}`,
+    '',
+    'Team AccademIA'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1e1e1e;">
+      <h2 style="margin:0 0 12px;">La tua chiave di accesso AccademIA</h2>
+      <p>Ciao,</p>
+      <p>grazie per aver scelto <strong>AccademIA</strong>.</p>
+      <p>La tua chiave di accesso personale è:</p>
+      <div style="margin:16px 0;padding:14px 18px;border-radius:10px;background:#f7f2df;border:1px solid #e2c977;font-size:20px;font-weight:700;letter-spacing:.6px;">
+        ${escapeHtml(accessKey)}
+      </div>
+      <p><strong>Piano associato:</strong> ${escapeHtml(plan)}</p>
+      <p>Con questa chiave puoi accedere all’app, riprendere il lavoro sullo stesso dispositivo e continuare anche da un altro dispositivo usando la stessa chiave.</p>
+      <p><strong>Per iniziare:</strong><br>
+      1. apri AccademIA<br>
+      2. clicca su “Accedi all’app”<br>
+      3. inserisci la chiave qui sopra<br>
+      4. conferma le tre caselle richieste</p>
+      <p><a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:10px 16px;background:#c9a84c;color:#140f02;text-decoration:none;border-radius:8px;font-weight:700;">Apri AccademIA</a></p>
+      <p>Importante: conserva questa chiave con attenzione. È il riferimento principale per accedere al tuo lavoro e riprenderlo.</p>
+      <p>Supporto: <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a></p>
+      <p>Team AccademIA</p>
+    </div>`;
+
+  const response = await fetchWithTimeout(
+    'https://api.resend.com/emails',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resendKey}`
+      },
+      body: JSON.stringify({
+        from,
+        to: [email],
+        subject,
+        html,
+        text
+      })
+    },
+    30000
+  );
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    return res.status(response.status).json({
+      error: 'Errore Resend',
+      details: simplifyProviderError(data)
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    task: 'send_access_key_email',
+    provider: 'resend',
+    email,
+    id: data?.id || null
+  });
+}
+
+function safeParseJson(value) {
+  if (typeof value !== 'string') return value && typeof value === 'object' ? value : {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 
 function buildPrompt(task, input) {
   const payload = typeof input === 'string' ? input : JSON.stringify(input || {}, null, 2);
