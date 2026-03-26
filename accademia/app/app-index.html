@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=wlYp0ANHRfhh7e614TnhUCcdS4-cpAUMXM-HVCsR1TzK2nT2f58a_LgBLeQYVqGhLjeakY7qW99XnQGJxZaJu37FNmuwGoPgubYtB9czI31_FAncdP_A1SHJh28pVNV706w5oy1EX9rw-T1fp3cexR8zHYmOzRXCmVUBzKEdNnqFIjrMhocUSilyuQev9YiDGDSEs1Prl6o42kEGM5jut8cTJdBpROpJKQewWlKUcvDouFAFNjQgxipnrmLzdfi4Bjo8K4TuYRb2gOhz7NgqKQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=KwTi-dQi96XAcUcCw6shMCoSQNutF0FSSxKNVQQPpd_4jwrwzgGLus74k5iDAIeodA-VADDTuEbB1bD1z6pmewLljs4Nh3lD8y0D3QJs9H1dH2cJIBCWu-FmA-pmYRNyPVzTCLePo39p0WBQFGejTt7ACZAwMNmrgS_YIS44JNuhQX26fll97M7NHpTyiy944BYtbfgbkKuFwx_k5Cydlu5nMrruLBtAukUwTPPCfy5h72cOZ-YrQe6JuZ4noIrNooj3QpXXKn-_WRm3XTJX8w" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -101,10 +101,10 @@
   .approval-row .actions{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;}
   .btn-tutor{padding:9px 16px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.28);border-radius:var(--radius-sm);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-tutor:hover{background:rgba(201,168,76,.16);}
-  .tutor-inline-row{display:flex;gap:8px;align-items:flex-end;}
+  .tutor-inline-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .tutor-inline textarea{flex:1;min-height:110px;resize:vertical;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.5;}
   .tutor-inline-note{font-size:12px;color:var(--text3);margin-bottom:8px;}
-  .btn-send-tutor{padding:10px 18px;background:rgba(95,155,255,.12);border:1px solid rgba(95,155,255,.28);border-radius:var(--radius-sm);color:#8eb7ff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;}
+  .btn-send-tutor{padding:10px 18px;background:rgba(95,155,255,.12);border:1px solid rgba(95,155,255,.28);border-radius:var(--radius-sm);color:#8eb7ff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;min-width:190px;}
   .btn-send-tutor:hover{background:rgba(95,155,255,.2);}
   .btn-send-tutor:disabled{opacity:.4;cursor:not-allowed;}
   .chapter-tool-btn{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:normal;}
@@ -112,16 +112,18 @@
   .chapter-tool-btn.tutor{border-color:rgba(95,155,255,.28);color:#8eb7ff;background:rgba(95,155,255,.05);}
   .chapter-tool-btn.tutor:hover{background:rgba(95,155,255,.12);border-color:rgba(95,155,255,.45);}
   .chapter-tool-btn.bypass{border-color:rgba(94,184,122,.35);color:var(--green);background:rgba(94,184,122,.06);}
-  .header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto;max-width:100%;}
-  .header-actions > span{flex-basis:100%;text-align:right;margin-bottom:2px;}
-  .chapter-tools-bar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);align-items:stretch;}
+  .header-actions{display:flex;align-items:flex-start;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto;max-width:100%;min-width:min(100%,320px);}
+  .header-actions > span{flex-basis:100%;text-align:right;margin-bottom:2px;line-height:1.45;}
+  .chapter-tools-bar{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:10px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);align-items:stretch;}
   .chapter-tool-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;text-align:center;}
-  .rev-counter-bar{align-items:center;gap:12px;}
-  .rev-counter-info{flex:1 1 420px;}
-  .rev-counter-global{margin-left:auto;}
-  .approval-row{flex-direction:column;align-items:stretch;gap:12px;}
+  .rev-counter-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);flex-wrap:wrap;}
+  .rev-counter-info{display:flex;align-items:center;gap:10px;flex:1 1 420px;min-width:0;flex-wrap:wrap;}
+  .rev-counter-info > span:first-child{font-size:12px;color:var(--text3);white-space:nowrap;}
+  .rev-counter-info > span:last-child{font-size:12px;color:var(--text2);line-height:1.5;}
+  .rev-counter-global{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;flex:0 1 320px;min-width:220px;text-align:right;font-size:12px;color:var(--text3);line-height:1.5;}
+  .approval-row{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(94,184,122,.03);}
   .approval-row .hint{min-width:0;max-width:100%;}
-  .approval-row .actions{margin-left:0;justify-content:flex-start;}
+  .approval-row .actions{display:flex;flex-wrap:wrap;gap:10px;margin-left:0;justify-content:flex-start;}
   .tutor-inline,.revision-inline{padding-top:18px;padding-bottom:18px;}
   .output-block.panel-open .approval-row{display:none !important;}
   .tutor-inline{display:none;padding:16px 26px;border-top:1px solid var(--border);background:rgba(95,155,255,.045);}
@@ -136,9 +138,9 @@
   .btn-redo:hover{border-color:var(--gold);color:var(--gold);}
   .revision-inline{padding:16px 26px;border-top:1px solid var(--border);background:rgba(201,168,76,.025);display:none;flex-direction:column;gap:10px;}
   .revision-inline.open{display:flex;}
-  .revision-inline-row{display:flex;gap:8px;align-items:flex-end;}
+  .revision-inline-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .revision-inline textarea{flex:1;min-height:56px;font-size:13px;}
-  .btn-send-revision{padding:10px 18px;background:var(--gold-dim);border:1px solid rgba(201,168,76,.3);border-radius:var(--radius-sm);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;}
+  .btn-send-revision{padding:10px 18px;background:var(--gold-dim);border:1px solid rgba(201,168,76,.3);border-radius:var(--radius-sm);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;min-width:170px;}
   .btn-send-revision:hover{background:rgba(201,168,76,.2);}
   .btn-send-revision:disabled{opacity:.4;cursor:not-allowed;}
   .version-badge{display:inline-flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text3);cursor:pointer;transition:all .2s;margin-left:8px;}
@@ -312,6 +314,15 @@
   .tos-section strong{color:var(--text2);}
   .tos-section em{color:var(--text3);font-style:italic;}
   .tos-date{font-size:11px;color:var(--text3);margin-bottom:20px;}
+
+  @media (max-width: 760px){
+    .chapter-tools-bar{grid-template-columns:1fr;}
+    .rev-counter-global{min-width:0;flex:1 1 100%;justify-content:flex-start;text-align:left;margin-left:0;}
+    .revision-inline-row,.tutor-inline-row{flex-direction:column;align-items:stretch;}
+    .btn-send-revision,.btn-send-tutor{width:100%;min-width:0;}
+    .header-actions{min-width:0;justify-content:flex-start;}
+    .header-actions > span{text-align:left;}
+  }
 </style>
 </head>
 <body>
@@ -423,7 +434,7 @@
         </div>
         <div class="guide-step">
           <div class="guide-step-num">4</div>
-          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni disponibili per capitolo</strong> e un budget totale di <strong>N × 2 revisioni</strong> (dove N = numero capitoli).</span></div>
+          <div class="guide-step-text"><strong>Genera i Capitoli uno alla volta</strong><span>Ogni capitolo viene scritto con ricerca web in tempo reale per trovare fonti reali. Approva ogni capitolo prima di passare al successivo. Hai <strong>3 revisioni disponibili per capitolo</strong> e un <strong>budget base fisso di 10 revisioni totali incluse</strong>, indipendentemente dal numero di capitoli.</span></div>
         </div>
         <div class="guide-step">
           <div class="guide-step-num">5</div>
@@ -431,7 +442,7 @@
         </div>
       </div>
       <div class="guide-note">
-        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> (+10 revisioni totali sulla tesi). Il codice viene inviato via email dopo l’attivazione.<br><br>
+        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> (+10 revisioni totali aggiuntive sulla tesi rispetto al budget base). Il codice viene inviato via email dopo l’attivazione.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
     </div>
@@ -751,7 +762,7 @@
     <div class="guide-steps" style="margin-top:4px">
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Compila tipo di laurea, facoltà, corso, approccio metodologico e poi argomento. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, budget totale <strong>N × 2</strong>.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, con <strong>budget base fisso di 10 revisioni totali incluse</strong>.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade di piano</strong> (+10 rev. totali sulla tesi). Inserisci poi il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
@@ -1422,7 +1433,7 @@ function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   window.__restoringState=true;
   thesis=deepClone(saved.thesis);
   if(thesis && thesis.metodologia==='empirica') thesis.metodologia='teorica';
-  revState=deepClone(saved.revState)||revState;
+  revState=normalizeRevState(deepClone(saved.revState));
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   indiceMode=saved.indiceMode||'ai';
   abstractMode=saved.abstractMode||'ai';
@@ -1562,7 +1573,7 @@ async function pingVisit(){
 let revState = {
   perChapter: {},   // { idx: count_used }
   totalUsed: 0,
-  totalBudget: 0,   // impostato a startPhase1: n_capitoli * 2
+  totalBudget: 10,   // budget base fisso garantito
   premiumUnlocked: false,
   unlockTargetChapter: null // idx del capitolo corrente nel modal sblocco
 };
@@ -1573,8 +1584,21 @@ let entitlementState = {
   history: []
 };
 
-function initRevState(nChapters){
-  revState.totalBudget = nChapters * 2;
+const BASE_TOTAL_REV_BUDGET = 10;
+
+function normalizeRevState(state){
+  const next = state && typeof state==='object' ? state : {};
+  next.perChapter = next.perChapter && typeof next.perChapter==='object' ? next.perChapter : {};
+  const summedUsed = Object.values(next.perChapter).reduce((acc,val)=>acc+(Number(val)||0),0);
+  next.totalUsed = Math.max(summedUsed, Number(next.totalUsed)||0);
+  next.totalBudget = Math.max(BASE_TOTAL_REV_BUDGET, Number(next.totalBudget)||0);
+  next.premiumUnlocked = false;
+  next.unlockTargetChapter = Number.isFinite(next.unlockTargetChapter) ? next.unlockTargetChapter : null;
+  return next;
+}
+
+function initRevState(_nChapters){
+  revState.totalBudget = BASE_TOTAL_REV_BUDGET;
   revState.perChapter = {};
   revState.totalUsed = 0;
   revState.premiumUnlocked = false;
@@ -1660,16 +1684,13 @@ function renderRevCounter(idx){
   el.querySelector('.rev-counter-dots').innerHTML=dotsHtml;
   el.querySelector('.rev-counter-info span:last-child').textContent = bypass
     ? 'Bypass personale attivo'
-    : revState.premiumUnlocked
-      ? '+10 revisioni aggiunte (Premium)'
-      : `${Math.max(0,max-used)} revisioni rimaste su questo capitolo`;
+    : `${Math.max(0,max-used)} revisioni rimaste su questo capitolo`;
   renderGlobalCounter();
 }
 
 function renderGlobalCounter(){
   const el=document.getElementById('globalRevCounter');if(!el)return;
   if(hasPersonalRevisionBypass()){el.innerHTML='<strong>🧪 Bypass personale attivo</strong> — limiti revisioni disattivati solo per questa sessione/profilo locale';return;}
-  if(revState.premiumUnlocked){el.innerHTML='<strong>✦ Premium attivo</strong> — Revisioni illimitate';return;}
   const rem=Math.max(0,revState.totalBudget-revState.totalUsed);
   el.innerHTML=`Budget totale: <strong>${rem} / ${revState.totalBudget}</strong> revisioni rimanenti`;
   renderWorkflowHud();
@@ -1707,7 +1728,7 @@ function renderWorkflowHud(){
   stepEl.innerHTML=`<strong>${getCurrentStepLabel()}</strong><br><span style="color:var(--text3)">Step ${Math.min(5,(Number(currentStep)||0)+1)} / 5</span>`;
   accountEl.innerHTML=accountEmail?`<strong>${escHtml(accountEmail)}</strong><br><span style="color:var(--green)">collegato</span>`:'<strong>Non collegato</strong><br><span style="color:var(--text3)">login consigliato</span>';
   syncEl.innerHTML=syncKey?`<strong>Attiva</strong><br><span style="color:var(--text3)">${escHtml(String(syncKey).slice(0,8))}…</span>`:'<strong>Non attiva</strong><br><span style="color:var(--text3)">chiave assente</span>';
-  revEl.innerHTML=revState.premiumUnlocked?'<strong>Premium</strong><br><span style="color:var(--green)">revisioni estese</span>':`<strong>${remaining} / ${revState.totalBudget||0}</strong><br><span style="color:var(--text3)">budget residuo</span>`;
+  revEl.innerHTML=`<strong>${remaining} / ${revState.totalBudget||0}</strong><br><span style="color:var(--text3)">budget residuo</span>`;
   pillsEl.innerHTML=getWorkflowPills().map(p=>`<span class="workflow-pill ${p.cls}">${escHtml(p.label)}</span>`).join('');
 }
 
