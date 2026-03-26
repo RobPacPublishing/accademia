@@ -1,4 +1,4 @@
-const { randomBytes, createHash } = require('crypto');
+import { randomBytes, createHash } from 'node:crypto';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
@@ -15,7 +15,7 @@ const SESSION_TTL_SECONDS = 60 * 24 * 60 * 60;
 const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   setCors(res);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
