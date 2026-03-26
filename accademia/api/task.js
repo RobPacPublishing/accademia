@@ -7,6 +7,8 @@ const RESEND_FROM = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const ADMIN_DASH_KEY = process.env.ADMIN_DASH_KEY || process.env.ACC_ADMIN_DASH_KEY || '';
+const OWNER_MASTER_EMAILS = new Set(parseCsv(process.env.OWNER_MASTER_EMAILS || process.env.ACC_OWNER_MASTER_EMAILS || 'robpacpublishing@gmail.com').map(normalizeEmail).filter(Boolean));
+const OWNER_MASTER_SYNC_KEYS = new Set(parseCsv(process.env.OWNER_MASTER_SYNC_KEYS || process.env.ACC_OWNER_MASTER_SYNC_KEYS || '').map((x) => String(x || '').trim()).filter(Boolean));
 const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_MODEL_PRIMARY || 'claude-sonnet-4-6';
 const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK || 'claude-haiku-4-5-20251001';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
@@ -45,6 +47,7 @@ export default async function handler(req, res) {
       case '__state_save': {
         const owner = await resolveOwner(input);
         assert(owner, 'syncKey o sessionToken mancanti');
+        await enforceLicensePolicy(owner, task, input);
         await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
         await recordEvent('state_save', { scope: owner.scope });
         return sendJson(res, 200, { ok: true });
@@ -137,6 +140,7 @@ export default async function handler(req, res) {
       case '__account_save': {
         const owner = await resolveOwner(input);
         assert(owner && owner.scope === 'account', 'sessionToken mancante o non valido');
+        await enforceLicensePolicy(owner, task, input);
         await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
         await recordEvent('account_save', { scope: owner.scope, email: redactEmail(owner.email) });
         return sendJson(res, 200, { ok: true });
@@ -167,6 +171,8 @@ export default async function handler(req, res) {
       case 'tutor_revision':
       case 'revisione_relatore':
       case 'revisione_capitolo': {
+        const owner = await resolveOwner(input);
+        if (owner) await enforceLicensePolicy(owner, task, input);
         const canonicalTask = normalizeGenerationTask(task);
         const text = await generateText(canonicalTask, input);
         await recordStat('provider_success', { task: canonicalTask, requestedTask: task });
@@ -239,36 +245,43 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+function parseCsv(value) {
+  return String(value || '').split(',').map((x) => x.trim()).filter(Boolean);
+}
+
 function hashEmail(email) {
   return createHash('sha256').update(email).digest('hex').slice(0, 24);
 }
 
 async function resolveOwner(input) {
-  const syncKey = String(input?.syncKey || '').trim();
-  if (syncKey) {
-    const safe = safeKey(syncKey);
-    return {
-      scope: 'sync',
-      syncKey,
-      stateKey: `accademia:sync:${safe}:state`,
-      snapshotsKey: `accademia:sync:${safe}:snapshots`,
-      recoveryKey: `accademia:sync:${safe}:recovery`,
-    };
+  const sessionToken = String(input?.sessionToken || '').trim();
+  if (sessionToken) {
+    const session = await getJson(accountSessionKey(sessionToken));
+    if (session?.email) {
+      const email = normalizeEmail(session.email);
+      const id = hashEmail(email);
+      return {
+        scope: 'account',
+        email,
+        sessionToken,
+        stateKey: `accademia:account:${id}:state`,
+        snapshotsKey: `accademia:account:${id}:snapshots`,
+        recoveryKey: `accademia:account:${id}:recovery`,
+        licenseKey: `accademia:account:${id}:license`,
+      };
+    }
   }
 
-  const sessionToken = String(input?.sessionToken || '').trim();
-  if (!sessionToken) return null;
-  const session = await getJson(accountSessionKey(sessionToken));
-  if (!session?.email) return null;
-  const email = normalizeEmail(session.email);
-  const id = hashEmail(email);
+  const syncKey = String(input?.syncKey || '').trim();
+  if (!syncKey) return null;
+  const safe = safeKey(syncKey);
   return {
-    scope: 'account',
-    email,
-    sessionToken,
-    stateKey: `accademia:account:${id}:state`,
-    snapshotsKey: `accademia:account:${id}:snapshots`,
-    recoveryKey: `accademia:account:${id}:recovery`,
+    scope: 'sync',
+    syncKey,
+    stateKey: `accademia:sync:${safe}:state`,
+    snapshotsKey: `accademia:sync:${safe}:snapshots`,
+    recoveryKey: `accademia:sync:${safe}:recovery`,
+    licenseKey: `accademia:sync:${safe}:license`,
   };
 }
 
@@ -435,6 +448,180 @@ function parseUnlockConfig() {
   return { premium, base };
 }
 
+
+
+function defaultLicenseRecord() {
+  return {
+    version: 1,
+    mode: 'single',
+    stage: 'none',
+    thesisId: '',
+    previewCount: 0,
+    previewLimit: 3,
+    profile: null,
+    reservedAt: '',
+    lockedAt: '',
+    updatedAt: '',
+  };
+}
+
+function sanitizeLicenseRecord(record) {
+  const base = defaultLicenseRecord();
+  const next = record && typeof record === 'object' ? { ...base, ...record } : { ...base };
+  next.previewLimit = 3;
+  next.profile = next.profile && typeof next.profile === 'object'
+    ? {
+        topicRaw: String(next.profile.topicRaw || '').trim(),
+        topicNorm: normalizeTopic(next.profile.topicRaw || next.profile.topicNorm || ''),
+        faculty: String(next.profile.faculty || '').trim(),
+        course: String(next.profile.course || '').trim(),
+        degreeType: String(next.profile.degreeType || '').trim(),
+        methodology: String(next.profile.methodology || '').trim(),
+      }
+    : null;
+  if (next.stage !== 'preview' && next.stage !== 'locked') next.stage = 'none';
+  return next;
+}
+
+function normalizeTopic(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function topicSimilarity(a, b) {
+  const A = new Set(normalizeTopic(a).split(' ').filter((t) => t && t.length > 2));
+  const B = new Set(normalizeTopic(b).split(' ').filter((t) => t && t.length > 2));
+  if (!A.size || !B.size) return 0;
+  let common = 0;
+  A.forEach((tok) => { if (B.has(tok)) common += 1; });
+  return common / Math.max(A.size, B.size);
+}
+
+function hasProfileIdentity(profile) {
+  return !!(profile && profile.topicNorm && profile.faculty && profile.course && profile.degreeType);
+}
+
+function areProfilesCompatible(a, b) {
+  if (!hasProfileIdentity(a) || !hasProfileIdentity(b)) return false;
+  if (a.faculty !== b.faculty) return false;
+  if (a.course !== b.course) return false;
+  if (a.degreeType !== b.degreeType) return false;
+  if (a.methodology && b.methodology && a.methodology !== b.methodology) return false;
+  if (a.topicNorm === b.topicNorm) return true;
+  if (a.topicNorm.includes(b.topicNorm) || b.topicNorm.includes(a.topicNorm)) return true;
+  return topicSimilarity(a.topicNorm, b.topicNorm) >= 0.42;
+}
+
+function extractProfileFromInput(input) {
+  const payloadThesis = input?.payload?.thesis || {};
+  const topicRaw = String(input?.theme || payloadThesis?.argomento || '').trim();
+  const faculty = String(input?.faculty || payloadThesis?.facolta || '').trim();
+  const course = String(input?.degreeCourse || payloadThesis?.corso || '').trim();
+  const degreeType = String(input?.degreeType || payloadThesis?.tipo || '').trim();
+  const methodology = String(input?.methodology || payloadThesis?.metodologia || '').trim();
+  return { topicRaw, topicNorm: normalizeTopic(topicRaw), faculty, course, degreeType, methodology };
+}
+
+function payloadHasCommittedWork(payload) {
+  const thesis = payload?.thesis || {};
+  return !!(String(thesis?.abstract || '').trim() || (Array.isArray(thesis?.chapters) && thesis.chapters.some((ch) => String(ch?.content || '').trim())));
+}
+
+function payloadHasPreviewWork(payload) {
+  const thesis = payload?.thesis || {};
+  return !!(String(thesis?.indice || '').trim() || (Array.isArray(thesis?.chapterTitles) && thesis.chapterTitles.length));
+}
+
+function isMasterOwner(owner, input) {
+  if (ADMIN_DASH_KEY && String(input?.adminKey || '').trim() === ADMIN_DASH_KEY) return true;
+  if (owner?.scope === 'account' && OWNER_MASTER_EMAILS.has(normalizeEmail(owner.email))) return true;
+  if (owner?.scope === 'sync' && OWNER_MASTER_SYNC_KEYS.has(String(owner.syncKey || '').trim())) return true;
+  return false;
+}
+
+function makeLicenseError(message) {
+  const err = new Error(message);
+  err.statusCode = 403;
+  err.error = 'license_locked';
+  return err;
+}
+
+async function persistLicenseRecord(owner, record) {
+  if (!owner?.licenseKey) return;
+  const next = sanitizeLicenseRecord(record);
+  next.updatedAt = new Date().toISOString();
+  await putJson(owner.licenseKey, next);
+}
+
+async function enforceLicensePolicy(owner, task, input) {
+  if (!owner?.licenseKey) return null;
+  if (isMasterOwner(owner, input)) return sanitizeLicenseRecord(await getJson(owner.licenseKey));
+  const requestedTask = normalizeGenerationTask(task);
+  let record = sanitizeLicenseRecord(await getJson(owner.licenseKey));
+  const profile = extractProfileFromInput(input);
+  const hasProfile = hasProfileIdentity(profile);
+
+  if (task === '__state_save' || task === '__account_save') {
+    const payload = input?.payload || {};
+    if (!hasProfile) return record;
+    if (record.stage === 'locked' && !areProfilesCompatible(record.profile, profile)) {
+      throw makeLicenseError('Questa licenza è già associata a una tesi diversa e non può essere riutilizzata per un nuovo progetto.');
+    }
+    if (record.stage === 'preview' && !areProfilesCompatible(record.profile, profile)) {
+      throw makeLicenseError('Questa licenza è già in preparazione su un’altra tesi. Puoi proseguire solo su quel progetto.');
+    }
+    if (record.stage === 'none') {
+      if (payloadHasCommittedWork(payload)) {
+        record = { ...record, stage: 'locked', thesisId: record.thesisId || makeId('thesis'), profile, lockedAt: new Date().toISOString() };
+      } else if (payloadHasPreviewWork(payload)) {
+        record = { ...record, stage: 'preview', thesisId: record.thesisId || makeId('thesis'), profile, previewCount: Math.max(1, Number(record.previewCount) || 0), reservedAt: record.reservedAt || new Date().toISOString() };
+      }
+    } else if (record.stage === 'preview' && payloadHasCommittedWork(payload)) {
+      record = { ...record, stage: 'locked', thesisId: record.thesisId || makeId('thesis'), profile: record.profile || profile, lockedAt: record.lockedAt || new Date().toISOString() };
+    }
+    await persistLicenseRecord(owner, record);
+    return record;
+  }
+
+  const generationTasks = new Set(['outline_draft', 'abstract_draft', 'chapter_draft', 'chapter_review', 'tutor_revision']);
+  if (!generationTasks.has(requestedTask) || !hasProfile) return record;
+
+  if (record.stage === 'none') {
+    if (requestedTask === 'outline_draft') {
+      record = { ...record, stage: 'preview', thesisId: makeId('thesis'), profile, previewCount: 1, reservedAt: new Date().toISOString() };
+    } else {
+      record = { ...record, stage: 'locked', thesisId: makeId('thesis'), profile, lockedAt: new Date().toISOString() };
+    }
+    await persistLicenseRecord(owner, record);
+    return record;
+  }
+
+  if (!areProfilesCompatible(record.profile, profile)) {
+    const msg = record.stage === 'locked'
+      ? 'Questa licenza è già associata a una tesi diversa e non può essere usata per generarne un’altra.'
+      : 'Questa licenza è già stata impegnata su un’altra tesi. Puoi proseguire solo su quel progetto.';
+    throw makeLicenseError(msg);
+  }
+
+  if (record.stage === 'preview' && requestedTask === 'outline_draft') {
+    if ((Number(record.previewCount) || 0) >= record.previewLimit) {
+      throw makeLicenseError('Hai già usato le proposte indice iniziali consentite per questa licenza. Ora puoi proseguire solo con questa tesi.');
+    }
+    record.previewCount = (Number(record.previewCount) || 0) + 1;
+  }
+
+  if (record.stage === 'preview' && requestedTask !== 'outline_draft') {
+    record.stage = 'locked';
+    record.lockedAt = record.lockedAt || new Date().toISOString();
+  }
+
+  await persistLicenseRecord(owner, record);
+  return record;
+}
 
 function normalizeGenerationTask(task) {
   switch (String(task || '').trim()) {

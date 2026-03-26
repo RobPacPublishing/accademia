@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=tudHw7UTV1-farAeZlvIM4YWc8sNVkwNC4yRmHYO_1uPQ-687T48k08dOLOdSM_AoEQmswcVOvDUEWBEr50Zdp8G1sMvIVDcXh3iCkrf1gjFEV_-_vPdeCIaKrN613QdNzcnjRDIO2pf6dE_iPpujWo4LXDAcUrFNP_txb5gdcIcvCx4eVSAKILYeYXlCD_Zu8BwTS-eBYsw7BHpGMhsfWHMWbKFsM2COE3w3mtbyYLNgt6EnCeCr4jBMpSIvtVYcnp27l7iLSi2-PQy1urXdA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=xO86gj3zSHU0HU89JqU8LMRBermbVKzWruLqdWj6T6-w45lpP-fcwGB3zeSWHnlVUOCr1Ioid0v1FMXr9o8DC-09_yW_tk3CoOe1dNRb4LmghaQmatBX2Sd38gS4woSEqegFKLvYx6EfFhBw4AlN-sG1vhT0IDL9-VlZbWJ7JcwenNsAWeQr_TnJpnwYqdvEtROPZJiInnL-63Bbdwgf32AwqBCD7LVfOaRI-jxxWaj45RLrsbQpghzfBR35oSV6qCu39UaplVqA--6pPUjBGg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -442,7 +442,7 @@
         </div>
       </div>
       <div class="guide-note">
-        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> (+10 revisioni totali aggiuntive sulla tesi rispetto al budget base). Il codice viene inviato via email dopo l’attivazione.<br><br>
+        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> (+10 revisioni totali aggiuntive sulla tesi rispetto al budget base). Il codice viene inviato via email dopo l’attivazione.<br><br><strong>Licenza standard:</strong> una licenza resta associata a una sola tesi. La cancellazione dei contenuti non libera la licenza per una tesi diversa.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
     </div>
@@ -1100,6 +1100,7 @@ function buildProgressPayload(){
     metodologia,
     chapterOverrideActive,
     entitlementState:deepClone(entitlementState),
+    thesisGuard:deepClone(thesisGuard),
     form:deepClone(captureFormState()),
     savedAt:new Date().toISOString()
   };
@@ -1127,7 +1128,7 @@ async function saveRemoteProgress(force=false){
   if(!syncKey) return;
   const payload=buildProgressPayload();
   try{
-    await apiTask('__state_save',{syncKey,payload});
+    await apiTask('__state_save',{syncKey,payload,adminKey:getAdminDashKey()});
   }catch(e){
     console.warn('remote save failed',e);
     if(force) showToast('Sync cloud non riuscita', true);
@@ -1151,7 +1152,7 @@ async function saveAccountProgress(force=false){
   if(!sessionToken) return;
   const payload=buildProgressPayload();
   try{
-    await apiTask('__account_save',{sessionToken,payload});
+    await apiTask('__account_save',{sessionToken,payload,adminKey:getAdminDashKey()});
   }catch(e){
     console.warn('account save failed',e);
     if(force) showToast('Salvataggio account non riuscito', true);
@@ -1440,8 +1441,10 @@ function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   metodologia=(saved.metodologia==='empirica'?'teorica':(saved.metodologia||''));
   chapterOverrideActive=!!saved.chapterOverrideActive;
   entitlementState=deepClone(saved.entitlementState)||entitlementState;
+  thesisGuard=sanitizeThesisGuard(deepClone(saved.thesisGuard)||thesisGuard);
   resetRenderedOutputs();
   restoreProgressUI(saved.form||{});
+  ensureThesisGuardFromSavedState();
   renderWorkflowHud();
   window.__restoringState=false;
   try{localStorage.setItem(STORAGE_KEY, JSON.stringify(deepClone(saved)));}catch(_){ }
@@ -1605,6 +1608,258 @@ function initRevState(_nChapters){
   renderWorkflowHud();
 }
 
+
+let thesisGuard = defaultThesisGuard();
+
+const SINGLE_THESIS_PREVIEW_LIMIT = 3;
+const THESIS_GUARD_VERSION = 1;
+const MASTER_OWNER_EMAIL = 'robpacpublishing@gmail.com';
+
+function defaultThesisGuard(){
+  return {
+    version: THESIS_GUARD_VERSION,
+    mode: 'single',
+    stage: 'none',
+    thesisId: '',
+    previewCount: 0,
+    previewLimit: SINGLE_THESIS_PREVIEW_LIMIT,
+    profile: null,
+    reservedAt: '',
+    lockedAt: '',
+    updatedAt: '',
+    lockReason: ''
+  };
+}
+
+function sanitizeThesisGuard(raw){
+  const base = defaultThesisGuard();
+  const next = raw && typeof raw==='object' ? { ...base, ...raw } : { ...base };
+  next.previewLimit = SINGLE_THESIS_PREVIEW_LIMIT;
+  next.version = THESIS_GUARD_VERSION;
+  next.profile = next.profile && typeof next.profile==='object' ? {
+    topicRaw: String(next.profile.topicRaw || '').trim(),
+    topicNorm: normalizeGuardTopic(next.profile.topicRaw || next.profile.topicNorm || ''),
+    faculty: String(next.profile.faculty || '').trim(),
+    course: String(next.profile.course || '').trim(),
+    degreeType: String(next.profile.degreeType || '').trim(),
+    methodology: String(next.profile.methodology || '').trim()
+  } : null;
+  if(next.stage !== 'preview' && next.stage !== 'locked') next.stage = 'none';
+  return next;
+}
+
+function normalizeGuardTopic(value){
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function guardTopicSimilarity(a,b){
+  const A = new Set(normalizeGuardTopic(a).split(' ').filter(tok=>tok && tok.length>2));
+  const B = new Set(normalizeGuardTopic(b).split(' ').filter(tok=>tok && tok.length>2));
+  if(!A.size || !B.size) return 0;
+  let common = 0;
+  A.forEach(tok=>{ if(B.has(tok)) common += 1; });
+  return common / Math.max(A.size, B.size);
+}
+
+function buildThesisProfile(source='ui'){
+  const fromUi = source !== 'thesis';
+  const topic = fromUi ? (document.getElementById('argomento')?.value || thesis.argomento || '') : (thesis.argomento || document.getElementById('argomento')?.value || '');
+  const faculty = fromUi ? (document.getElementById('facolta')?.value || thesis.facolta || '') : (thesis.facolta || document.getElementById('facolta')?.value || '');
+  const course = fromUi ? (document.getElementById('corso')?.value || thesis.corso || '') : (thesis.corso || document.getElementById('corso')?.value || '');
+  const degreeType = fromUi ? (document.getElementById('tipoLaurea')?.value || thesis.tipo || '') : (thesis.tipo || document.getElementById('tipoLaurea')?.value || '');
+  const methodology = (metodologia || thesis.metodologia || '').trim();
+  return {
+    topicRaw: String(topic || '').trim(),
+    topicNorm: normalizeGuardTopic(topic || ''),
+    faculty: String(faculty || '').trim(),
+    course: String(course || '').trim(),
+    degreeType: String(degreeType || '').trim(),
+    methodology: String(methodology || '').trim()
+  };
+}
+
+function hasProfileIdentity(profile){
+  return !!(profile && profile.topicNorm && profile.faculty && profile.course && profile.degreeType);
+}
+
+function areProfilesCompatible(a,b){
+  if(!hasProfileIdentity(a) || !hasProfileIdentity(b)) return false;
+  if(a.faculty !== b.faculty) return false;
+  if(a.course !== b.course) return false;
+  if(a.degreeType !== b.degreeType) return false;
+  if(a.methodology && b.methodology && a.methodology !== b.methodology) return false;
+  if(a.topicNorm === b.topicNorm) return true;
+  if(a.topicNorm.includes(b.topicNorm) || b.topicNorm.includes(a.topicNorm)) return true;
+  return guardTopicSimilarity(a.topicNorm, b.topicNorm) >= 0.42;
+}
+
+function getMasterOwnerReasonLocal(){
+  const email = (getAccountEmail() || '').trim().toLowerCase();
+  if(getAdminDashKey()) return 'admin_key';
+  if(email && email === MASTER_OWNER_EMAIL) return 'master_email';
+  if(hasPersonalRevisionBypass()) return 'personal_bypass';
+  return '';
+}
+
+function isMasterOwnerLocal(){
+  return !!getMasterOwnerReasonLocal();
+}
+
+function getSingleThesisNoticeElement(){
+  let el = document.getElementById('singleThesisNotice');
+  if(el) return el;
+  const anchorEl = document.querySelector('.form-card .form-card-title');
+  if(!anchorEl || !anchorEl.parentNode) return null;
+  el = document.createElement('div');
+  el.id = 'singleThesisNotice';
+  el.className = 'single-thesis-notice';
+  anchorEl.insertAdjacentElement('afterend', el);
+  return el;
+}
+
+function syncMethodologyUi(){
+  document.querySelectorAll('.metod-chip').forEach(chip=>chip.classList.remove('active'));
+  if(!metodologia) return;
+  const target = document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
+  if(target) target.classList.add('active');
+}
+
+function lockProjectFieldsIfNeeded(){
+  const locked = !isMasterOwnerLocal() && thesisGuard.stage === 'locked';
+  ['argomento','facolta','corso','tipoLaurea','numChapters','compatibilityAck'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.disabled = !!locked;
+  });
+  const overrideBtn = document.getElementById('toggleOverride');
+  if(overrideBtn) overrideBtn.disabled = !!locked;
+  document.querySelectorAll('.metod-chip').forEach(chip=>{
+    chip.style.pointerEvents = locked ? 'none' : '';
+    chip.style.opacity = locked ? '0.65' : '';
+  });
+}
+
+function renderSingleThesisNotice(){
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  const el = getSingleThesisNoticeElement();
+  lockProjectFieldsIfNeeded();
+  if(!el) return;
+  el.className = 'single-thesis-notice';
+  if(isMasterOwnerLocal()){
+    el.classList.add('master');
+    el.innerHTML = `<strong>Profilo master attivo</strong> — multi-tesi illimitata abilitata (${escHtml(getMasterOwnerReasonLocal())}).`;
+    return;
+  }
+  if(thesisGuard.stage === 'locked' && thesisGuard.profile){
+    el.classList.add('locked');
+    el.innerHTML = `<strong>Licenza associata a una sola tesi.</strong> Facoltà, corso, argomento e metodologia sono ora vincolati a questo progetto. Per aprire una tesi diversa serve una nuova licenza.`;
+    return;
+  }
+  if(thesisGuard.stage === 'preview' && thesisGuard.profile){
+    el.innerHTML = `<strong>Licenza in preparazione sulla tesi corrente.</strong> Proposte indice iniziali usate: <strong>${thesisGuard.previewCount}/${thesisGuard.previewLimit}</strong>. Dopo abstract o primo capitolo il progetto viene bloccato sulla stessa tesi.`;
+    return;
+  }
+  el.innerHTML = `<strong>Regola licenza standard:</strong> una licenza corrisponde a una sola tesi. Prima del blocco puoi impostare il progetto; dopo abstract o primo capitolo il profilo tesi resta vincolato.`;
+}
+
+function restoreLockedProfileUi(showMessage=false){
+  if(isMasterOwnerLocal()) return true;
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  const profile = thesisGuard.profile;
+  if(!profile) return true;
+  if(document.getElementById('argomento')) document.getElementById('argomento').value = profile.topicRaw || '';
+  if(document.getElementById('facolta')) document.getElementById('facolta').value = profile.faculty || '';
+  if(document.getElementById('corso')) document.getElementById('corso').value = profile.course || '';
+  if(document.getElementById('tipoLaurea')) document.getElementById('tipoLaurea').value = profile.degreeType || '';
+  metodologia = profile.methodology || metodologia || '';
+  thesis.argomento = profile.topicRaw || thesis.argomento;
+  thesis.facolta = profile.faculty || thesis.facolta;
+  thesis.corso = profile.course || thesis.corso;
+  thesis.tipo = profile.degreeType || thesis.tipo;
+  thesis.metodologia = profile.methodology || thesis.metodologia;
+  syncMethodologyUi();
+  renderTitleSuggestions();
+  renderCompatibilityNotice();
+  renderSingleThesisNotice();
+  if(showMessage) showToast('Questa licenza è già associata a una tesi in corso.', true);
+  return false;
+}
+
+function touchThesisGuard(stage, profile, reason=''){
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  if(!thesisGuard.thesisId) thesisGuard.thesisId = `th-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  thesisGuard.stage = stage;
+  thesisGuard.profile = profile;
+  thesisGuard.updatedAt = new Date().toISOString();
+  if(stage === 'preview' && !thesisGuard.reservedAt) thesisGuard.reservedAt = thesisGuard.updatedAt;
+  if(stage === 'locked' && !thesisGuard.lockedAt) thesisGuard.lockedAt = thesisGuard.updatedAt;
+  if(reason) thesisGuard.lockReason = reason;
+  renderSingleThesisNotice();
+  return true;
+}
+
+function registerOutlinePreviewAttempt(){
+  if(isMasterOwnerLocal()) return true;
+  const profile = buildThesisProfile('ui');
+  if(!hasProfileIdentity(profile)) return true;
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  if(thesisGuard.stage === 'locked'){
+    if(!areProfilesCompatible(thesisGuard.profile, profile)) return restoreLockedProfileUi(true);
+    return true;
+  }
+  if(thesisGuard.stage === 'preview'){
+    if(!areProfilesCompatible(thesisGuard.profile, profile)) return restoreLockedProfileUi(true);
+    if((thesisGuard.previewCount || 0) >= thesisGuard.previewLimit){
+      showToast(`Hai già utilizzato ${thesisGuard.previewLimit} proposte indice iniziali per questa licenza. Ora puoi proseguire solo con questa tesi.`, true);
+      return false;
+    }
+    thesisGuard.previewCount = (thesisGuard.previewCount || 0) + 1;
+    return touchThesisGuard('preview', thesisGuard.profile || profile, 'outline_preview');
+  }
+  thesisGuard.previewCount = 1;
+  return touchThesisGuard('preview', profile, 'outline_preview');
+}
+
+function ensureSingleThesisCommit(reason='project_lock'){
+  if(isMasterOwnerLocal()) return true;
+  const profile = buildThesisProfile('thesis');
+  if(!hasProfileIdentity(profile)) return true;
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  if(thesisGuard.stage === 'locked'){
+    if(!areProfilesCompatible(thesisGuard.profile, profile)) return restoreLockedProfileUi(true);
+    return true;
+  }
+  if(thesisGuard.stage === 'preview' && thesisGuard.profile && !areProfilesCompatible(thesisGuard.profile, profile)) return restoreLockedProfileUi(true);
+  return touchThesisGuard('locked', thesisGuard.profile || profile, reason);
+}
+
+function ensureThesisGuardFromSavedState(){
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  if(isMasterOwnerLocal()){
+    renderSingleThesisNotice();
+    return;
+  }
+  if(thesisGuard.stage === 'locked' || thesisGuard.stage === 'preview'){
+    renderSingleThesisNotice();
+    return;
+  }
+  const profile = buildThesisProfile('thesis');
+  const hasCommitted = !!(String(thesis.abstract || '').trim() || (Array.isArray(thesis.chapters) && thesis.chapters.some(ch=>String(ch?.content || '').trim())));
+  const hasPreview = !!(String(thesis.indice || '').trim() || (Array.isArray(thesis.chapterTitles) && thesis.chapterTitles.length));
+  if(hasCommitted && hasProfileIdentity(profile)){
+    touchThesisGuard('locked', profile, 'restore_committed');
+  } else if(hasPreview && hasProfileIdentity(profile)){
+    thesisGuard.previewCount = Math.max(1, thesisGuard.previewCount || 1);
+    touchThesisGuard('preview', profile, 'restore_preview');
+  } else {
+    renderSingleThesisNotice();
+  }
+}
+
 const MAX_REV_PER_CHAPTER = 3;
 const PERSONAL_REV_BYPASS_KEY = '_td_personal_rev_bypass_v1';
 const PERSONAL_REV_BYPASS_CODE = 'robpac-tutor-dev-2026';
@@ -1695,7 +1950,7 @@ function renderGlobalCounter(){
   const el=document.getElementById('globalRevCounter');if(!el)return;
   if(hasPersonalRevisionBypass()){el.innerHTML='<strong>🧪 Bypass personale attivo</strong> — limiti revisioni disattivati solo per questa sessione/profilo locale';return;}
   const rem=Math.max(0,revState.totalBudget-revState.totalUsed);
-  el.innerHTML=`Budget totale: <strong>${rem} / ${revState.totalBudget}</strong> revisioni rimanenti`;
+  el.innerHTML=`Budget totale: <strong>${rem}/${revState.totalBudget}</strong>`;
   renderWorkflowHud();
 }
 
@@ -1715,6 +1970,9 @@ function getWorkflowPills(){
   if(getAccountSessionToken() || getSyncKey()) pills.push({label:'Ripresa multi-dispositivo attiva', cls:'ok'});
   if(!getAccountSessionToken()) pills.push({label:'Account da collegare', cls:'warn'});
   if(!getSyncKey()) pills.push({label:'Sync non impostata', cls:'warn'});
+  if(isMasterOwnerLocal()) pills.push({label:'Profilo master multi-tesi', cls:'ok'});
+  else if(thesisGuard.stage==='locked') pills.push({label:'Licenza vincolata a 1 tesi', cls:'ok'});
+  else if(thesisGuard.stage==='preview') pills.push({label:`Indice iniziali: ${thesisGuard.previewCount}/${thesisGuard.previewLimit}`, cls:'warn'});
   return pills;
 }
 
@@ -1935,6 +2193,8 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   applyAccessState(unlocked);
   checkDisclaimer();
   await restoreProgressOnLoad(false);
+  ensureThesisGuardFromSavedState();
+  renderSingleThesisNotice();
   renderWorkflowHud();
   pingVisit();
 });
@@ -2256,7 +2516,7 @@ async function deleteIndice(){
   document.getElementById('downloadBar').style.display='none';
   setStep(0);
   saveProgress();
-  showToast("Indice eliminato. Puoi rigenerarlo da zero.");
+  showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Indice eliminato. La licenza resta comunque vincolata a questa tesi." : "Indice eliminato. Puoi rigenerarlo da zero.");
 }
 
 async function deleteAbstract(){
@@ -2280,7 +2540,7 @@ async function deleteAbstract(){
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
   saveProgress();
-  showToast("Abstract eliminato. Puoi rigenerarlo o passare direttamente ai capitoli.");
+  showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Abstract eliminato. Il profilo tesi resta vincolato alla licenza corrente." : "Abstract eliminato. Puoi rigenerarlo o passare direttamente ai capitoli.");
 }
 
 async function deleteChapter(idx){
@@ -2406,6 +2666,7 @@ function focusFinalTools(){
 
 function restoreProgressUI(savedForm=null){
   applyFormState(savedForm || {});
+  renderSingleThesisNotice();
   setIndiceMode(indiceMode);
   setAbstractMode(abstractMode);
   const metodBtn=document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
@@ -2476,7 +2737,7 @@ async function restoreProgressOnLoad(showToastOnSuccess=true){
 // ══════════════════════════════════════════════
 // FORM CONTROLS
 // ══════════════════════════════════════════════
-function setMetod(el,val){document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';renderTitleSuggestions();renderCompatibilityNotice();if(!window.__restoringState) saveProgress();}
+function setMetod(el,val){if(!window.__restoringState && !isMasterOwnerLocal() && thesisGuard.stage==='locked'){restoreLockedProfileUi(true);return;}document.querySelectorAll('.metod-chip').forEach(c=>c.classList.remove('active'));if(el) el.classList.add('active');metodologia=val||'';renderTitleSuggestions();renderCompatibilityNotice();if(!window.__restoringState) saveProgress();}
 function setIndiceMode(mode){
   indiceMode=mode;
   document.getElementById('modeBtnAI').classList.toggle('active',mode==='ai');
@@ -2498,6 +2759,7 @@ function setAbstractMode(mode){
   if(!window.__restoringState) saveProgress();
 }
 function toggleChapterOverride(){
+  if(!window.__restoringState && !isMasterOwnerLocal() && thesisGuard.stage==='locked'){ restoreLockedProfileUi(true); return; }
   chapterOverrideActive=!chapterOverrideActive;
   const btn=document.getElementById('toggleOverride');
   btn.classList.toggle('active',chapterOverrideActive);
@@ -2830,6 +3092,7 @@ REGOLE ASSOLUTE — VIOLAZIONE NON TOLLERATA:
 // ══════════════════════════════════════════════
 async function startPhase1(){
   if(!validateForm())return;
+  if(!registerOutlinePreviewAttempt()) return;
   await saveLastValidState('prima_rigenerazione_indice',{silent:true});
   thesis.argomento=document.getElementById('argomento').value.trim();
   thesis.facolta=document.getElementById('facolta').value;
@@ -2837,6 +3100,7 @@ async function startPhase1(){
   thesis.tipo=document.getElementById('tipoLaurea').value;
   thesis.metodologia=metodologia;
   thesis.chapters=[];thesis.currentChapterIdx=0;thesis.approvedChapters=[];
+  renderSingleThesisNotice();
   // Will be re-init after chapters count is known (at generateNextChapter)
   thesis.contextPacket={
     tipoLabel:tipoLaureaLabel(thesis.tipo),
@@ -2919,6 +3183,8 @@ Bibliografia`;
 
 function approveIndice(){
   thesis.chapterTitles=extractChapterTitles(thesis.indice);
+  thesisGuard = sanitizeThesisGuard(thesisGuard);
+  if(!isMasterOwnerLocal() && thesisGuard.stage==='none') touchThesisGuard('preview', buildThesisProfile('thesis'), 'outline_approved');
   initRevState(thesis.chapterTitles.length);
   document.getElementById('indiceApproval').style.display='none';
   document.getElementById('nextAbstract').classList.add('visible');
@@ -2969,6 +3235,7 @@ Riscrivi indice completo. Stesso formato. Solo l’indice.`;
 // ══════════════════════════════════════════════
 async function generateAbstract(){
   if(!ensureCompatibilityGuard()) return;
+  if(!ensureSingleThesisCommit('abstract_generation')) return;
   await saveLastValidState('prima_generazione_abstract',{silent:true});
   setPhaseButtonBusy('btnAbstractAction',true,'<span class="spinner"></span>Generazione abstract...');
   const manualAbstract=document.getElementById('abstractManuale')?.value.trim()||'';
@@ -3092,6 +3359,7 @@ function getChapterRole(idx,total,title,metod){
 
 async function generateNextChapter(){
   if(!ensureCompatibilityGuard()) return;
+  if(!ensureSingleThesisCommit('chapter_generation')) return;
   await saveLastValidState('prima_generazione_capitolo',{silent:true});
   setPhaseButtonBusy('btnChapterAction',true,'<span class="spinner"></span>Generazione capitolo...');
   const idx=thesis.currentChapterIdx;
@@ -3341,6 +3609,7 @@ function hasSubstantialRevisionChange(beforeText,afterText){
 }
 
 async function reviseChapter(idx){
+  if(!ensureSingleThesisCommit('chapter_revision')) return;
   await saveLastValidState(`prima_revisione_capitolo_${idx+1}`,{silent:true});
   const beforeChapter=(thesis.chapters?.[idx]?.content)||'';
   if(!canRevise(idx)){
@@ -3421,6 +3690,7 @@ ISTRUZIONI:
 
 
 async function tutorReviseChapter(idx){
+  if(!ensureSingleThesisCommit('tutor_revision')) return;
   await saveLastValidState(`prima_revisione_relatore_capitolo_${idx+1}`,{silent:true});
   const beforeTutorChapter=(thesis.chapters?.[idx]?.content)||'';
   if(!canRevise(idx)){
@@ -3824,6 +4094,11 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
     },
     facultyCompatibility:getFacultyCompatibility(facolta),
     facultyGuidance:facultyPromptGuidance(facolta,corso,metodologia||thesis.metodologia||''),
+    syncKey: ensureSyncKey(true),
+    sessionToken: getAccountSessionToken(),
+    adminKey: getAdminDashKey(),
+    thesisGuard,
+    licenseProfile: buildThesisProfile('thesis'),
     extra
   };
 }
@@ -4027,12 +4302,20 @@ function applySuggestedTitle(btn){
 }
 
 function handleProjectStructureChange(){
+  if(!window.__restoringState && !isMasterOwnerLocal() && thesisGuard.stage==='locked'){
+    restoreLockedProfileUi(true);
+    return;
+  }
   renderTitleSuggestions();
   renderCompatibilityNotice();
   saveProgress();
 }
 
 function handleArgomentoInput(){
+  if(!window.__restoringState && !isMasterOwnerLocal() && thesisGuard.stage==='locked'){
+    restoreLockedProfileUi(true);
+    return;
+  }
   renderTitleSuggestions();
   saveProgress();
 }
@@ -4187,6 +4470,10 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
   .history-mini-btn{padding:7px 10px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;cursor:pointer;}
   .history-mini-btn:hover{border-color:var(--gold);color:var(--gold);}
   .history-empty{font-size:13px;color:var(--text3);}
+  .single-thesis-notice{margin:-8px 0 18px;padding:12px 14px;border-radius:12px;border:1px solid var(--border2);background:var(--bg4);font-size:12px;line-height:1.55;color:var(--text2);}
+  .single-thesis-notice strong{color:var(--text);}
+  .single-thesis-notice.locked{border-color:rgba(201,168,76,.35);background:rgba(201,168,76,.06);}
+  .single-thesis-notice.master{border-color:rgba(94,184,122,.35);background:rgba(94,184,122,.08);}
 </style>
 <div class="modal-overlay" id="revisionHistoryModal">
   <div class="modal-box" style="max-width:860px;">
