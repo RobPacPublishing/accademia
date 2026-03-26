@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=KwTi-dQi96XAcUcCw6shMCoSQNutF0FSSxKNVQQPpd_4jwrwzgGLus74k5iDAIeodA-VADDTuEbB1bD1z6pmewLljs4Nh3lD8y0D3QJs9H1dH2cJIBCWu-FmA-pmYRNyPVzTCLePo39p0WBQFGejTt7ACZAwMNmrgS_YIS44JNuhQX26fll97M7NHpTyiy944BYtbfgbkKuFwx_k5Cydlu5nMrruLBtAukUwTPPCfy5h72cOZ-YrQe6JuZ4noIrNooj3QpXXKn-_WRm3XTJX8w" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=tudHw7UTV1-farAeZlvIM4YWc8sNVkwNC4yRmHYO_1uPQ-687T48k08dOLOdSM_AoEQmswcVOvDUEWBEr50Zdp8G1sMvIVDcXh3iCkrf1gjFEV_-_vPdeCIaKrN613QdNzcnjRDIO2pf6dE_iPpujWo4LXDAcUrFNP_txb5gdcIcvCx4eVSAKILYeYXlCD_Zu8BwTS-eBYsw7BHpGMhsfWHMWbKFsM2COE3w3mtbyYLNgt6EnCeCr4jBMpSIvtVYcnp27l7iLSi2-PQy1urXdA" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -119,7 +119,7 @@
   .rev-counter-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);flex-wrap:wrap;}
   .rev-counter-info{display:flex;align-items:center;gap:10px;flex:1 1 420px;min-width:0;flex-wrap:wrap;}
   .rev-counter-info > span:first-child{font-size:12px;color:var(--text3);white-space:nowrap;}
-  .rev-counter-info > span:last-child{font-size:12px;color:var(--text2);line-height:1.5;}
+  .rev-counter-ratio{font-size:12px;color:var(--text2);line-height:1.5;font-variant-numeric:tabular-nums;white-space:nowrap;}
   .rev-counter-global{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;flex:0 1 320px;min-width:220px;text-align:right;font-size:12px;color:var(--text3);line-height:1.5;}
   .approval-row{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(94,184,122,.03);}
   .approval-row .hint{min-width:0;max-width:100%;}
@@ -1682,9 +1682,12 @@ function renderRevCounter(idx){
     return`<span class="${cls}"></span>`;
   }).join('');
   el.querySelector('.rev-counter-dots').innerHTML=dotsHtml;
-  el.querySelector('.rev-counter-info span:last-child').textContent = bypass
-    ? 'Bypass personale attivo'
-    : `${Math.max(0,max-used)} revisioni rimaste su questo capitolo`;
+  const ratioEl = el.querySelector('.rev-counter-ratio');
+  if(ratioEl){
+    ratioEl.textContent = bypass
+      ? '∞/3'
+      : `${Math.max(0,max-used)}/${max}`;
+  }
   renderGlobalCounter();
 }
 
@@ -2329,7 +2332,7 @@ function renderSavedChapterBlock(idx,total){
         <div class="rev-counter-info">
           <span>Revisioni capitolo:</span>
           <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
-          <span>3 revisioni disponibili</span>
+          <span class="rev-counter-ratio">3/3</span>
         </div>
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
@@ -3211,7 +3214,7 @@ Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
         <div class="rev-counter-info">
           <span>Revisioni capitolo:</span>
           <div class="rev-counter-dots">${Array.from({length:MAX_REV_PER_CHAPTER},()=>'<span class="rev-dot"></span>').join('')}</div>
-          <span>3 revisioni disponibili</span>
+          <span class="rev-counter-ratio">3/3</span>
         </div>
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
