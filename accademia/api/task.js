@@ -159,10 +159,18 @@ export default async function handler(req, res) {
       }
 
       case 'outline_draft':
-      case 'chapter_draft': {
-        const text = await generateText(task, input);
-        await recordStat('provider_success', { task });
-        return sendJson(res, 200, { text });
+      case 'outline_review':
+      case 'abstract_draft':
+      case 'abstract_review':
+      case 'chapter_draft':
+      case 'chapter_review':
+      case 'tutor_revision':
+      case 'revisione_relatore':
+      case 'revisione_capitolo': {
+        const canonicalTask = normalizeGenerationTask(task);
+        const text = await generateText(canonicalTask, input);
+        await recordStat('provider_success', { task: canonicalTask, requestedTask: task });
+        return sendJson(res, 200, { text, task: canonicalTask });
       }
 
       default:
@@ -427,10 +435,29 @@ function parseUnlockConfig() {
   return { premium, base };
 }
 
+
+function normalizeGenerationTask(task) {
+  switch (String(task || '').trim()) {
+    case 'outline_review':
+      return 'outline_draft';
+    case 'abstract_draft':
+    case 'abstract_review':
+      return 'abstract_draft';
+    case 'chapter_review':
+    case 'revisione_capitolo':
+      return 'chapter_review';
+    case 'tutor_revision':
+    case 'revisione_relatore':
+      return 'tutor_revision';
+    default:
+      return String(task || '').trim();
+  }
+}
+
 async function generateText(task, input) {
   const prompt = buildProviderPrompt(task, input);
   const system = buildSystemPrompt(task, input);
-  const maxTokens = task === 'outline_draft' ? 1400 : 2600;
+  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : 2600);
 
   const attempts = [];
   if (ANTHROPIC_API_KEY) {
