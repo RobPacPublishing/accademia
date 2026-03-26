@@ -1,325 +1,637 @@
-const OPENAI_TIMEOUT_MS = 90000;
-const ANTHROPIC_TIMEOUT_MS = 90000;
+const { randomBytes, createHash } = require('crypto');
 
-const GENERAL_SYSTEM_PROMPT = `Sei un assistente accademico rigoroso, prudente e professionale.
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || '';
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_FROM = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 'AccademIA <noreply@accademia-tesi.it>';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const ADMIN_DASH_KEY = process.env.ADMIN_DASH_KEY || process.env.ACC_ADMIN_DASH_KEY || '';
+const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_MODEL_PRIMARY || 'claude-3-5-sonnet-20241022';
+const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK || 'claude-3-5-haiku-20241022';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+const OTP_TTL_SECONDS = 10 * 60;
+const SESSION_TTL_SECONDS = 60 * 24 * 60 * 60;
+const SNAPSHOT_LIMIT = 15;
+const EVENT_LIMIT = 50;
 
-Regole permanenti:
-- lavora solo sui dati effettivamente forniti;
-- non inventare fonti, autori, date, studi, enti, statistiche, risultati di ricerca, teorie specifiche, citazioni, riferimenti normativi o bibliografici non presenti nei dati ricevuti;
-- se nei dati compaiono riferimenti incompleti o dubbi, non completarli per inferenza: mantieni formulazioni prudenti o neutre;
-- non simulare verifiche esterne e non dichiarare di aver consultato letteratura o database se tali fonti non sono state fornite;
-- evita formule meta o scolastiche come “raccordo verso il capitolo successivo”, “nel prossimo capitolo”, “analisi critica” come intestazione separata, “di seguito”, “ecco il testo”, salvo richiesta esplicita;
-- non aggiungere sezioni finali artificiali che svelino la generazione automatica;
-- mantieni tono universitario sobrio, chiaro, rigoroso e non enfatico;
-- privilegia coerenza logica, sviluppo argomentativo e densità espositiva.
-
-Per i capitoli:
-- sviluppa davvero i sottocapitoli, evitando paragrafi troppo brevi o schematici;
-- non trasformare il capitolo in una lista di teorie o autori se non sono presenti nei dati;
-- chiudi il testo in modo naturale, senza ponti espliciti al capitolo successivo.`;
-
-export default async function handler(req, res) {
-  if (req.method === 'GET' && req.query?.config === 'supabase') {
-    const url = process.env.SUPABASE_URL;
-    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-    if (!url || !publishableKey) {
-      return res.status(500).json({ error: 'Configurazione Supabase mancante' });
-    }
-
-    return res.status(200).json({ url, publishableKey });
+module.exports = async function handler(req, res) {
+  setCors(res);
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
   }
-
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return sendJson(res, 405, { error: 'method_not_allowed' });
   }
+
+  let body;
+  try {
+    body = await parseBody(req);
+  } catch (err) {
+    return sendJson(res, 400, { error: 'invalid_json', details: err.message });
+  }
+
+  const task = String(body?.task || '').trim();
+  const input = body?.input ?? {};
 
   try {
-    const { task, input } = normalizeBody(req.body);
+    switch (task) {
+      case '__visit_ping': {
+        await recordStat('visit_ping', { page: String(input?.page || 'app') });
+        return sendJson(res, 200, { ok: true });
+      }
 
-    if (!task) {
-      return res.status(400).json({ error: 'Task mancante' });
+      case '__state_save': {
+        const owner = await resolveOwner(input);
+        assert(owner, 'syncKey o sessionToken mancanti');
+        await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
+        await recordEvent('state_save', { scope: owner.scope });
+        return sendJson(res, 200, { ok: true });
+      }
+
+      case '__state_load': {
+        const owner = await resolveOwner(input);
+        assert(owner, 'syncKey o sessionToken mancanti');
+        const record = await getJson(owner.stateKey);
+        return sendJson(res, 200, { state: record?.state || null, savedAt: record?.savedAt || null });
+      }
+
+      case '__snapshot_create': {
+        const owner = await resolveOwner(input);
+        assert(owner, 'syncKey o sessionToken mancanti');
+        const current = (await getJson(owner.snapshotsKey)) || [];
+        const snapshot = {
+          id: String(input?.snapshotId || makeId('snap')),
+          label: String(input?.label || 'Versione'),
+          reason: String(input?.reason || 'manuale'),
+          savedAt: new Date().toISOString(),
+          payload: input?.payload || null,
+          scope: owner.scope,
+        };
+        const next = [snapshot, ...current.filter((x) => x && x.id !== snapshot.id)].slice(0, SNAPSHOT_LIMIT);
+        await putJson(owner.snapshotsKey, next);
+        await recordEvent('snapshot_create', { scope: owner.scope, reason: snapshot.reason });
+        return sendJson(res, 200, { ok: true, snapshot });
+      }
+
+      case '__snapshot_list': {
+        const owner = await resolveOwner(input);
+        assert(owner, 'syncKey o sessionToken mancanti');
+        const snapshots = (await getJson(owner.snapshotsKey)) || [];
+        return sendJson(res, 200, { snapshots });
+      }
+
+      case '__recovery_save': {
+        const owner = await resolveOwner(input);
+        assert(owner, 'syncKey o sessionToken mancanti');
+        const record = input?.record || null;
+        assert(record && record.payload, 'record mancante');
+        await putJson(owner.recoveryKey, record);
+        await recordEvent('recovery_save', { scope: owner.scope, reason: String(record?.reason || 'manuale') });
+        return sendJson(res, 200, { ok: true });
+      }
+
+      case '__recovery_load': {
+        const owner = await resolveOwner(input);
+        assert(owner, 'syncKey o sessionToken mancanti');
+        const record = await getJson(owner.recoveryKey);
+        return sendJson(res, 200, { record: record || null });
+      }
+
+      case '__account_send_code': {
+        const email = normalizeEmail(input?.email);
+        assert(email, 'Email non valida');
+        assert(RESEND_API_KEY, 'Resend non configurato');
+        const code = generateOtp();
+        await putJson(accountOtpKey(email), { code, email, createdAt: new Date().toISOString() }, OTP_TTL_SECONDS);
+        await sendOtpEmail(email, code);
+        await recordEvent('account_send_code', { email: redactEmail(email) });
+        return sendJson(res, 200, { ok: true });
+      }
+
+      case '__account_verify_code': {
+        const email = normalizeEmail(input?.email);
+        const code = String(input?.code || '').trim();
+        assert(email, 'Email non valida');
+        assert(code, 'Codice mancante');
+        const stored = await getJson(accountOtpKey(email));
+        if (!stored || String(stored?.code || '') !== code) {
+          await recordEvent('account_verify_fail', { email: redactEmail(email) });
+          return sendJson(res, 400, { error: 'invalid_code', details: 'Codice non valido o scaduto' });
+        }
+        await delKey(accountOtpKey(email));
+        const sessionToken = makeId('sess');
+        await putJson(accountSessionKey(sessionToken), { email, createdAt: new Date().toISOString() }, SESSION_TTL_SECONDS);
+        await recordStat('account_verify_ok', { email: redactEmail(email) });
+        return sendJson(res, 200, { ok: true, sessionToken, email });
+      }
+
+      case '__account_load': {
+        const owner = await resolveOwner(input);
+        assert(owner && owner.scope === 'account', 'sessionToken mancante o non valido');
+        const record = await getJson(owner.stateKey);
+        return sendJson(res, 200, { state: record?.state || null, savedAt: record?.savedAt || null });
+      }
+
+      case '__account_save': {
+        const owner = await resolveOwner(input);
+        assert(owner && owner.scope === 'account', 'sessionToken mancante o non valido');
+        await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
+        await recordEvent('account_save', { scope: owner.scope, email: redactEmail(owner.email) });
+        return sendJson(res, 200, { ok: true });
+      }
+
+      case '__admin_stats': {
+        if (!ADMIN_DASH_KEY || String(input?.adminKey || '') !== ADMIN_DASH_KEY) {
+          return sendJson(res, 403, { error: 'forbidden', details: 'Chiave dashboard non valida' });
+        }
+        const stats = (await getJson(statsKey(todayKey()))) || defaultStats();
+        const events = ((await getJson(eventsKey())) || []).slice(0, 20);
+        return sendJson(res, 200, { stats, events });
+      }
+
+      case '__verify_unlock': {
+        const code = String(input?.code || '').trim().toUpperCase();
+        if (!code) return sendJson(res, 200, { valid: false, reason: 'invalid' });
+        const unlock = await verifyUnlockCode(code, input?.sessionToken);
+        return sendJson(res, 200, unlock);
+      }
+
+      case 'outline_draft':
+      case 'chapter_draft': {
+        const text = await generateText(task, input);
+        await recordStat('provider_success', { task });
+        return sendJson(res, 200, { text });
+      }
+
+      default:
+        return sendJson(res, 400, { error: 'unknown_task', details: `Task non supportato: ${task}` });
     }
-
-
-    if (task === 'send_access_key_email') {
-      return await handleAccessKeyEmail({ input, req, res });
+  } catch (err) {
+    const payload = normalizeError(err);
+    if (payload.code === 'provider_timeout') {
+      await recordStat('provider_timeout', { task, details: payload.details.slice(0, 140) });
+      return sendJson(res, 504, payload);
     }
+    await recordEvent('server_error', { task, details: payload.details.slice(0, 140) });
+    return sendJson(res, payload.statusCode || 500, payload);
+  }
+};
 
-    const provider = pickProvider(task);
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
 
-    if (provider === 'openai') {
-      return await handleOpenAI({ task, input, res });
-    }
+function sendJson(res, status, payload) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify(payload));
+}
 
-    return await handleAnthropic({ task, input, res });
-  } catch (error) {
-    return res.status(500).json({
-      error: 'Errore interno',
-      details: error?.message || 'Errore sconosciuto'
+async function parseBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
+  const raw = await new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+      if (data.length > 1_500_000) reject(new Error('Body troppo grande'));
     });
-  }
-}
-
-function normalizeBody(body) {
-  const safe = body && typeof body === 'object' ? body : {};
-  const task = typeof safe.task === 'string' ? safe.task.trim() : '';
-  const input =
-    typeof safe.input === 'string'
-      ? safe.input
-      : typeof safe.payload === 'string'
-        ? safe.payload
-        : typeof safe.content === 'string'
-          ? safe.content
-          : JSON.stringify(safe.input ?? safe.payload ?? safe.content ?? {}, null, 2);
-
-  return { task, input };
-}
-
-function pickProvider(task) {
-  const anthropicTasks = new Set([
-    'chapter_draft',
-    'chapter_review',
-    'tutor_revision',
-    'final_consistency_review'
-  ]);
-
-  return anthropicTasks.has(task) ? 'anthropic' : 'openai';
-}
-
-async function handleOpenAI({ task, input, res }) {
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const openaiModel = process.env.OPENAI_MODEL || 'gpt-5.4';
-
-  if (!openaiKey) {
-    return res.status(500).json({ error: 'OPENAI_API_KEY non configurata' });
-  }
-
-  const prompt = buildPrompt(task, input);
-
-  const response = await fetchWithTimeout(
-    'https://api.openai.com/v1/responses',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: openaiModel,
-        instructions: GENERAL_SYSTEM_PROMPT,
-        input: prompt
-      })
-    },
-    OPENAI_TIMEOUT_MS
-  );
-
-  const data = await safeJson(response);
-
-  if (!response.ok) {
-    return res.status(response.status).json({
-      error: 'Errore OpenAI',
-      details: simplifyProviderError(data)
-    });
-  }
-
-  const text =
-    data?.output_text ||
-    extractOpenAIText(data) ||
-    'Nessun contenuto restituito';
-
-  return res.status(200).json({
-    ok: true,
-    provider: 'openai',
-    task,
-    text
+    req.on('end', () => resolve(data || '{}'));
+    req.on('error', reject);
   });
+  return JSON.parse(raw || '{}');
 }
 
-async function handleAnthropic({ task, input, res }) {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const anthropicModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-
-  if (!anthropicKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurata' });
+function assert(condition, message) {
+  if (!condition) {
+    const err = new Error(message);
+    err.statusCode = 400;
+    throw err;
   }
-
-  const prompt = buildPrompt(task, input);
-
-  const response = await fetchWithTimeout(
-    'https://api.anthropic.com/v1/messages',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: anthropicModel,
-        system: GENERAL_SYSTEM_PROMPT,
-        max_tokens: 6000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-    },
-    ANTHROPIC_TIMEOUT_MS
-  );
-
-  const data = await safeJson(response);
-
-  if (!response.ok) {
-    return res.status(response.status).json({
-      error: 'Errore Anthropic',
-      details: simplifyProviderError(data)
-    });
-  }
-
-  const text =
-    Array.isArray(data?.content)
-      ? data.content.map(part => part?.text || '').join('\n').trim()
-      : '';
-
-  return res.status(200).json({
-    ok: true,
-    provider: 'anthropic',
-    task,
-    text: text || 'Nessun contenuto restituito'
-  });
 }
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
 
-async function handleAccessKeyEmail({ input, req, res }) {
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.ACC_LOGIN_FROM || process.env.RESEND_FROM_EMAIL;
-  const appUrl = process.env.ACC_APP_URL || 'https://www.accademia-tesi.it/app/app-index.html';
-  const accessKey = process.env.ACC_APP_ACCESS_KEY || 'robpac-accademia-2026';
-  const expectedSecret = process.env.ACC_PURCHASE_MAIL_SECRET || '';
+function redactEmail(email) {
+  const [user, domain] = String(email || '').split('@');
+  if (!user || !domain) return '';
+  return `${user.slice(0, 2)}***@${domain}`;
+}
 
-  if (!resendKey) {
-    return res.status(500).json({ error: 'RESEND_API_KEY non configurata' });
-  }
-  if (!from) {
-    return res.status(500).json({ error: 'ACC_LOGIN_FROM non configurata' });
-  }
+function makeId(prefix) {
+  return `${prefix}-${randomBytes(12).toString('hex')}`;
+}
 
-  const raw = safeParseJson(input);
-  const email = typeof raw?.email === 'string' ? raw.email.trim() : '';
-  const plan = typeof raw?.plan === 'string' ? raw.plan.trim() : 'AccademIA';
-  const supportEmail = typeof raw?.supportEmail === 'string' ? raw.supportEmail.trim() : 'accademia-tesi@gmail.com';
-  const providedSecret =
-    (req.headers['x-acc-purchase-secret'] || req.headers['x-acc-mail-secret'] || raw?.secret || '').toString().trim();
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Email non valida' });
-  }
+function hashEmail(email) {
+  return createHash('sha256').update(email).digest('hex').slice(0, 24);
+}
 
-  if (expectedSecret && providedSecret !== expectedSecret) {
-    return res.status(401).json({ error: 'Secret acquisto non valido' });
-  }
-
-  const subject = 'La tua chiave di accesso AccademIA';
-  const text = [
-    'Ciao,',
-    '',
-    'grazie per aver scelto AccademIA.',
-    '',
-    'La tua chiave di accesso personale è:',
-    '',
-    accessKey,
-    '',
-    'Con questa chiave puoi:',
-    '- accedere all’app',
-    '- riprendere il lavoro sullo stesso dispositivo',
-    '- continuare anche da un altro dispositivo usando la stessa chiave',
-    '',
-    'Per iniziare:',
-    '1. apri AccademIA',
-    '2. clicca su "Accedi all’app"',
-    '3. inserisci la chiave qui sopra',
-    '4. conferma le tre caselle richieste',
-    '',
-    `Piano associato: ${plan}`,
-    '',
-    `Accesso app: ${appUrl}`,
-    '',
-    'Importante: conserva questa chiave con attenzione. È il riferimento principale per accedere al tuo lavoro e riprenderlo.',
-    '',
-    `Supporto: ${supportEmail}`,
-    '',
-    'Team AccademIA'
-  ].join('\n');
-
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1e1e1e;">
-      <h2 style="margin:0 0 12px;">La tua chiave di accesso AccademIA</h2>
-      <p>Ciao,</p>
-      <p>grazie per aver scelto <strong>AccademIA</strong>.</p>
-      <p>La tua chiave di accesso personale è:</p>
-      <div style="margin:16px 0;padding:14px 18px;border-radius:10px;background:#f7f2df;border:1px solid #e2c977;font-size:20px;font-weight:700;letter-spacing:.6px;">
-        ${escapeHtml(accessKey)}
-      </div>
-      <p><strong>Piano associato:</strong> ${escapeHtml(plan)}</p>
-      <p>Con questa chiave puoi accedere all’app, riprendere il lavoro sullo stesso dispositivo e continuare anche da un altro dispositivo usando la stessa chiave.</p>
-      <p><strong>Per iniziare:</strong><br>
-      1. apri AccademIA<br>
-      2. clicca su “Accedi all’app”<br>
-      3. inserisci la chiave qui sopra<br>
-      4. conferma le tre caselle richieste</p>
-      <p><a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:10px 16px;background:#c9a84c;color:#140f02;text-decoration:none;border-radius:8px;font-weight:700;">Apri AccademIA</a></p>
-      <p>Importante: conserva questa chiave con attenzione. È il riferimento principale per accedere al tuo lavoro e riprenderlo.</p>
-      <p>Supporto: <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a></p>
-      <p>Team AccademIA</p>
-    </div>`;
-
-  const response = await fetchWithTimeout(
-    'https://api.resend.com/emails',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${resendKey}`
-      },
-      body: JSON.stringify({
-        from,
-        to: [email],
-        subject,
-        html,
-        text
-      })
-    },
-    30000
-  );
-
-  const data = await safeJson(response);
-
-  if (!response.ok) {
-    return res.status(response.status).json({
-      error: 'Errore Resend',
-      details: simplifyProviderError(data)
-    });
+async function resolveOwner(input) {
+  const syncKey = String(input?.syncKey || '').trim();
+  if (syncKey) {
+    const safe = safeKey(syncKey);
+    return {
+      scope: 'sync',
+      syncKey,
+      stateKey: `accademia:sync:${safe}:state`,
+      snapshotsKey: `accademia:sync:${safe}:snapshots`,
+      recoveryKey: `accademia:sync:${safe}:recovery`,
+    };
   }
 
-  return res.status(200).json({
-    ok: true,
-    task: 'send_access_key_email',
-    provider: 'resend',
+  const sessionToken = String(input?.sessionToken || '').trim();
+  if (!sessionToken) return null;
+  const session = await getJson(accountSessionKey(sessionToken));
+  if (!session?.email) return null;
+  const email = normalizeEmail(session.email);
+  const id = hashEmail(email);
+  return {
+    scope: 'account',
     email,
-    id: data?.id || null
-  });
+    sessionToken,
+    stateKey: `accademia:account:${id}:state`,
+    snapshotsKey: `accademia:account:${id}:snapshots`,
+    recoveryKey: `accademia:account:${id}:recovery`,
+  };
 }
 
-function safeParseJson(value) {
-  if (typeof value !== 'string') return value && typeof value === 'object' ? value : {};
-  try {
-    return JSON.parse(value);
-  } catch {
-    return {};
+function safeKey(value) {
+  return String(value || '').replace(/[^a-zA-Z0-9:_-]/g, '_').slice(0, 180);
+}
+
+function accountOtpKey(email) {
+  return `accademia:otp:${hashEmail(email)}`;
+}
+
+function accountSessionKey(sessionToken) {
+  return `accademia:session:${safeKey(sessionToken)}`;
+}
+
+async function redisCommand(command) {
+  assert(REDIS_URL && REDIS_TOKEN, 'Upstash non configurato');
+  const resp = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${REDIS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(command),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || data?.error) {
+    throw new Error(data?.error || `Redis HTTP ${resp.status}`);
   }
+  return data?.result;
+}
+
+async function getJson(key) {
+  const raw = await redisCommand(['GET', key]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function putJson(key, value, exSeconds) {
+  const cmd = ['SET', key, JSON.stringify(value)];
+  if (Number.isFinite(exSeconds) && exSeconds > 0) {
+    cmd.push('EX', String(exSeconds));
+  }
+  await redisCommand(cmd);
+}
+
+async function delKey(key) {
+  await redisCommand(['DEL', key]);
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function statsKey(day) {
+  return `accademia:stats:${day}`;
+}
+
+function eventsKey() {
+  return 'accademia:events';
+}
+
+function defaultStats() {
+  return {
+    date: todayKey(),
+    updatedAt: new Date().toISOString(),
+    counts: {
+      visit_ping: 0,
+      provider_success: 0,
+      provider_timeout: 0,
+      account_verify_ok: 0,
+    },
+  };
+}
+
+async function recordStat(kind, payload = {}) {
+  try {
+    const key = statsKey(todayKey());
+    const stats = (await getJson(key)) || defaultStats();
+    stats.date = todayKey();
+    stats.updatedAt = new Date().toISOString();
+    stats.counts = stats.counts || {};
+    stats.counts[kind] = (Number(stats.counts[kind]) || 0) + 1;
+    await putJson(key, stats, 8 * 24 * 60 * 60);
+    await recordEvent(kind, payload);
+  } catch (_) {}
+}
+
+async function recordEvent(kind, payload = {}) {
+  try {
+    const current = (await getJson(eventsKey())) || [];
+    current.unshift({ kind, at: new Date().toISOString(), payload });
+    await putJson(eventsKey(), current.slice(0, EVENT_LIMIT), 14 * 24 * 60 * 60);
+  } catch (_) {}
+}
+
+async function sendOtpEmail(email, code) {
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111">
+      <h2>AccademIA — codice di accesso</h2>
+      <p>Usa questo codice per collegare il tuo account:</p>
+      <p style="font-size:28px;font-weight:700;letter-spacing:4px">${escapeHtml(code)}</p>
+      <p>Il codice scade tra 10 minuti.</p>
+    </div>
+  `;
+
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: RESEND_FROM,
+      to: [email],
+      subject: 'AccademIA — codice di accesso',
+      html,
+    }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(data?.message || data?.error || `Resend HTTP ${resp.status}`);
+  }
+}
+
+async function verifyUnlockCode(code, sessionToken) {
+  const config = parseUnlockConfig();
+  const usedKey = `accademia:unlock:used:${safeKey(code)}`;
+  const alreadyUsed = await getJson(usedKey);
+  if (alreadyUsed) return { valid: false, reason: 'already_used' };
+
+  let type = null;
+  if (config.premium.has(code)) type = 'premium';
+  else if (config.base.has(code)) type = 'base';
+  if (!type) return { valid: false, reason: 'invalid' };
+
+  await putJson(usedKey, { code, type, usedAt: new Date().toISOString(), sessionToken: String(sessionToken || '') }, 365 * 24 * 60 * 60);
+  await recordEvent('unlock_code_ok', { type });
+  return { valid: true, type };
+}
+
+function parseUnlockConfig() {
+  const premium = new Set();
+  const base = new Set();
+
+  const premiumCsv = String(process.env.PREMIUM_UNLOCK_CODES || process.env.ACC_PREMIUM_UNLOCK_CODES || '');
+  const baseCsv = String(process.env.BASE_UNLOCK_CODES || process.env.ACC_BASE_UNLOCK_CODES || '');
+  premiumCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => premium.add(x));
+  baseCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => base.add(x));
+
+  const jsonRaw = process.env.UNLOCK_CODES_JSON || process.env.ACC_UNLOCK_CODES_JSON || '';
+  if (jsonRaw) {
+    try {
+      const parsed = JSON.parse(jsonRaw);
+      (parsed?.premium || []).forEach((x) => premium.add(String(x).trim().toUpperCase()));
+      (parsed?.base || []).forEach((x) => base.add(String(x).trim().toUpperCase()));
+    } catch (_) {}
+  }
+
+  return { premium, base };
+}
+
+async function generateText(task, input) {
+  const prompt = buildProviderPrompt(task, input);
+  const system = buildSystemPrompt(task, input);
+  const maxTokens = task === 'outline_draft' ? 1400 : 2600;
+
+  const attempts = [];
+  if (ANTHROPIC_API_KEY) {
+    attempts.push(() => callAnthropic({ model: ANTHROPIC_PRIMARY_MODEL, system, prompt, maxTokens, timeoutMs: 45_000 }));
+    attempts.push(() => callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(1800, maxTokens), timeoutMs: 30_000 }));
+  }
+  if (OPENAI_API_KEY) {
+    attempts.push(() => callOpenAI({ model: OPENAI_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(2200, maxTokens), timeoutMs: 35_000 }));
+  }
+
+  if (!attempts.length) {
+    const err = new Error('Nessun provider configurato');
+    err.statusCode = 500;
+    throw err;
+  }
+
+  let lastError = null;
+  for (const attempt of attempts) {
+    try {
+      const text = await attempt();
+      const cleaned = cleanModelText(text);
+      if (!cleaned) throw new Error('Provider ha restituito testo vuoto');
+      return cleaned;
+    } catch (err) {
+      lastError = err;
+      const isRecoverable = isProviderTimeout(err) || isProviderOverload(err) || /rate limit|overloaded|temporarily unavailable/i.test(String(err?.message || ''));
+      if (!isRecoverable) break;
+    }
+  }
+
+  if (isProviderTimeout(lastError)) {
+    const err = new Error('Timeout provider. Nessuna modifica applicata: riprova.');
+    err.code = 'provider_timeout';
+    throw err;
+  }
+  throw lastError || new Error('Generazione non riuscita');
+}
+
+function buildProviderPrompt(task, input) {
+  if (typeof input === 'string') return clip(input, 30000);
+  const obj = input && typeof input === 'object' ? input : {};
+  const sections = [];
+  sections.push(`TASK: ${task}`);
+  if (obj.prompt) sections.push(`RICHIESTA\n${clip(String(obj.prompt), 14000)}`);
+  if (obj.theme) sections.push(`ARGOMENTO\n${clip(String(obj.theme), 1200)}`);
+  if (obj.faculty || obj.degreeCourse || obj.degreeType) {
+    sections.push(`CONTESTO ACCADEMICO\nFacoltà: ${clip(String(obj.faculty || ''), 300)}\nCorso: ${clip(String(obj.degreeCourse || ''), 400)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 120)}\nMetodologia: ${clip(String(obj.methodology || ''), 120)}`);
+  }
+  if (obj.approvedOutline) sections.push(`INDICE APPROVATO\n${clip(String(obj.approvedOutline), 7000)}`);
+  if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 4000)}`);
+  if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
+  if (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex)) {
+    sections.push(`CAPITOLO CORRENTE\nIndice: ${Number(obj.currentChapterIndex || 0) + 1}\nTitolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
+  }
+  if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 6000)}`);
+  if (Array.isArray(obj.approvedChapters) && obj.approvedChapters.length) {
+    const compact = obj.approvedChapters.map((ch, i) => `Capitolo ${i + 1}: ${(ch && ch.title) || ''}\n${clip(String(ch?.content || ''), 1200)}`).join('\n\n');
+    sections.push(`CAPITOLI APPROVATI (ESTRATTO)\n${clip(compact, 5000)}`);
+  }
+  if (obj.facultyGuidance) sections.push(`GUIDA FACOLTÀ\n${clip(String(obj.facultyGuidance), 3000)}`);
+  if (obj.constraints) sections.push(`VINCOLI\n${clip(JSON.stringify(obj.constraints, null, 2), 1500)}`);
+  return sections.join('\n\n');
+}
+
+function buildSystemPrompt(task, input) {
+  const base = [
+    'Scrivi in italiano accademico, chiaro, formale e coerente.',
+    'Non inventare fonti, dati empirici, citazioni puntuali o risultati non verificabili.',
+    'Evita tono giornalistico, slogan, elenchi inutili e formule artificiali di raccordo.',
+    'Mantieni continuità logica, rigore terminologico e pertinenza disciplinare.',
+  ];
+  if (task === 'outline_draft') {
+    base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema e la metodologia.');
+  } else {
+    base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna e visibilità dei cambiamenti richiesti.');
+    base.push('Se l’input contiene osservazioni del relatore, applicale davvero in modo riconoscibile e non cosmetico.');
+  }
+  if (input && typeof input === 'object' && input.facultyGuidance) {
+    base.push(`Tieni conto anche di questa guida di facoltà: ${clip(String(input.facultyGuidance), 1600)}`);
+  }
+  return base.join(' ');
+}
+
+function shrinkPrompt(prompt) {
+  return clip(String(prompt || ''), 16000);
+}
+
+function clip(value, max) {
+  const str = String(value || '');
+  if (str.length <= max) return str;
+  const keepHead = Math.floor(max * 0.72);
+  const keepTail = max - keepHead - 24;
+  return `${str.slice(0, keepHead)}\n\n[...contenuto abbreviato...]\n\n${str.slice(-Math.max(keepTail, 0))}`;
+}
+
+async function callAnthropic({ model, system, prompt, maxTokens, timeoutMs }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        system,
+        max_tokens: maxTokens,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const message = data?.error?.message || `Anthropic HTTP ${resp.status}`;
+      const err = new Error(message);
+      err.statusCode = resp.status;
+      throw err;
+    }
+    return Array.isArray(data?.content)
+      ? data.content.filter((x) => x?.type === 'text').map((x) => x.text).join('').trim()
+      : '';
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      const timeoutErr = new Error('Timeout provider Anthropic');
+      timeoutErr.code = 'provider_timeout';
+      throw timeoutErr;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callOpenAI({ model, system, prompt, maxTokens, timeoutMs }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        max_completion_tokens: maxTokens,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const message = data?.error?.message || `OpenAI HTTP ${resp.status}`;
+      const err = new Error(message);
+      err.statusCode = resp.status;
+      throw err;
+    }
+    return data?.choices?.[0]?.message?.content?.trim() || '';
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      const timeoutErr = new Error('Timeout provider OpenAI');
+      timeoutErr.code = 'provider_timeout';
+      throw timeoutErr;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isProviderTimeout(err) {
+  return err?.code === 'provider_timeout' || /timeout/i.test(String(err?.message || ''));
+}
+
+function isProviderOverload(err) {
+  const msg = String(err?.message || '');
+  return /overload|overloaded|529|503|temporarily unavailable|rate limit/i.test(msg);
+}
+
+function cleanModelText(text) {
+  return String(text || '').replace(/\r\n/g, '\n').trim();
+}
+
+function normalizeError(err) {
+  const details = String(err?.message || 'Errore interno');
+  const payload = {
+    error: err?.error || 'server_error',
+    code: err?.code || '',
+    details,
+    statusCode: err?.statusCode || 500,
+  };
+  if (payload.code === 'provider_timeout') payload.statusCode = 504;
+  return payload;
 }
 
 function escapeHtml(value) {
@@ -329,122 +641,4 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-
-function buildPrompt(task, input) {
-  const payload = typeof input === 'string' ? input : JSON.stringify(input || {}, null, 2);
-
-  const map = {
-    outline_draft: `Genera un indice accademico coerente e ben strutturato sulla base dei soli dati ricevuti.
-- Prevedi, se appropriato al tema, 5 capitoli principali oltre a introduzione, conclusioni e bibliografia.
-- Evita formulazioni ridondanti o generiche.
-- Restituisci solo l'indice finale.`,
-
-    abstract_draft: `Genera un abstract accademico chiaro, continuo e formalmente pulito sulla base dei soli dati ricevuti.
-- Non inserire riferimenti, autori o dati non presenti nei materiali forniti.
-- Inserisci le parole chiave su una nuova riga finale con la formula: "Parole chiave:".
-- Restituisci solo l'abstract finale.`,
-
-    chapter_draft: `Scrivi il capitolo richiesto in modo accademico, chiaro e sviluppato sulla base dei soli dati ricevuti.
-- Non inventare autori, teorie, anni, enti, statistiche o riferimenti bibliografici non inclusi nei dati.
-- Se i dati non forniscono riferimenti specifici, mantieni il discorso su piano concettuale generale senza attribuzioni puntuali.
-- Sviluppa davvero ogni sottocapitolo con paragrafi sostanziosi, evitando sezioni scarne o solo introduttive.
-- Non aggiungere sezioni finali artificiali come "Analisi critica", "Raccordo verso il capitolo successivo", "Sintesi finale" o titoli simili, salvo richiesta esplicita.
-- Non chiudere con formule che anticipano esplicitamente il capitolo successivo.
-- Restituisci solo il capitolo finale.`,
-
-    outline_review: `Revisiona criticamente l'indice ricevuto.
-- Evidenzia solo problemi reali di struttura, equilibrio o coerenza.
-- Proponi poi una versione migliorata.
-- Non introdurre contenuti disciplinari non presenti nei dati.`,
-
-    abstract_review: `Revisiona criticamente l'abstract ricevuto.
-- Migliora chiarezza, ordine logico e pulizia formale.
-- Assicurati che la riga "Parole chiave:" sia separata dal corpo del testo.
-- Non introdurre fonti, dati o riferimenti non forniti.`,
-
-    chapter_review: `Revisiona il capitolo ricevuto come farebbe un correttore accademico esigente, non cosmetico.
-- Devi produrre una revisione percepibilmente migliore del testo di partenza, non una semplice ripulitura stilistica.
-- Intervieni con decisione quando il testo appare troppo introduttivo, manualistico, descrittivo, ridondante o eccessivamente vicino all'indice in prosa.
-- Taglia o riscrivi i passaggi che spiegano soltanto cosa farà il capitolo; sostituiscili con sviluppo effettivo del contenuto.
-- Riduci parafrasi interne, ripetizioni concettuali, frasi gemelle e richiami inutili agli stessi nuclei teorici.
-- Rafforza la funzione specifica di ciascun sottocapitolo: ogni sezione deve far avanzare il ragionamento, non solo esporre nozioni corrette.
-- Se il testo resta troppo generale, rendilo più analitico e più aderente al problema specifico della tesi senza inventare contenuti non presenti nei materiali.
-- Elimina aperture enfatiche, formulazioni da manuale, chiusure generiche, conclusioni intercambiabili e raccordi deboli.
-- Preferisci formulazioni più sobrie, più dense e più argomentative; evita di diluire il testo in spiegazioni ovvie o scolastiche.
-- Mantieni contenuto sostanziale, struttura generale, disciplina e headings, ma non essere conservativo quando la qualità richiede una riscrittura più netta di frasi o paragrafi.
-- Se trovi affermazioni troppo ampie, indimostrabili o non supportate dai materiali ricevuti, rendile più prudenti invece di ampliarle.
-- Non aggiungere fonti, autori, date, norme, sentenze, dati o riferimenti bibliografici non presenti nei materiali forniti.
-- Non mostrare diagnosi, commenti redazionali, intestazioni di servizio o spiegazioni del lavoro svolto.
-- Restituisci solo il capitolo revisionato finale, pronto da usare.`,
-
-    tutor_revision: `Applica in modo rigoroso le osservazioni del relatore o tutor al testo ricevuto.
-- Intervieni in modo conservativo.
-- Non aggiungere contenuti non richiesti.
-- Non introdurre fonti o riferimenti non presenti nei dati.
-- Restituisci solo il testo revisionato.`,
-
-    final_consistency_review: `Esegui un controllo finale di coerenza complessiva sull'elaborato ricevuto.
-- Verifica coerenza tra indice, abstract e capitoli.
-- Segnala ripetizioni, salti logici, incongruenze terminologiche e raccordi artificiali.
-- Evidenzia se compaiono riferimenti specifici non supportati dai dati forniti.
-- Struttura l'output in: criticità ad alta priorità, criticità medie, osservazioni finali.`
-  };
-
-  return `${map[task] || 'Elabora il contenuto ricevuto in modo utile, coerente e prudente.'}\n\nDATI FORNITI DALL'UTENTE:\n${payload}`;
-}
-
-function extractOpenAIText(data) {
-  try {
-    if (!data || !Array.isArray(data.output)) return '';
-
-    return data.output
-      .flatMap(item => item.content || [])
-      .map(part => part.text || '')
-      .join('\n')
-      .trim();
-  } catch {
-    return '';
-  }
-}
-
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error(`Timeout provider dopo ${Math.round(timeoutMs / 1000)} secondi`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function safeJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
-}
-
-function simplifyProviderError(data) {
-  if (!data) return 'Errore provider non dettagliato';
-  if (typeof data === 'string') return data;
-  if (data.error?.message) return data.error.message;
-  if (data.message) return data.message;
-
-  try {
-    return JSON.stringify(data);
-  } catch {
-    return 'Errore provider non serializzabile';
-  }
 }
