@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=xO86gj3zSHU0HU89JqU8LMRBermbVKzWruLqdWj6T6-w45lpP-fcwGB3zeSWHnlVUOCr1Ioid0v1FMXr9o8DC-09_yW_tk3CoOe1dNRb4LmghaQmatBX2Sd38gS4woSEqegFKLvYx6EfFhBw4AlN-sG1vhT0IDL9-VlZbWJ7JcwenNsAWeQr_TnJpnwYqdvEtROPZJiInnL-63Bbdwgf32AwqBCD7LVfOaRI-jxxWaj45RLrsbQpghzfBR35oSV6qCu39UaplVqA--6pPUjBGg" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -1609,8 +1609,6 @@ function initRevState(_nChapters){
 }
 
 
-let thesisGuard = defaultThesisGuard();
-
 const SINGLE_THESIS_PREVIEW_LIMIT = 3;
 const THESIS_GUARD_VERSION = 1;
 const MASTER_OWNER_EMAIL = 'robpacpublishing@gmail.com';
@@ -1630,6 +1628,8 @@ function defaultThesisGuard(){
     lockReason: ''
   };
 }
+
+let thesisGuard = defaultThesisGuard();
 
 function sanitizeThesisGuard(raw){
   const base = defaultThesisGuard();
