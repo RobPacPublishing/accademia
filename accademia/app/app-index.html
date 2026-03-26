@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=u9R8fwXf1DKvaOkIn6KCjg6UjAgHvjuB129e68N1MOjsgAcLgxyLkynzZRdhus54CRbLrwFDYJIkRNj0Le0o-MkkXOfYD4Q7TsbZzaAFovPmhrmKnHl8nTXL3oIBRZU8UZq0-e48HJkefbtskdRfBoYbbcSeT19m9pVpyH3CWG_-aBUhI0DtBZruqPrX1jKNoWTuorXIeub_7x0ZrJXQ0mudKJyL1T4u7E6E_4G9cN0fE1ZjVDZO9aO0geGO27mR97mHLfcCO7tP6IsLiKeQUA" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=wlYp0ANHRfhh7e614TnhUCcdS4-cpAUMXM-HVCsR1TzK2nT2f58a_LgBLeQYVqGhLjeakY7qW99XnQGJxZaJu37FNmuwGoPgubYtB9czI31_FAncdP_A1SHJh28pVNV706w5oy1EX9rw-T1fp3cexR8zHYmOzRXCmVUBzKEdNnqFIjrMhocUSilyuQev9YiDGDSEs1Prl6o42kEGM5jut8cTJdBpROpJKQewWlKUcvDouFAFNjQgxipnrmLzdfi4Bjo8K4TuYRb2gOhz7NgqKQ" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -107,12 +107,23 @@
   .btn-send-tutor{padding:10px 18px;background:rgba(95,155,255,.12);border:1px solid rgba(95,155,255,.28);border-radius:var(--radius-sm);color:#8eb7ff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;height:fit-content;}
   .btn-send-tutor:hover{background:rgba(95,155,255,.2);}
   .btn-send-tutor:disabled{opacity:.4;cursor:not-allowed;}
-  .chapter-tools-bar{display:flex;gap:10px;padding:14px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);flex-wrap:wrap;}
-  .chapter-tool-btn{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+  .chapter-tool-btn{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:normal;}
   .chapter-tool-btn:hover{border-color:var(--gold);color:var(--gold);}
   .chapter-tool-btn.tutor{border-color:rgba(95,155,255,.28);color:#8eb7ff;background:rgba(95,155,255,.05);}
   .chapter-tool-btn.tutor:hover{background:rgba(95,155,255,.12);border-color:rgba(95,155,255,.45);}
   .chapter-tool-btn.bypass{border-color:rgba(94,184,122,.35);color:var(--green);background:rgba(94,184,122,.06);}
+  .header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto;max-width:100%;}
+  .header-actions > span{flex-basis:100%;text-align:right;margin-bottom:2px;}
+  .chapter-tools-bar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px 26px;border-top:1px solid var(--border);background:rgba(255,255,255,.015);align-items:stretch;}
+  .chapter-tool-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;text-align:center;}
+  .rev-counter-bar{align-items:center;gap:12px;}
+  .rev-counter-info{flex:1 1 420px;}
+  .rev-counter-global{margin-left:auto;}
+  .approval-row{flex-direction:column;align-items:stretch;gap:12px;}
+  .approval-row .hint{min-width:0;max-width:100%;}
+  .approval-row .actions{margin-left:0;justify-content:flex-start;}
+  .tutor-inline,.revision-inline{padding-top:18px;padding-bottom:18px;}
+  .output-block.panel-open .approval-row{display:none !important;}
   .tutor-inline{display:none;padding:16px 26px;border-top:1px solid var(--border);background:rgba(95,155,255,.045);}
   .tutor-inline.open{display:block;}
   .tutor-panel-head{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
@@ -264,7 +275,7 @@
   .workflow-pill.warn{border-color:rgba(201,168,76,.35);color:var(--gold);background:rgba(201,168,76,.08);}
   .workflow-pill.bad{border-color:rgba(224,85,85,.35);color:var(--red);background:rgba(224,85,85,.08);}
 
-  @media (max-width: 760px){.rev-counter-global{max-width:none;width:100%;text-align:left;margin-left:0;}.revision-inline-row,.tutor-inline-row{flex-direction:column;align-items:stretch;}.btn-send-revision,.btn-send-tutor{width:100%;}.approval-row .actions{margin-left:0;width:100%;}}
+  @media (max-width: 760px){.rev-counter-global{max-width:none;width:100%;text-align:left;margin-left:0;}.revision-inline-row,.tutor-inline-row{flex-direction:column;align-items:stretch;}.btn-send-revision,.btn-send-tutor{width:100%;}.approval-row .actions{margin-left:0;width:100%;}.chapter-tools-bar{grid-template-columns:1fr;}.header-actions{justify-content:flex-start;}.header-actions > span{text-align:left;}}
   .rev-counter-dots{display:flex;gap:4px;}
   .rev-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);transition:background .3s;}
   .rev-dot.used{background:var(--gold);}
@@ -2326,6 +2337,7 @@ ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
   area.appendChild(block);
   renderRevCounter(idx);
   syncChapterActionButtons(idx);
+  syncChapterPanelState(idx);
 }
 
 
@@ -3365,6 +3377,7 @@ ISTRUZIONI:
       if(doneChip){doneChip.className='status-chip done';doneChip.textContent='✓ Revisione capitolo';}
       const revisedRow=document.getElementById(`chapApproval-${idx}`); if(revisedRow) revisedRow.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
       document.getElementById(`chapRevision-${idx}`).classList.remove('open');
+      syncChapterPanelState(idx);
       document.getElementById(`chapRevInput-${idx}`).value='';
       updateWordCount();
       renderRevCounter(idx);
@@ -3452,6 +3465,7 @@ ISTRUZIONI:
       if(doneChip){doneChip.className='status-chip done';doneChip.textContent='✓ Revisione relatore';}
       const row=document.getElementById(`chapApproval-${idx}`); if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
       const tutorWrap=document.getElementById(`chapTutor-${idx}`); if(tutorWrap) tutorWrap.classList.remove('open');
+      syncChapterPanelState(idx);
       const tutorInput=document.getElementById(`chapTutorInput-${idx}`); if(tutorInput) tutorInput.value='';
       updateWordCount();
       renderRevCounter(idx);
@@ -3492,6 +3506,7 @@ function resetChapterUiAfterError(idx,message){
   }
   const output=document.getElementById(`chapOutput-${idx}`);
   if(output) output.classList.remove('typing');
+  syncChapterPanelState(idx);
   syncChapterActionButtons(idx);
   setChapterOperationStatus(message||`Errore durante l\'operazione sul Capitolo ${idx+1}.`,true);
   if(document.activeElement && typeof document.activeElement.blur==='function') document.activeElement.blur();
@@ -3537,6 +3552,15 @@ function openVersionModal(type,idx){
   openModal('versionModal');
 }
 
+function syncChapterPanelState(idx){
+  const output=document.getElementById(`chapOutput-${idx}`);
+  const rev=document.getElementById(`chapRevision-${idx}`);
+  const tutor=document.getElementById(`chapTutor-${idx}`);
+  if(!output) return;
+  const open=!!((rev && rev.classList.contains('open')) || (tutor && tutor.classList.contains('open')));
+  output.classList.toggle('panel-open',open);
+}
+
 function toggleRevision(key){
   if(key==='indice'){document.getElementById('indiceRevision').classList.toggle('open');return;}
   if(key==='abstract'){document.getElementById('abstractRevision').classList.toggle('open');return;}
@@ -3546,6 +3570,7 @@ function toggleRevision(key){
   if(tutor) tutor.classList.remove('open');
   if(el){
     const open=el.classList.toggle('open');
+    syncChapterPanelState(idx);
     if(open) el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 }
@@ -3555,6 +3580,7 @@ function toggleTutorRevision(idx){
   if(rev) rev.classList.remove('open');
   if(el){
     const open=el.classList.toggle('open');
+    syncChapterPanelState(idx);
     if(open) el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 }
