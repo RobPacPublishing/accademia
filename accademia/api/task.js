@@ -454,25 +454,25 @@ function normalizeGenerationTask(task) {
   }
 }
 
-
 async function generateText(task, input) {
-  const system = buildSystemPrompt(task, input);
-  const prompt = buildProviderPrompt(task, input);
-  const maxTokens = getTaskMaxTokens(task);
+  if (task === 'chapter_draft') {
+    return await generateChapterDraftStructured(input);
+  }
 
+  const prompt = buildProviderPrompt(task, input);
+  const system = buildSystemPrompt(task, input);
+  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : 2600);
+  return await generateWithProviders({ prompt, system, maxTokens });
+}
+
+async function generateWithProviders({ prompt, system, maxTokens, primaryTimeoutMs = 45_000, fallbackTimeoutMs = 30_000, openaiTimeoutMs = 35_000 }) {
   const attempts = [];
   if (ANTHROPIC_API_KEY) {
-    attempts.push((customPrompt = prompt, customMaxTokens = maxTokens, timeoutMs = getTaskTimeout(task)) =>
-      callAnthropic({ model: ANTHROPIC_PRIMARY_MODEL, system, prompt: customPrompt, maxTokens: customMaxTokens, timeoutMs })
-    );
-    attempts.push((customPrompt = shrinkPrompt(prompt), customMaxTokens = Math.min(2600, maxTokens), timeoutMs = 35_000) =>
-      callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: customPrompt, maxTokens: customMaxTokens, timeoutMs })
-    );
+    attempts.push(() => callAnthropic({ model: ANTHROPIC_PRIMARY_MODEL, system, prompt, maxTokens, timeoutMs: primaryTimeoutMs }));
+    attempts.push(() => callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(1800, maxTokens), timeoutMs: fallbackTimeoutMs }));
   }
   if (OPENAI_API_KEY) {
-    attempts.push((customPrompt = shrinkPrompt(prompt), customMaxTokens = Math.min(4200, maxTokens), timeoutMs = 40_000) =>
-      callOpenAI({ model: OPENAI_MODEL, system, prompt: customPrompt, maxTokens: customMaxTokens, timeoutMs })
-    );
+    attempts.push(() => callOpenAI({ model: OPENAI_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(2200, maxTokens), timeoutMs: openaiTimeoutMs }));
   }
 
   if (!attempts.length) {
@@ -484,30 +484,13 @@ async function generateText(task, input) {
   let lastError = null;
   for (const attempt of attempts) {
     try {
-      let text = cleanModelText(await attempt());
-      if (!text) throw new Error('Provider ha restituito testo vuoto');
-
-      if (taskRequiresContinuation(task) && chapterLooksIncomplete(text, input)) {
-        const continuationPrompt = buildContinuationPrompt(task, input, text);
-        const continuation = cleanModelText(await attempt(continuationPrompt, Math.min(2600, getContinuationMaxTokens(task)), getContinuationTimeout(task)));
-        if (continuation) {
-          text = mergeContinuationText(text, continuation);
-        }
-      }
-
-      if (taskRequiresContinuation(task) && chapterLooksIncomplete(text, input)) {
-        const err = new Error('Contenuto capitolo incompleto: provider ha restituito una versione troncata');
-        err.statusCode = 502;
-        throw err;
-      }
-
-      return text;
+      const text = await attempt();
+      const cleaned = cleanModelText(text);
+      if (!cleaned) throw new Error('Provider ha restituito testo vuoto');
+      return cleaned;
     } catch (err) {
       lastError = err;
-      const isRecoverable =
-        isProviderTimeout(err) ||
-        isProviderOverload(err) ||
-        /rate limit|overloaded|temporarily unavailable|troncata|incompleto/i.test(String(err?.message || ''));
+      const isRecoverable = isProviderTimeout(err) || isProviderOverload(err) || /rate limit|overloaded|temporarily unavailable/i.test(String(err?.message || ''));
       if (!isRecoverable) break;
     }
   }
@@ -520,142 +503,146 @@ async function generateText(task, input) {
   throw lastError || new Error('Generazione non riuscita');
 }
 
-function getTaskMaxTokens(task) {
-  if (task === 'outline_draft' || task === 'outline_review') return 1800;
-  if (task === 'abstract_draft' || task === 'abstract_review') return 1600;
-  if (task === 'chapter_draft') return 5200;
-  if (task === 'chapter_review' || task === 'tutor_revision') return 4800;
-  return 2600;
+async function generateChapterDraftStructured(input) {
+  const context = parseChapterContext(input);
+  const system = buildSystemPrompt('chapter_draft', input);
+
+  if (!context.subsections.length) {
+    const prompt = buildProviderPrompt('chapter_draft', input);
+    const raw = await generateWithProviders({ prompt, system, maxTokens: 3200, primaryTimeoutMs: 55_000, fallbackTimeoutMs: 40_000, openaiTimeoutMs: 45_000 });
+    return postProcessChapterText(raw, context);
+  }
+
+  const parts = [];
+  for (let i = 0; i < context.subsections.length; i += 1) {
+    const subsection = context.subsections[i];
+    const prompt = buildChapterSubsectionPrompt(input, context, subsection, i, context.subsections.length);
+    const raw = await generateWithProviders({ prompt, system, maxTokens: 1500, primaryTimeoutMs: 50_000, fallbackTimeoutMs: 35_000, openaiTimeoutMs: 40_000 });
+    const sectionText = postProcessChapterSectionText(raw, subsection);
+    parts.push(sectionText);
+  }
+
+  const chapterBody = parts.join('
+
+');
+  return postProcessChapterText(`${context.chapterHeading}
+
+${chapterBody}`, context);
 }
 
-function getTaskTimeout(task) {
-  if (task === 'chapter_draft' || task === 'chapter_review' || task === 'tutor_revision') return 70_000;
-  return 45_000;
-}
-
-function getContinuationMaxTokens(task) {
-  if (task === 'chapter_draft') return 2600;
-  if (task === 'chapter_review' || task === 'tutor_revision') return 2200;
-  return 1800;
-}
-
-function getContinuationTimeout(task) {
-  if (task === 'chapter_draft' || task === 'chapter_review' || task === 'tutor_revision') return 45_000;
-  return 30_000;
-}
-
-function taskRequiresContinuation(task) {
-  return task === 'chapter_draft' || task === 'chapter_review' || task === 'tutor_revision';
-}
-
-function buildContinuationPrompt(task, input, partialText) {
+function parseChapterContext(input) {
   const obj = input && typeof input === 'object' ? input : {};
-  const expected = getExpectedChapterSubsections(obj);
-  const expectedText = expected.length
-    ? `Sottosezioni attese per questo capitolo:\n${expected.map((x) => `- ${x}`).join('\n')}`
-    : '';
-  const partialTail = clip(String(partialText || ''), 5000);
-  return [
-    `TASK: ${task}_continuation`,
-    'Il testo precedente risulta interrotto. Devi continuare ESATTAMENTE dal punto in cui si è fermato, senza ricominciare da capo.',
-    'Non ripetere il testo già scritto. Prosegui in continuità logica e stilistica.',
-    'Completa tutte le sottosezioni mancanti del capitolo corrente, se non ancora sviluppate.',
-    expectedText,
-    `TESTO GIÀ GENERATO (PARTE FINALE)\n${partialTail}`
-  ].filter(Boolean).join('\n\n');
-}
+  const outline = String(obj.approvedOutline || '');
+  const currentChapterIndex = Number.isFinite(Number(obj.currentChapterIndex)) ? Number(obj.currentChapterIndex) : 0;
+  const currentChapterNumber = currentChapterIndex + 1;
+  const normalizedLines = outline
+    .split(/?
+/)
+    .map((line) => normalizeOutlineLine(line))
+    .filter(Boolean);
 
-function mergeContinuationText(baseText, continuationText) {
-  const base = cleanModelText(baseText);
-  let continuation = cleanModelText(continuationText);
-  if (!continuation) return base;
-  continuation = continuation.replace(/^continua(?:zione)?[:\s-]*/i, '').trim();
+  let chapterHeading = String(obj.currentChapterTitle || '').trim() || `Capitolo ${currentChapterNumber}`;
+  const subsections = [];
+  let inside = false;
 
-  const tail = base.slice(-700);
-  let overlap = '';
-  for (let size = Math.min(220, tail.length, continuation.length); size >= 40; size -= 10) {
-    const candidate = tail.slice(-size).trim();
-    if (candidate && continuation.startsWith(candidate)) {
-      overlap = candidate;
-      break;
+  for (const line of normalizedLines) {
+    const chapterMatch = line.match(/^(?:capitolo\s+)?(\d+)\s*[—\-:]?\s*(.*)$/i);
+    if (chapterMatch && /capitolo/i.test(line)) {
+      const n = Number(chapterMatch[1]);
+      if (n === currentChapterNumber) {
+        inside = true;
+        chapterHeading = line;
+        continue;
+      }
+      if (inside && n !== currentChapterNumber) break;
+    }
+
+    if (!inside) continue;
+    const subsectionMatch = line.match(/^(\d+\.\d+)\s+(.+)$/);
+    if (subsectionMatch && Number(subsectionMatch[1].split('.')[0]) === currentChapterNumber) {
+      subsections.push({ code: subsectionMatch[1], title: subsectionMatch[2].trim() });
     }
   }
-  if (overlap) continuation = continuation.slice(overlap.length).trim();
-  return cleanModelText(`${base}\n\n${continuation}`);
+
+  return { currentChapterIndex, currentChapterNumber, chapterHeading, subsections };
 }
 
-function chapterLooksIncomplete(text, input) {
-  const body = cleanModelText(text);
-  if (!body) return true;
-  if (body.length < 1800) return true;
-
-  const expected = getExpectedChapterSubsections(input);
-  if (expected.length) {
-    let found = 0;
-    for (const item of expected) {
-      const key = normalizeHeadingKey(item);
-      if (key && body.toLowerCase().includes(key)) found += 1;
-    }
-    const minimum = Math.max(1, Math.min(expected.length, Math.ceil(expected.length * 0.6)));
-    if (found < minimum) return true;
-  }
-
-  const lower = body.toLowerCase();
-  const endingLooksBroken =
-    /(?:\bteoria\b|\bconcett|\bidentit|\bmercat|\bcomunicaz|\bpolitic|\bcontest|\bsocial|\bprocess)/i.test(body.slice(-20)) &&
-    !/[.!?”»)]\s*$/.test(body);
-  if (endingLooksBroken) return true;
-
-  const choppedPatterns = [
-    /\b(?:il|la|le|i|gli|di|del|della|delle|dei|degli|nel|nella|nelle|con|per|tra|come|che|dove|quale|quali)\s*$/i,
-    /\b\d+(?:\.\d+){1,2}\s*$/i
-  ];
-  if (choppedPatterns.some((rx) => rx.test(body))) return true;
-
-  return false;
-}
-
-function getExpectedChapterSubsections(input) {
-  const obj = input && typeof input === 'object' ? input : {};
-  const outline = String(obj.approvedOutline || '').replace(/\r/g, '');
-  if (!outline) return [];
-  const currentIndex = Number.isFinite(Number(obj.currentChapterIndex)) ? Number(obj.currentChapterIndex) : 0;
-  const chapterNo = currentIndex + 1;
-  const lines = outline.split('\n').map((x) => x.trim()).filter(Boolean);
-  const expected = [];
-  let inChapter = false;
-  for (const line of lines) {
-    const chapterMatch =
-      line.match(new RegExp(`^(?:#+\s*)?(?:capitolo\s*)?${chapterNo}(?:\b|\s|[—:-])`, 'i')) ||
-      line.match(new RegExp(`^(?:#+\s*)?${chapterNo}[\.)\s—:-]`, 'i'));
-    const anotherChapter =
-      line.match(/^(?:#+\s*)?(?:capitolo\s*)?(\d+)(?:|\s|[—:-])/i) ||
-      line.match(/^(?:#+\s*)?(\d+)[\.)\s—:-]/);
-
-    if (chapterMatch) {
-      inChapter = true;
-      continue;
-    }
-    if (inChapter && anotherChapter) {
-      const num = Number(anotherChapter[1]);
-      if (num !== chapterNo) break;
-    }
-    if (inChapter && new RegExp(`^${chapterNo}\.\d+`).test(line)) {
-      expected.push(line.replace(/^#+\s*/, '').trim());
-    }
-  }
-  return expected.slice(0, 12);
-}
-
-function normalizeHeadingKey(line) {
+function normalizeOutlineLine(line) {
   return String(line || '')
-    .toLowerCase()
     .replace(/^#+\s*/, '')
-    .replace(/^\d+(?:\.\d+)+\s*/, '')
-    .replace(/[–—:]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80);
+    .replace(/^[-–—*]+\s*/, '')
+    .replace(/\*\*/g, '')
+    .replace(/__+/g, '')
+    .trim();
+}
+
+function buildChapterSubsectionPrompt(input, context, subsection, index, total) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const prevSummary = index > 0
+    ? `La sottosezione precedente sviluppata è: ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetizioni.`
+    : 'Apri il capitolo con una sottosezione pienamente introduttiva ma già analitica.';
+
+  return [
+    'TASK: chapter_draft_section',
+    `SVILUPPA SOLO QUESTA SOTTOSEZIONE DEL CAPITOLO: ${subsection.code} ${subsection.title}`,
+    `CAPITOLO DI RIFERIMENTO: ${context.chapterHeading}`,
+    `POSIZIONE: ${index + 1} di ${total}`,
+    prevSummary,
+    'REGOLE OBBLIGATORIE:',
+    `- Inizia esattamente con l'intestazione: ${subsection.code} ${subsection.title}`,
+    '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
+    '- Produci solo la sottosezione richiesta, completa e autosufficiente, con 5-8 paragrafi continui.',
+    '- Mantieni stile accademico, rigore terminologico e coerenza con la tesi.',
+    obj.theme ? `ARGOMENTO DELLA TESI: ${clip(String(obj.theme), 1200)}` : '',
+    obj.faculty || obj.degreeCourse || obj.degreeType
+      ? `CONTESTO ACCADEMICO
+Facoltà: ${clip(String(obj.faculty || ''), 300)}
+Corso: ${clip(String(obj.degreeCourse || ''), 400)}
+Tipo laurea: ${clip(String(obj.degreeType || ''), 120)}
+Metodologia: ${clip(String(obj.methodology || ''), 120)}`
+      : '',
+    obj.approvedAbstract ? `ABSTRACT APPROVATO
+${clip(String(obj.approvedAbstract), 2500)}` : '',
+    obj.previousChapters ? `CAPITOLI PRECEDENTI (SINTESI)
+${clip(String(obj.previousChapters), 3500)}` : '',
+  ].filter(Boolean).join('
+
+');
+}
+
+function postProcessChapterSectionText(text, subsection) {
+  let cleaned = cleanModelText(text)
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .trim();
+
+  const heading = `${subsection.code} ${subsection.title}`;
+  if (!cleaned.startsWith(heading)) {
+    cleaned = `${heading}
+
+${cleaned.replace(/^\d+\.\d+\s+.+?(
+|$)/, '').trim()}`.trim();
+  }
+  return cleaned;
+}
+
+function postProcessChapterText(text, context) {
+  let cleaned = cleanModelText(text)
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/
+{3,}/g, '
+
+')
+    .trim();
+
+  const chapterHeading = normalizeOutlineLine(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`);
+  if (!cleaned.startsWith(chapterHeading)) {
+    cleaned = `${chapterHeading}
+
+${cleaned}`;
+  }
+  return cleaned;
 }
 
 function buildProviderPrompt(task, input) {
@@ -673,10 +660,6 @@ function buildProviderPrompt(task, input) {
   if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
   if (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex)) {
     sections.push(`CAPITOLO CORRENTE\nIndice: ${Number(obj.currentChapterIndex || 0) + 1}\nTitolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
-  }
-  const expectedSubsections = getExpectedChapterSubsections(obj);
-  if (expectedSubsections.length) {
-    sections.push(`SOTTOSEZIONI ATTESE DEL CAPITOLO CORRENTE\n${clip(expectedSubsections.join('\n'), 2500)}`);
   }
   if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 6000)}`);
   if (Array.isArray(obj.approvedChapters) && obj.approvedChapters.length) {
@@ -699,7 +682,6 @@ function buildSystemPrompt(task, input) {
     base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema e la metodologia.');
   } else {
     base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna e visibilità dei cambiamenti richiesti.');
-    base.push('Per i capitoli, sviluppa il contenuto in modo completo e non interrompere la risposta prima di aver coperto le sottosezioni richieste dall’indice del capitolo corrente.');
     base.push('Se l’input contiene osservazioni del relatore, applicale davvero in modo riconoscibile e non cosmetico.');
   }
   if (input && typeof input === 'object' && input.facultyGuidance) {
