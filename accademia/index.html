@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=hj1PToSaxmGVPmEle32JS1hhjDnf3QMXCtzlDcpvNdiRPw_r7NlUGM1ZyWkFd3IOfnRuGX2sMJy6z6dYAO7dt2yhz3zo2nniYCNLk_u2cvy7OzLOG3FYYwTqnwmbCzyS6zlfzUeNbZg6lk0WUyZazQEnGg_THuUo-UUfmn-22DDvEPxhwFblhKXQ0CimHQI3eYm7xcwgZ5ZPh71Cvn009YtK80eQkTAxf_InibQv5hTtarLGmB1wZwc1jB6YWMnQ0V1OWAP6yO6N2I-xxabZ1A" charset="UTF-8"></script><style>
+  <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=SdGOK8azuaE5Ms-YT3d1BHeLLMUcKNCcv_NR0nV9bR2f9SIS1izmQYDCgOhwWe8LfH6P3Eq8cELH85K7xWSxfk-8TdQJ446xvZWfvIYVMSouhKGHTBkKnxYTPPy_mFMykEeBhRKTVRK2TgJ_7JzZz5fqlpuqgkj00L9zROtVLFyTOApOr7cFNyAqvJ8uCmj8YQozBCYOZrruAqKsgIiPJ7w3qM8ZFIkcvrybnCSIxOPfJ6WV5oWgCPOxBR88XVbZyTdGC9jk5nblEYxLDShzvA" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=hj1PToSaxmGVPmEle32JS1hhjDnf3QMXCtzlDcpvNdiRPw_r7NlUGM1ZyWkFd3IOfnRuGX2sMJy6z6dYAO7dt2yhz3zo2nniYCNLk_u2cvy7OzLOG3FYYwTqnwmbCzyS6zlfzUeNbZg6lk0WUyZazQEnGg_THuUo-UUfmn-22DDvEPxhwFblhKXQ0CimHQI3eYm7xcwgZ5ZPh71Cvn009YtK80eQkTAxf_InibQv5hTtarLGmB1wZwc1jB6YWMnQ0V1OWAP6yO6N2I-xxabZ1A" charset="UTF-8"></script><style>
     :root {
       --bg:#050505;
       --bg2:#0e0e0e;
@@ -826,10 +826,108 @@
       opacity:1;
       filter:none;
     }
+    .compat-modal-overlay {
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(5,5,5,.82);
+      backdrop-filter:blur(14px);
+      z-index:140;
+    }
+    .compat-modal-overlay.open {
+      display:flex;
+    }
+    .compat-modal {
+      width:min(720px,100%);
+      background:linear-gradient(180deg, rgba(18,18,18,.98), rgba(10,10,10,.98));
+      border:1px solid rgba(201,168,76,.18);
+      border-radius:26px;
+      box-shadow:0 28px 70px rgba(0,0,0,.45);
+      padding:28px;
+      position:relative;
+    }
+    .compat-modal-close {
+      position:absolute;
+      top:16px;
+      right:16px;
+      width:42px;
+      height:42px;
+      border-radius:12px;
+      border:1px solid rgba(201,168,76,.18);
+      background:rgba(255,255,255,.03);
+      color:var(--text-2);
+      font-size:20px;
+      cursor:pointer;
+    }
+    .compat-modal-close:hover {
+      color:var(--gold);
+      border-color:rgba(201,168,76,.34);
+    }
+    .compat-modal-head {
+      padding-right:54px;
+      margin-bottom:18px;
+    }
+    .compat-modal-head h3 {
+      font-size:34px;
+      margin-bottom:10px;
+    }
+    .compat-modal-head p {
+      margin:0;
+      color:var(--text-2);
+      font-size:16px;
+      line-height:1.7;
+    }
+    .compat-modal-grid {
+      display:grid;
+      gap:14px;
+    }
+    .compat-modal-result {
+      margin-top:4px;
+    }
+    .compat-modal-note {
+      margin-top:14px;
+      padding:14px 16px;
+      border-radius:16px;
+      border:1px solid rgba(201,168,76,.16);
+      background:rgba(201,168,76,.06);
+      color:var(--text-2);
+      font-size:14px;
+      line-height:1.7;
+    }
+    .compat-modal-note strong {
+      color:var(--gold);
+    }
+    .compat-modal-actions {
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+    body.compat-modal-open {
+      overflow:hidden;
+    }
     @media (max-width: 980px) {
       .compat-shell,
       .compat-grid {
         grid-template-columns:1fr;
+      }
+    }
+    @media (max-width: 760px) {
+      .compat-modal {
+        padding:22px 18px;
+        border-radius:22px;
+      }
+      .compat-modal-head h3 {
+        font-size:28px;
+      }
+      .compat-modal-head p {
+        font-size:15px;
+      }
+      .compat-modal-actions .btn {
+        width:100%;
       }
     }
 
@@ -1277,6 +1375,47 @@
     </section>
   </main>
 
+  <div id="compatAccessModal" class="compat-modal-overlay" aria-hidden="true">
+    <div class="compat-modal" role="dialog" aria-modal="true" aria-labelledby="compatAccessTitle">
+      <button type="button" class="compat-modal-close" onclick="closeCompatAccessModal()" aria-label="Chiudi">×</button>
+      <div class="compat-modal-head">
+        <div class="eyebrow">Accesso all'app</div>
+        <h3 id="compatAccessTitle">Verifica prima la compatibilità.</h3>
+        <p>Prima di entrare in AccademIA, verifica rapidamente se il tuo percorso rientra nel perimetro d'uso della versione attuale. Se possiedi già una chiave, puoi accedere subito all'app.</p>
+      </div>
+      <div class="compat-modal-grid">
+        <div class="compat-form-row">
+          <label for="compatModalFaculty">Facoltà</label>
+          <select id="compatModalFaculty" class="compat-select">
+            <option value="">Seleziona la tua facoltà</option>
+          </select>
+        </div>
+        <div class="compat-form-row">
+          <label for="compatModalThesis">Tipologia di tesi</label>
+          <select id="compatModalThesis" class="compat-select">
+            <option value="">Seleziona la tipologia</option>
+          </select>
+        </div>
+        <div id="compatModalConsent" class="compat-consent">
+          <label>Conferma richiesta</label>
+          <div class="check-row">
+            <input type="checkbox" id="compatModalAcknowledge">
+            <span>Ho compreso che, per questa facoltà, AccademIA è adatta solo a tesi teoriche, review, comparative o caso studio, e non a elaborati clinici, sperimentali, di laboratorio o con analisi dati originali.</span>
+          </div>
+        </div>
+        <div id="compatModalResult" class="compat-result compat-modal-result">
+          <strong>Verifica non ancora completata</strong>
+          <p>Seleziona facoltà e tipologia di tesi per sapere se puoi procedere ai piani o se è meglio non acquistare.</p>
+          <div class="compat-action-row">
+            <a id="compatModalPlansBtn" class="btn btn-primary is-hidden" href="#piani">Vai ai piani</a>
+            <a id="compatModalHasKeyBtn" class="btn btn-secondary" href="/app/app-index.html">Ho già una chiave</a>
+          </div>
+        </div>
+      </div>
+      <div class="compat-modal-note"><strong>Nota:</strong> il test serve a evitare acquisti non adatti. Anche quando la compatibilità risulta valida, il contenuto va sempre controllato e rielaborato dall'utente.</div>
+    </div>
+  </div>
+
   <footer>
     <div class="container footer-row">
       <div class="footer-brand">
@@ -1312,6 +1451,12 @@
     const resultEl = document.getElementById('compatResult');
     const compatPlansBtn = document.getElementById('compatPlansBtn');
     const compatHasKeyBtn = document.getElementById('compatHasKeyBtn');
+    const compatModal = document.getElementById('compatAccessModal');
+    const compatModalFacultyEl = document.getElementById('compatModalFaculty');
+    const compatModalThesisEl = document.getElementById('compatModalThesis');
+    const compatModalConsentWrap = document.getElementById('compatModalConsent');
+    const compatModalConsentEl = document.getElementById('compatModalAcknowledge');
+    const compatModalResultEl = document.getElementById('compatModalResult');
     const gatedLinks = Array.from(document.querySelectorAll('[data-plan-link="1"]'));
 
     const full = new Set([
@@ -1334,6 +1479,22 @@
       document.getElementById('compatibilita')?.scrollIntoView({behavior:'smooth', block:'start'});
     }
 
+    function openCompatAccessModal(){
+      if (!compatModal) return;
+      syncModalFieldsFromMain();
+      evaluateModal();
+      compatModal.classList.add('open');
+      compatModal.setAttribute('aria-hidden','false');
+      document.body.classList.add('compat-modal-open');
+    }
+
+    function closeCompatAccessModal(){
+      if (!compatModal) return;
+      compatModal.classList.remove('open');
+      compatModal.setAttribute('aria-hidden','true');
+      document.body.classList.remove('compat-modal-open');
+    }
+
     function handleAppLink(event){
       event.preventDefault();
       event.stopPropagation();
@@ -1341,9 +1502,10 @@
         window.location.assign(APP_URL);
         return;
       }
-      scrollToCompatibility();
-      setResult('blocked', 'Per entrare nell’app serve prima una chiave di accesso', 'Se non hai ancora una chiave, completa il test di compatibilità. Se la compatibilità risulta valida, usa il pulsante “Vai ai piani”. Se possiedi già una chiave, usa “Ho già una chiave”.', {showPlans:false, showHasKey:true});
+      openCompatAccessModal();
     }
+
+    window.closeCompatAccessModal = closeCompatAccessModal;
 
     document.querySelectorAll('[data-app-link="1"]').forEach((link) => {
       link.addEventListener('click', handleAppLink);
@@ -1389,6 +1551,73 @@
         link.removeEventListener('click', planNavigate, true);
         link.addEventListener('click', planNavigate, true);
       });
+    }
+
+    function syncModalFieldsFromMain(){
+      if (compatModalFacultyEl && facultyEl) compatModalFacultyEl.innerHTML = facultyEl.innerHTML;
+      if (compatModalThesisEl && thesisEl) compatModalThesisEl.innerHTML = thesisEl.innerHTML;
+      if (compatModalFacultyEl && facultyEl) compatModalFacultyEl.value = facultyEl.value || '';
+      if (compatModalThesisEl && thesisEl) compatModalThesisEl.value = thesisEl.value || '';
+      if (compatModalConsentEl && consentEl) compatModalConsentEl.checked = !!consentEl.checked;
+    }
+
+    function syncMainFieldsFromModal(){
+      if (facultyEl && compatModalFacultyEl) facultyEl.value = compatModalFacultyEl.value || '';
+      if (thesisEl && compatModalThesisEl) thesisEl.value = compatModalThesisEl.value || '';
+      if (consentEl && compatModalConsentEl) consentEl.checked = !!compatModalConsentEl.checked;
+    }
+
+    function setModalResult(kind, title, message, options){
+      const opts = Object.assign({showPlans:false, showHasKey:true, planEnabled:false}, options || {});
+      compatModalResultEl.className = 'compat-result compat-modal-result';
+      if (kind) compatModalResultEl.classList.add('is-' + kind);
+      compatModalResultEl.innerHTML = '<strong>' + title + '</strong><p>' + message + '</p><div class="compat-action-row"><a id="compatModalPlansBtn" class="btn btn-primary' + (opts.showPlans ? '' : ' is-hidden') + '" href="#piani" aria-disabled="' + (opts.planEnabled ? 'false' : 'true') + '">Vai ai piani</a><a id="compatModalHasKeyBtn" class="btn btn-secondary' + (opts.showHasKey ? '' : ' is-hidden') + '" href="' + APP_URL + '">Ho già una chiave</a></div>';
+      const plansBtn = document.getElementById('compatModalPlansBtn');
+      if (plansBtn && opts.showPlans && opts.planEnabled) {
+        plansBtn.addEventListener('click', function(event){
+          event.preventDefault();
+          closeCompatAccessModal();
+          document.getElementById('piani')?.scrollIntoView({behavior:'smooth', block:'start'});
+        });
+      }
+    }
+
+    function evaluateModal(){
+      if (!compatModalFacultyEl || !compatModalThesisEl || !compatModalConsentWrap || !compatModalConsentEl || !compatModalResultEl) return;
+      const faculty = compatModalFacultyEl.value.trim();
+      const thesis = compatModalThesisEl.value;
+      compatModalConsentWrap.classList.remove('active');
+      compatModalConsentEl.checked = faculty === (facultyEl?.value || '') ? !!consentEl?.checked : !!compatModalConsentEl.checked;
+
+      syncMainFieldsFromModal();
+      evaluate();
+
+      if (!faculty || !thesis) {
+        setModalResult('', 'Verifica non ancora completata', 'Seleziona facoltà e tipologia di tesi per sapere se puoi procedere ai piani o se è meglio non acquistare.', {showPlans:false, showHasKey:true});
+        return;
+      }
+
+      if (!supportedTypes.has(thesis)) {
+        setModalResult('blocked', 'Non compatibile con il perimetro standard', 'AccademIA non è progettata per tesi empiriche con raccolta dati originale, cliniche, sperimentali, di laboratorio, con analisi statistiche originali o con forte componente tecnico-progettuale specialistica.', {showPlans:false, showHasKey:true});
+        return;
+      }
+
+      if (full.has(faculty)) {
+        setModalResult('good', 'Compatibile', 'Puoi procedere ai piani standard. Dopo l’acquisto riceverai la chiave di accesso via email.', {showPlans:true, showHasKey:true, planEnabled:true});
+        return;
+      }
+
+      if (partial.has(faculty)) {
+        compatModalConsentWrap.classList.add('active');
+        if (compatModalConsentEl.checked) {
+          setModalResult('partial', 'Compatibile con limiti', 'Presa visione confermata. Puoi procedere ai piani standard solo per un percorso teorico, review, comparativo o caso studio.', {showPlans:true, showHasKey:true, planEnabled:true});
+        } else {
+          setModalResult('partial', 'Compatibile con limiti', 'Per questa facoltà devi confermare la presa visione prima di procedere ai piani standard.', {showPlans:false, showHasKey:true});
+        }
+        return;
+      }
+
+      setModalResult('blocked', 'Attualmente non previsto per questa facoltà', 'Per evitare acquisti non adatti, il piano standard non è disponibile per questa facoltà nel perimetro attuale del servizio.', {showPlans:false, showHasKey:true});
     }
 
     function preventLockedClick(event){
@@ -1438,6 +1667,15 @@
 
     facultyEl?.addEventListener('change', evaluate);
     thesisEl?.addEventListener('change', evaluate);
+    compatModalFacultyEl?.addEventListener('change', evaluateModal);
+    compatModalThesisEl?.addEventListener('change', evaluateModal);
+    compatModalConsentEl?.addEventListener('change', evaluateModal);
+    compatModal?.addEventListener('click', function(event){
+      if (event.target === compatModal) closeCompatAccessModal();
+    });
+    document.addEventListener('keydown', function(event){
+      if (event.key === 'Escape' && compatModal?.classList.contains('open')) closeCompatAccessModal();
+    });
     consentEl?.addEventListener('change', function(){
       if (consentEl.checked && partial.has(facultyEl.value.trim()) && supportedTypes.has(thesisEl.value)) {
         unlockPlans();
@@ -1449,6 +1687,8 @@
     });
 
     lockPlans();
+    syncModalFieldsFromMain();
+    evaluateModal();
   })();
 </script>
 
