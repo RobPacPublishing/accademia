@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=QR7gwuoK1TIkyZMPbHrIOQE2dKHKw0bCIxdLmfOTBxHOjaO906w_FMJIytq8qdF7uGZn35hSFCHpfyTK-cj0FyurnMcMcucHAtnSueygw8p6PWvhY0N4a7_YGpnQjuyLmnr0RdgK6GDpoQBVY8KP_Z-ZOynX0iSp7gvZKWyj9q-sku8TKS2tPfuD3_nZzSJXdJGodthN385wXnpiar7mPKgwX-9fN7zYvym5es4vq8SrSBTw_P8MzmBjrLTWuf3FNSrhJfj_xygW_02a4mO8Vw" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=HLStw2gEZ1OaFjebOMQPKUk_AEEb6lSisMaj1AIYQNv5rQCV1JR6ph-K53IkbiyBY8SFKojF_aAbPXQ9z4xOY1qP5vpqOZSheB005yXLMiZitLfHlDvGMl6GEQ4aGgoJcLWzmM_hBZCCqQ9LACMllHqoLqZZroGg3otR9v-AgRcvzCjgzSlQV0EpOI5Kqh2yM3HX4QXb6cQpjtllDsX8mAE9Q011tSnvaUMSvo9NObHH1miQuqbPRwdXs9aGdwCk2Xs2a1PxF-A2uJrt4PdIJg" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -2446,8 +2446,6 @@ function resetRevStateForCurrentOutline(){
   initRevState(Array.isArray(thesis.chapterTitles)?thesis.chapterTitles.length:0);
 }
 
-let __chapterGenLock=false;
-
 function renderNextChapterLauncher(){
   const nc=document.getElementById('nextChapters');
   if(!nc) return;
@@ -2636,7 +2634,7 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
     ? (idx<total-1 ? `✦ Genera Cap. ${idx+2}` : '✓ Vai al controllo finale')
     : (idx<total-1 ? `✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}` : '✓ Approva ultimo capitolo e concludi');
   const primaryAction=approved
-    ? (idx<total-1 ? `goToNextChapterFromApproved(${idx})` : 'focusFinalTools()')
+    ? (idx<total-1 ? `generateApprovedNextChapter(${idx})` : 'focusFinalTools()')
     : (idx<total-1 ? `approveChapter(${idx})` : 'approveLastChapter()');
   return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
         <span class="hint">${hint}</span>
@@ -2646,7 +2644,7 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
       </div>`;
 }
 
-function goToNextChapterFromApproved(idx){
+function generateApprovedNextChapter(idx){
   thesis.currentChapterIdx=Math.max(thesis.currentChapterIdx, idx+1);
   const nc=document.getElementById('nextChapters');
   if(nc){
@@ -3359,55 +3357,106 @@ function getChapterRole(idx,total,title,metod){
 }
 
 async function generateNextChapter(){
-  if(__chapterGenLock) return;
+  if(window.__chapterGenLock){showToast('Generazione capitolo già in corso.',true);return;}
   if(!ensureCompatibilityGuard()) return;
   if(!ensureSingleThesisCommit('chapter_generation')) return;
+  window.__chapterGenLock=true;
+  await saveLastValidState('prima_generazione_capitolo',{silent:true});
+  setPhaseButtonBusy('btnChapterAction',true,'<span class="spinner"></span>Generazione capitolo...');
   const idx=thesis.currentChapterIdx;
   const total=thesis.chapterTitles.length;
-  if(idx>=total) return;
-
-  __chapterGenLock=true;
-  await saveLastValidState(`prima_generazione_capitolo_${idx+1}`,{silent:true});
-  setPhaseButtonBusy('btnChapterAction',true,'<span class="spinner"></span>Generazione capitolo...');
+  if(idx>=total){window.__chapterGenLock=false;setPhaseButtonBusy('btnChapterAction',false);return;}
 
   const cp=thesis.contextPacket;
   const title=thesis.chapterTitles[idx];
-  const lung={'triennale':{min:2800,max:3800},'magistrale_2':{min:4200,max:5600},'magistrale_5':{min:3600,max:4800}}[thesis.tipo]||{min:2800,max:3800};
+  const lung={'triennale':{min:1400,max:1800},'magistrale_2':{min:2200,max:2800},'magistrale_5':{min:1800,max:2400}}[thesis.tipo]||{min:1400,max:1800};
   const chRole=getChapterRole(idx,total,title,thesis.metodologia);
-  const existing=document.getElementById(`chap-${idx}`);
-  if(existing) existing.remove();
 
-  const prevSummary=summarizePreviousChaptersForPayload();
-  const prompt=`Scrivi il Capitolo ${idx+1} della tesi.
-Titolo del capitolo: ${title}.
-Argomento generale: ${thesis.argomento}.
-Facoltà: ${thesis.facolta}.
-Corso di laurea: ${thesis.corso}.
-Tipo laurea: ${cp.tipoLabel}.
-Metodologia: ${thesis.metodologia}.
+  // Previous chapters summary for coherence
+  let prevSummary='';
+  for(let i=0;i<idx;i++){
+    const ch=thesis.chapters[i];
+    if(ch) prevSummary+=`\nCap.${i+1} "${ch.title}": ${ch.content.substring(0,180).replace(/\n/g,' ')}...`;
+  }
 
-Indice completo della tesi:
+  const prompt=`
+════════════════════════════════════════
+IDENTITÀ ACCADEMICA
+════════════════════════════════════════
+Tipo: ${cp.tipoLabel} | Facoltà: ${thesis.facolta} | Corso: ${thesis.corso}
+Argomento: "${thesis.argomento}"
+${cp.mp}
+
+════════════════════════════════════════
+PROFILO DISCIPLINARE — ${thesis.facolta}
+════════════════════════════════════════
+Stile argomentativo: ${cp.dp.stile}
+Fonti accettabili: ${cp.dp.fonti}
+Vocabolario tecnico: ${cp.dp.vocabolario}
+Logica: ${cp.dp.logica}
+Struttura preferita: ${cp.dp.struttura}
+Errori da evitare: ${cp.dp.errori}
+
+════════════════════════════════════════
+STRUTTURA COMPLETA DELLA TESI
+════════════════════════════════════════
 ${thesis.indice}
 
-Abstract approvato:
-${thesis.abstract||''}
+════════════════════════════════════════
+BRIEFING COERENZA INTER-CAPITOLARE
+════════════════════════════════════════
+Capitolo da scrivere: Capitolo ${idx+1} di ${total} — "${title}"
+Ruolo: ${chRole.role}
+${prevSummary?`Argomenti già sviluppati (NON ripetere, solo richiamare se necessario):\n${prevSummary}`:'Primo capitolo: introduci i concetti fondamentali della tesi.'}
+${idx<total-1?`Argomenti da NON anticipare (riservati ai capitoli successivi): ${thesis.chapterTitles.slice(idx+1).join(' | ')}`:'Ultimo capitolo: convergi verso le conclusioni generali.'}
 
-Contesto dei capitoli precedenti:
-${prevSummary||'Nessun capitolo precedente approvato.'}
+════════════════════════════════════════
+ISTRUZIONI FONTI — WEB SEARCH OBBLIGATORIO
+════════════════════════════════════════
+PRIMA di scrivere, esegui OBBLIGATORIAMENTE ricerche web per trovare:
+1. Autori e opere FONDAMENTALI specifici per l’argomento di QUESTO capitolo
+2. Studi e articoli RECENTI (ultimi 5-10 anni) rilevanti — cerca su Google Scholar, PubMed, JSTOR
+3. Dati statistici UFFICIALI se pertinenti (ISTAT, Eurostat, WHO, Banca d’Italia, ecc.)
+4. Cerca per: "${thesis.argomento} ${title} academic research"
 
-Ruolo del capitolo: ${chRole.role}.
-Indicazioni di sviluppo: ${chRole.body}.
+REGOLE CITAZIONI (NON NEGOZIABILI):
+✓ Cita SOLO fonti trovate nel web search o classici di cui sei CERTO (es: Bourdieu, Foucault, Habermas, Porter)
+✓ Formato: (Cognome, Anno) in testo — es: Secondo Castells (2000) / (Bagnasco, 2003)
+✓ Se non trovi fonte specifica → "la letteratura evidenzia che..." / "studi nel settore indicano..." / "secondo l’orientamento prevalente..."
+✗ MAI inventare titoli, anni, DOI, dati statistici
+✗ MAI citare fonti non verificate
 
-Vincoli obbligatori:
-- restituisci un capitolo accademico completo, non schematico;
-- usa i sottocapitoli previsti dall'indice con numerazione corretta (${idx+1}.1, ${idx+1}.2, ecc.);
-- non usare markdown o asterischi;
-- non inserire note meta sul capitolo successivo;
-- evita conclusioni artificiali da AI;
-- lunghezza obiettivo: circa ${lung.min}-${lung.max} parole.`;
+════════════════════════════════════════
+STRUTTURA OBBLIGATORIA DEL CAPITOLO
+════════════════════════════════════════
+[APERTURA CONTESTUALE] — 2-3 paragrafi
+Inquadra il capitolo nel framework teorico della tesi. Annuncia cosa svilupperà questo capitolo.
 
-  updateChapterProgressBar(idx,total,false);
+[SVILUPPO ARGOMENTATIVO] — corpo centrale con sottosezioni in **grassetto**
+${chRole.body}
+Ogni sottosezione deve essere sviluppata con almeno 3 paragrafi pieni e contenere spiegazione, approfondimento e collegamento critico al tema.
+Nessun sottocapitolo può ridursi a definizioni brevi, elenchi o passaggi solo descrittivi.
+
+[ANALISI CRITICA] — ${cp.isMagistrale?'2-3 paragrafi obbligatori':'1-2 paragrafi'}
+${cp.isMagistrale?'Confronta posizioni teoriche diverse. Identifica punti di forza, limiti e gap. Esprimi posizione argomentata con supporto bibliografico.':'Sintetizza punti chiave. Valuta criticamente le posizioni principali emerse.'}
+
+[CHIUSURA DEL CAPITOLO] — 1 paragrafo
+Chiudi il capitolo in modo sobrio e accademico, senza titoli finali artificiali, senza formule meta, senza annunciare esplicitamente il capitolo successivo
+
+════════════════════════════════════════
+PARAMETRI TECNICI
+════════════════════════════════════════
+Lunghezza: ${lung.min}-${lung.max} parole
+Densità minima: ogni sottosezione deve essere sostanziale e non schematica
+Titoli sottosezioni: **in grassetto**
+Zero altro markdown
+Inizia direttamente dal primo paragrafo, senza intestazione "Capitolo X"
+`;
+
+  document.getElementById('nextChapters').classList.remove('visible');
+  updateChapterProgressBar(idx,total);
   ensureGlobalCounter();
+
   const area=document.getElementById('chaptersArea');
   const block=document.createElement('div');
   block.id=`chap-${idx}`;
@@ -3416,7 +3465,7 @@ Vincoli obbligatori:
       <div class="output-block-header">
         <div class="output-block-title">
           📖 Capitolo ${idx+1}
-          <span class="status-chip searching" id="chapChip-${idx}">Generazione...</span>
+          <span class="status-chip searching" id="chapChip-${idx}">Ricerca fonti...</span>
           <span class="version-badge" id="chapVerBadge-${idx}" style="display:none" onclick="openVersionModal('chapter',${idx})">↺ v1</span>
         </div>
         <div class="header-actions">
@@ -3429,7 +3478,7 @@ Vincoli obbligatori:
       </div>
       <div class="output-block-body"><div class="content-text" id="chapText-${idx}"></div></div>
       <div class="sources-bar" id="chapSources-${idx}"><span class="sources-label">🔍 Query ricercate</span></div>
-      <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica comunque il testo prima dell'approvazione.</div>
+      <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica le citazioni prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (Google Scholar, JSTOR, ResearchGate).</div>
       <div class="rev-counter-bar" id="revCounterBar-${idx}">
         <div class="rev-counter-info">
           <span>Revisioni capitolo:</span>
@@ -3451,7 +3500,7 @@ Vincoli obbligatori:
       <div class="tutor-inline" id="chapTutor-${idx}">
         <div class="tutor-panel-head">
           <div class="tutor-panel-title">Osservazioni del relatore</div>
-          <div class="tutor-panel-subtitle">Flusso separato dalla normale revisione capitolo.</div>
+          <div class="tutor-panel-subtitle">Flusso separato dalla normale revisione capitolo. Incolla qui le indicazioni del relatore e applicale come revisione mirata del capitolo, anche dopo l’approvazione.</div>
         </div>
         <div class="tutor-inline-row">
           <textarea id="chapTutorInput-${idx}" placeholder="Incolla qui osservazioni, correzioni o richieste puntuali del relatore..."></textarea>
@@ -3464,13 +3513,24 @@ ${getChapterApprovalRow(idx,total,false,false)}
   block.scrollIntoView({behavior:'smooth',block:'start'});
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
   document.getElementById(`chapText-${idx}`).textContent='Elaborazione in corso...';
+  updateChapterProgressBar(idx,total,false);
   setChapterOperationStatus(`Generazione del Capitolo ${idx+1} in corso...`,false,true);
 
   try{
     const result=await callClaudeWithSearch(prompt,'chapter_draft');
-    const text=(result.text||'').trim();
-    if(!text) throw new Error('Nessun contenuto restituito dal backend');
-    thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale'}],currentVersion:0};
+    const text=result.text;
+    if(result.sources.length>0){
+      const bar=document.getElementById(`chapSources-${idx}`);
+      bar.classList.add('visible');
+      result.sources.forEach(s=>{
+        const chip=document.createElement('span');
+        chip.className='source-chip';chip.title=s;
+        chip.textContent=s.length>40?s.substring(0,38)+'…':s;
+        bar.appendChild(chip);
+      });
+      document.getElementById(`chapSourcesWarn-${idx}`).style.display='block';
+    }
+    thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale (web search)'}],currentVersion:0};
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       document.getElementById(`chapChip-${idx}`).className='status-chip done';
@@ -3481,23 +3541,14 @@ ${getChapterApprovalRow(idx,total,false,false)}
       setChapterOperationStatus(`Capitolo ${idx+1} generato correttamente.`,false,false);
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
+      window.__chapterGenLock=false;
+      setPhaseButtonBusy('btnChapterAction',false);
       saveProgress();
     });
   }catch(e){
-    thesis.chapters[idx]=null;
-    const failed=document.getElementById(`chap-${idx}`);
-    if(failed) failed.remove();
-    const nc=document.getElementById('nextChapters');
-    if(nc){
-      const nextTitle=thesis.chapterTitles[idx]||'';
-      nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+1} — ${escHtml(nextTitle)}</button>`;
-      nc.classList.add('visible');
-    }
-    updateChapterProgressBar(Math.max(0,idx),total,false);
-    setChapterOperationStatus(`Errore nel Capitolo ${idx+1}: ${e.message}`,true,false);
+    window.__chapterGenLock=false;
+    resetChapterUiAfterError(idx,`Errore nel Capitolo ${idx+1}: ${e.message}`);
     showToast('Errore cap.'+(idx+1)+': '+e.message,true);
-  } finally {
-    __chapterGenLock=false;
     setPhaseButtonBusy('btnChapterAction',false);
   }
 }
@@ -4009,12 +4060,18 @@ function formatChapterHtml(text){
 // ══════════════════════════════════════════════
 
 function summarizePreviousChaptersForPayload(){
-  return (thesis.chapters||[]).map((ch,idx)=>({
-    index:idx+1,
-    title:thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`,
-    approved:!!((thesis.approvedChapters||[])[idx]),
-    summary:(ch.content||'').replace(/\s+/g,' ').trim().slice(0,900)
-  })).filter(x=>x.summary);
+  return (thesis.chapters||[])
+    .map((ch,idx)=>{
+      const safeCh=(ch&&typeof ch==='object')?ch:{};
+      const summary=String(safeCh.content||'').replace(/\s+/g,' ').trim().slice(0,900);
+      return {
+        index:idx+1,
+        title:thesis.chapterTitles?.[idx]||safeCh.title||`Capitolo ${idx+1}`,
+        approved:!!((thesis.approvedChapters||[])[idx]),
+        summary
+      };
+    })
+    .filter(x=>x.summary);
 }
 
 function buildStructuredTaskInput(taskName,userPrompt,extra={}){
@@ -4035,7 +4092,7 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
     approvedOutline:thesis.indice||'',
     approvedAbstract:thesis.abstract||'',
     chapterTitles,
-    approvedChapters:(thesis.chapters||[]).map((ch,i)=>((thesis.approvedChapters||[])[i]&&ch)?{title:ch.title||'',content:ch.content||''}:null).filter(Boolean),
+    approvedChapters:(thesis.approvedChapters||[]),
     previousChapters:summarizePreviousChaptersForPayload(),
     currentChapterIndex:typeof thesis.currentChapterIdx==='number'?thesis.currentChapterIdx:0,
     currentChapterTitle:chapterTitles[thesis.currentChapterIdx]||'',
