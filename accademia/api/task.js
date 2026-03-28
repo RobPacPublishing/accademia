@@ -466,8 +466,7 @@ function sanitizeTaskInput(input) {
         return `${idx}${title}${summary}`;
       })
       .filter(Boolean)
-      .join('
-');
+      .join('\n');
   }
   if (Array.isArray(obj.approvedChapters)) {
     obj.approvedChapters = obj.approvedChapters.slice(0, 3).map((ch, i) => ({
