@@ -454,92 +454,6 @@ function normalizeGenerationTask(task) {
   }
 }
 
-
-function buildAcademicDepthGuidance(input) {
-  const obj = input && typeof input === 'object' ? input : {};
-  const degreeType = String(obj.degreeType || '').toLowerCase();
-  const methodology = String(obj.methodology || '').toLowerCase();
-  const parts = [];
-
-  if (/magistr|master|specialistic/.test(degreeType)) {
-    parts.push('Livello atteso: laurea magistrale. Aumenta densità teorica, confronto critico tra posizioni, precisione concettuale e profondità argomentativa.');
-  } else if (/trienn|bachelor/.test(degreeType)) {
-    parts.push('Livello atteso: laurea triennale. Mantieni rigore accademico e completezza, con esposizione chiara, ordinata e ben sostenuta sul piano teorico.');
-  }
-
-  if (/empir|speriment|ricerca/.test(methodology)) {
-    parts.push('Poiché l'impianto richiama una metodologia empirica, mantieni linguaggio coerente con ipotesi, variabili, procedura, discussione e limiti, senza inventare dati o risultati.');
-  } else if (/teoric|compilat|bibliogra/.test(methodology)) {
-    parts.push('Poiché l'impianto è teorico-compilativo, privilegia definizioni, cornici teoriche, confronto tra autori e chiarificazione dei nessi concettuali.');
-  }
-
-  if (obj.facultyGuidance) {
-    parts.push(`Indicazioni specifiche di facoltà da rispettare: ${clip(String(obj.facultyGuidance), 1200)}`);
-  }
-
-  return parts.join(' ');
-}
-
-function sanitizeParagraphEdges(text) {
-  return String(text || '')
-    .replace(/^\s+|\s+$/g, '')
-    .replace(/
-{3,}/g, '
-
-');
-}
-
-function stripArtificialTransitions(text) {
-  let cleaned = String(text || '');
-
-  const openingPatterns = [
-    /^(?:In questa sottosezione|Nel presente paragrafo|In questo paragrafo)\b[^.]{0,220}\.\s+/i,
-    /^(?:In questo capitolo|Nel presente capitolo)\b[^.]{0,220}\.\s+/i,
-  ];
-
-  for (const pattern of openingPatterns) {
-    cleaned = cleaned.replace(pattern, '');
-  }
-
-  const paragraphPatterns = [
-    /^\s*(?:Nel prossimo capitolo|Nel capitolo successivo|Nei capitoli successivi)\b[\s\S]*?$/i,
-    /^\s*(?:Quanto analizzato|Quanto esposto|Quanto emerso)\s+(?:in questo capitolo|nel presente capitolo|in questa sezione|nel presente paragrafo)\b[\s\S]*?$/i,
-    /^\s*(?:Il capitolo successivo|La sezione successiva|Il paragrafo successivo)\b[\s\S]*?$/i,
-  ];
-
-  const paragraphs = cleaned.split(/
-\s*
-/).map((p) => p.trim()).filter(Boolean);
-  const kept = paragraphs.filter((paragraph) => !paragraphPatterns.some((pattern) => pattern.test(paragraph)));
-  cleaned = kept.join('
-
-');
-
-  return sanitizeParagraphEdges(cleaned);
-}
-
-function finalizeAcademicText(text) {
-  let cleaned = cleanModelText(text);
-  cleaned = stripArtificialTransitions(cleaned)
-    .replace(/
-{3,}/g, '
-
-')
-    .replace(/[ 	]+
-/g, '
-')
-    .replace(/
-([a-zà-ÿ])/g, ' $1')
-    .replace(/([,:;])
-+/g, '$1 ')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/
-\s+/g, '
-')
-    .trim();
-  return cleaned;
-}
-
 async function generateText(task, input) {
   if (task === 'chapter_draft') {
     return await generateChapterDraftStructured(input);
@@ -674,9 +588,8 @@ function normalizeOutlineLine(line) {
 function buildChapterSubsectionPrompt(input, context, subsection, index, total) {
   const obj = input && typeof input === 'object' ? input : {};
   const prevSummary = index > 0
-    ? `La sottosezione precedente sviluppata è: ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetizioni e senza riassunti ridondanti.`
-    : 'Apri il capitolo con una sottosezione già sostanziale, evitando preamboli generici o dichiarazioni metatestuali.';
-  const depthGuidance = buildAcademicDepthGuidance(obj);
+    ? `La sottosezione precedente sviluppata è: ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetizioni.`
+    : 'Apri il capitolo con una sottosezione pienamente introduttiva ma già analitica.';
 
   return [
     'TASK: chapter_draft_section',
@@ -684,16 +597,11 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total) 
     `CAPITOLO DI RIFERIMENTO: ${context.chapterHeading}`,
     `POSIZIONE: ${index + 1} di ${total}`,
     prevSummary,
-    depthGuidance ? `LIVELLO ATTESO
-${depthGuidance}` : '',
     'REGOLE OBBLIGATORIE:',
     `- Inizia esattamente con l'intestazione: ${subsection.code} ${subsection.title}`,
     '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
-    '- Produci solo la sottosezione richiesta, completa e autosufficiente, con paragrafi continui e densi di contenuto.',
-    '- Evita frasi automatiche come “in questo paragrafo”, “nel presente capitolo”, “nel capitolo successivo” o formule scolastiche equivalenti.',
-    '- Chiudi la sottosezione sul contenuto trattato, senza annunciare esplicitamente la sezione o il capitolo seguente.',
-    '- Mantieni stile accademico, rigore terminologico, naturalezza espressiva e coerenza con la tesi.',
-    '- Inserisci confronti teorici, definizioni e nessi concettuali quando pertinenti, senza inventare citazioni puntuali o bibliografie.',
+    '- Produci solo la sottosezione richiesta, completa e autosufficiente, con 5-8 paragrafi continui.',
+    '- Mantieni stile accademico, rigore terminologico e coerenza con la tesi.',
     obj.theme ? `ARGOMENTO DELLA TESI: ${clip(String(obj.theme), 1200)}` : '',
     obj.faculty || obj.degreeCourse || obj.degreeType
       ? `CONTESTO ACCADEMICO
@@ -706,119 +614,78 @@ Metodologia: ${clip(String(obj.methodology || ''), 120)}`
 ${clip(String(obj.approvedAbstract), 2500)}` : '',
     obj.previousChapters ? `CAPITOLI PRECEDENTI (SINTESI)
 ${clip(String(obj.previousChapters), 3500)}` : '',
-  ].filter(Boolean).join('
-
-');
+  ].filter(Boolean).join('\n\n');
 }
 
 function postProcessChapterSectionText(text, subsection) {
-  let cleaned = finalizeAcademicText(text)
+  let cleaned = cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .trim();
 
   const heading = `${subsection.code} ${subsection.title}`;
   if (!cleaned.startsWith(heading)) {
-    cleaned = `${heading}
-
-${cleaned.replace(/^\d+\.\d+\s+.+?(?:
-|$)/, '').trim()}`.trim();
+    cleaned = `${heading}\n\n${cleaned.replace(/^\d+\.\d+\s+.+?(?:\n|$)/, '').trim()}`.trim();
   }
-  return finalizeAcademicText(cleaned);
+  return cleaned;
 }
 
 function postProcessChapterText(text, context) {
-  let cleaned = finalizeAcademicText(text)
+  let cleaned = cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
-    .replace(/
-{3,}/g, '
-
-')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  const rawHeading = normalizeOutlineLine(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`);
-  const chapterHeading = rawHeading
-    .replace(/^(Capitolo\s+\d+\s*[—\-:]?)\s*\.\s*/i, '$1 ')
-    .trim();
-
+  const chapterHeading = normalizeOutlineLine(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`);
   if (!cleaned.startsWith(chapterHeading)) {
-    cleaned = `${chapterHeading}
-
-${cleaned}`;
+    cleaned = `${chapterHeading}\n\n${cleaned}`;
   }
-  return finalizeAcademicText(cleaned);
+  return cleaned;
 }
 
 function buildProviderPrompt(task, input) {
   if (typeof input === 'string') return clip(input, 30000);
   const obj = input && typeof input === 'object' ? input : {};
   const sections = [];
-  const depthGuidance = buildAcademicDepthGuidance(obj);
   sections.push(`TASK: ${task}`);
-  if (obj.prompt) sections.push(`RICHIESTA
-${clip(String(obj.prompt), 14000)}`);
-  if (obj.theme) sections.push(`ARGOMENTO
-${clip(String(obj.theme), 1200)}`);
-  if (depthGuidance) sections.push(`LIVELLO ATTESO
-${depthGuidance}`);
+  if (obj.prompt) sections.push(`RICHIESTA\n${clip(String(obj.prompt), 14000)}`);
+  if (obj.theme) sections.push(`ARGOMENTO\n${clip(String(obj.theme), 1200)}`);
   if (obj.faculty || obj.degreeCourse || obj.degreeType) {
-    sections.push(`CONTESTO ACCADEMICO
-Facoltà: ${clip(String(obj.faculty || ''), 300)}
-Corso: ${clip(String(obj.degreeCourse || ''), 400)}
-Tipo laurea: ${clip(String(obj.degreeType || ''), 120)}
-Metodologia: ${clip(String(obj.methodology || ''), 120)}`);
+    sections.push(`CONTESTO ACCADEMICO\nFacoltà: ${clip(String(obj.faculty || ''), 300)}\nCorso: ${clip(String(obj.degreeCourse || ''), 400)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 120)}\nMetodologia: ${clip(String(obj.methodology || ''), 120)}`);
   }
-  if (obj.approvedOutline) sections.push(`INDICE APPROVATO
-${clip(String(obj.approvedOutline), 7000)}`);
-  if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO
-${clip(String(obj.approvedAbstract), 4000)}`);
-  if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI
-${clip(obj.chapterTitles.join('
-'), 2500)}`);
+  if (obj.approvedOutline) sections.push(`INDICE APPROVATO\n${clip(String(obj.approvedOutline), 7000)}`);
+  if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 4000)}`);
+  if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
   if (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex)) {
-    sections.push(`CAPITOLO CORRENTE
-Indice: ${Number(obj.currentChapterIndex || 0) + 1}
-Titolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
+    sections.push(`CAPITOLO CORRENTE\nIndice: ${Number(obj.currentChapterIndex || 0) + 1}\nTitolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
   }
-  if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)
-${clip(String(obj.previousChapters), 6000)}`);
+  if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 6000)}`);
   if (Array.isArray(obj.approvedChapters) && obj.approvedChapters.length) {
-    const compact = obj.approvedChapters.map((ch, i) => `Capitolo ${i + 1}: ${(ch && ch.title) || ''}
-${clip(String(ch?.content || ''), 1200)}`).join('
-
-');
-    sections.push(`CAPITOLI APPROVATI (ESTRATTO)
-${clip(compact, 5000)}`);
+    const compact = obj.approvedChapters.map((ch, i) => `Capitolo ${i + 1}: ${(ch && ch.title) || ''}\n${clip(String(ch?.content || ''), 1200)}`).join('\n\n');
+    sections.push(`CAPITOLI APPROVATI (ESTRATTO)\n${clip(compact, 5000)}`);
   }
-  if (obj.facultyGuidance) sections.push(`GUIDA FACOLTÀ
-${clip(String(obj.facultyGuidance), 3000)}`);
-  if (obj.constraints) sections.push(`VINCOLI
-${clip(JSON.stringify(obj.constraints, null, 2), 1500)}`);
-  return sections.join('
-
-');
+  if (obj.facultyGuidance) sections.push(`GUIDA FACOLTÀ\n${clip(String(obj.facultyGuidance), 3000)}`);
+  if (obj.constraints) sections.push(`VINCOLI\n${clip(JSON.stringify(obj.constraints, null, 2), 1500)}`);
+  return sections.join('\n\n');
 }
 
 function buildSystemPrompt(task, input) {
   const base = [
-    'Scrivi in italiano accademico, chiaro, formale, naturale e coerente.',
-    'Non inventare fonti, dati empirici, citazioni puntuali, pagine o risultati non verificabili.',
-    'Evita tono giornalistico, slogan, elenchi inutili, chiuse scolastiche e formule artificiali di raccordo.',
-    'Evita frasi metatestuali come “in questo capitolo”, “nel presente paragrafo”, “nel capitolo successivo”, salvo necessità reale e molto rara.',
-    'Mantieni continuità logica, rigore terminologico, pertinenza disciplinare e progressione argomentativa credibile.',
-    'Ogni sezione deve entrare rapidamente nel merito, senza introduzioni generiche o conclusioni che commentano il fatto stesso di aver concluso la sezione.',
+    'Scrivi in italiano accademico, chiaro, formale e coerente.',
+    'Non inventare fonti, dati empirici, citazioni puntuali o risultati non verificabili.',
+    'Evita tono giornalistico, slogan, elenchi inutili e formule artificiali di raccordo.',
+    'Mantieni continuità logica, rigore terminologico e pertinenza disciplinare.',
   ];
-  const depthGuidance = buildAcademicDepthGuidance(input);
   if (task === 'outline_draft') {
-    base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema, il corso di laurea e la metodologia.');
-    base.push('Evita capitoli riempitivi o troppo frammentati: ogni capitolo deve avere un peso argomentativo reale.');
+    base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema e la metodologia.');
   } else {
-    base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna, qualità argomentativa e visibilità dei cambiamenti richiesti.');
+    base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna e visibilità dei cambiamenti richiesti.');
     base.push('Se l’input contiene osservazioni del relatore, applicale davvero in modo riconoscibile e non cosmetico.');
-    base.push('Quando appropriato, chiarisci definizioni, confronta posizioni teoriche e mostra i nessi concettuali senza appesantire il testo con formule meccaniche.');
   }
-  if (depthGuidance) base.push(depthGuidance);
+  if (input && typeof input === 'object' && input.facultyGuidance) {
+    base.push(`Tieni conto anche di questa guida di facoltà: ${clip(String(input.facultyGuidance), 1600)}`);
+  }
   return base.join(' ');
 }
 
@@ -927,19 +794,7 @@ function isProviderOverload(err) {
 }
 
 function cleanModelText(text) {
-  return String(text || '')
-    .replace(/
-/g, '
-')
-    .replace(/ /g, ' ')
-    .replace(/[ 	]+
-/g, '
-')
-    .replace(/
-[ 	]+/g, '
-')
-    .replace(/[ 	]{2,}/g, ' ')
-    .trim();
+  return String(text || '').replace(/\r\n/g, '\n').trim();
 }
 
 function normalizeError(err) {
