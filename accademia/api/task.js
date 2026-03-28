@@ -509,7 +509,14 @@ async function generateChapterDraftStructured(input) {
 
   if (!context.subsections.length) {
     const prompt = buildProviderPrompt('chapter_draft', input);
-    const raw = await generateWithProviders({ prompt, system, maxTokens: 3200, primaryTimeoutMs: 55_000, fallbackTimeoutMs: 40_000, openaiTimeoutMs: 45_000 });
+    const raw = await generateWithProviders({
+      prompt,
+      system,
+      maxTokens: 3200,
+      primaryTimeoutMs: 55_000,
+      fallbackTimeoutMs: 40_000,
+      openaiTimeoutMs: 45_000,
+    });
     return postProcessChapterText(raw, context);
   }
 
@@ -517,17 +524,20 @@ async function generateChapterDraftStructured(input) {
   for (let i = 0; i < context.subsections.length; i += 1) {
     const subsection = context.subsections[i];
     const prompt = buildChapterSubsectionPrompt(input, context, subsection, i, context.subsections.length);
-    const raw = await generateWithProviders({ prompt, system, maxTokens: 1500, primaryTimeoutMs: 50_000, fallbackTimeoutMs: 35_000, openaiTimeoutMs: 40_000 });
+    const raw = await generateWithProviders({
+      prompt,
+      system,
+      maxTokens: 1500,
+      primaryTimeoutMs: 50_000,
+      fallbackTimeoutMs: 35_000,
+      openaiTimeoutMs: 40_000,
+    });
     const sectionText = postProcessChapterSectionText(raw, subsection);
     parts.push(sectionText);
   }
 
-  const chapterBody = parts.join('
-
-');
-  return postProcessChapterText(`${context.chapterHeading}
-
-${chapterBody}`, context);
+  const chapterBody = parts.join('\n\n');
+  return postProcessChapterText(`${context.chapterHeading}\n\n${chapterBody}`, context);
 }
 
 function parseChapterContext(input) {
@@ -536,8 +546,7 @@ function parseChapterContext(input) {
   const currentChapterIndex = Number.isFinite(Number(obj.currentChapterIndex)) ? Number(obj.currentChapterIndex) : 0;
   const currentChapterNumber = currentChapterIndex + 1;
   const normalizedLines = outline
-    .split(/?
-/)
+    .split(/\r?\n/)
     .map((line) => normalizeOutlineLine(line))
     .filter(Boolean);
 
@@ -605,9 +614,7 @@ Metodologia: ${clip(String(obj.methodology || ''), 120)}`
 ${clip(String(obj.approvedAbstract), 2500)}` : '',
     obj.previousChapters ? `CAPITOLI PRECEDENTI (SINTESI)
 ${clip(String(obj.previousChapters), 3500)}` : '',
-  ].filter(Boolean).join('
-
-');
+  ].filter(Boolean).join('\n\n');
 }
 
 function postProcessChapterSectionText(text, subsection) {
@@ -618,10 +625,7 @@ function postProcessChapterSectionText(text, subsection) {
 
   const heading = `${subsection.code} ${subsection.title}`;
   if (!cleaned.startsWith(heading)) {
-    cleaned = `${heading}
-
-${cleaned.replace(/^\d+\.\d+\s+.+?(
-|$)/, '').trim()}`.trim();
+    cleaned = `${heading}\n\n${cleaned.replace(/^\d+\.\d+\s+.+?(?:\n|$)/, '').trim()}`.trim();
   }
   return cleaned;
 }
@@ -630,17 +634,12 @@ function postProcessChapterText(text, context) {
   let cleaned = cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
-    .replace(/
-{3,}/g, '
-
-')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   const chapterHeading = normalizeOutlineLine(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`);
   if (!cleaned.startsWith(chapterHeading)) {
-    cleaned = `${chapterHeading}
-
-${cleaned}`;
+    cleaned = `${chapterHeading}\n\n${cleaned}`;
   }
   return cleaned;
 }
