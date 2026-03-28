@@ -548,9 +548,9 @@ function resolveChapterTargetWords(input, context) {
   if (Number.isFinite(explicit) && explicit >= 1200) return Math.round(explicit);
 
   const degreeType = String(obj.degreeType || '').toLowerCase();
-  let base = /magistr|master|specialistic/.test(degreeType) ? 5200 : (/trienn|bachelor/.test(degreeType) ? 3800 : 4200);
+  let base = /magistr|master|specialistic/.test(degreeType) ? 4400 : (/trienn|bachelor/.test(degreeType) ? 3200 : 3600);
   if (context.subsections.length) {
-    base = Math.max(base, context.subsections.length * 900);
+    base = Math.max(base, context.subsections.length * 760);
   }
   return base;
 }
@@ -578,7 +578,7 @@ function isSuspiciousEnding(text) {
 function needsSectionContinuation(text, subsection, minWords) {
   const body = subsectionBody(text, subsection);
   const words = countWords(body);
-  return words < minWords || isSuspiciousEnding(body);
+  return words < minWords || (words < Math.round(minWords * 1.2) && isSuspiciousEnding(body));
 }
 
 function buildSectionContinuationPrompt(input, context, subsection, currentText, minWords) {
@@ -612,7 +612,7 @@ function mergeSectionContinuation(baseText, continuationText, subsection) {
 function needsChapterCompletion(text, context, targetWords) {
   const cleaned = String(text || '').trim();
   if (!cleaned) return true;
-  if (countWords(cleaned) < Math.max(2600, Math.floor(targetWords * 0.88))) return true;
+  if (countWords(cleaned) < Math.max(2400, Math.floor(targetWords * 0.82))) return true;
   if (isSuspiciousEnding(cleaned)) return true;
   const lastCode = context.subsections.length ? context.subsections[context.subsections.length - 1].code : '';
   if (lastCode && !cleaned.includes(lastCode)) return true;
@@ -868,8 +868,8 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     obj.faculty || obj.degreeCourse || obj.degreeType
       ? `CONTESTO ACCADEMICO\nFacoltà: ${clip(String(obj.faculty || ''), 300)}\nCorso: ${clip(String(obj.degreeCourse || ''), 400)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 120)}\nMetodologia: ${clip(String(obj.methodology || ''), 120)}`
       : '',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 2500)}` : '',
-    obj.previousChapters ? `CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 3500)}` : '',
+    obj.approvedAbstract ? `ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 1800)}` : '',
+    obj.previousChapters ? `CAPITOLI PRECEDENTI (SINTESI)\n${sectionContextExcerpt(obj.previousChapters, 1800)}` : '',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -911,12 +911,12 @@ function buildProviderPrompt(task, input) {
     sections.push(`CONTESTO ACCADEMICO\nFacoltà: ${clip(String(obj.faculty || ''), 300)}\nCorso: ${clip(String(obj.degreeCourse || ''), 400)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 120)}\nMetodologia: ${clip(String(obj.methodology || ''), 120)}`);
   }
   if (obj.approvedOutline) sections.push(`INDICE APPROVATO\n${clip(String(obj.approvedOutline), 7000)}`);
-  if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 4000)}`);
+  if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 2400)}`);
   if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
   if (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex)) {
     sections.push(`CAPITOLO CORRENTE\nIndice: ${Number(obj.currentChapterIndex || 0) + 1}\nTitolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
   }
-  if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 6000)}`);
+  if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${sectionContextExcerpt(obj.previousChapters, 2400)}`);
   if (Array.isArray(obj.approvedChapters) && obj.approvedChapters.length) {
     const compact = obj.approvedChapters.map((ch, i) => `Capitolo ${i + 1}: ${(ch && ch.title) || ''}\n${clip(String(ch?.content || ''), 1200)}`).join('\n\n');
     sections.push(`CAPITOLI APPROVATI (ESTRATTO)\n${clip(compact, 5000)}`);
