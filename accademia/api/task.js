@@ -876,6 +876,7 @@ function buildChapterCompletionPrompt(input, context, targetWords, diagnostics, 
     '- Restituisci solo il testo mancante o integrativo necessario a completare il capitolo.',
     '- Non ricominciare da capo il capitolo.',
     '- Se una sottosezione è tronca, riprendi da lì e chiudila con frasi complete.',
+    '- Non inserire frasi di raccordo artificiale sul capitolo successivo o sul capitolo appena svolto.',
     '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
   ].filter(Boolean).join('\n\n');
 }
@@ -893,7 +894,7 @@ function mergeChapterContinuation(existingText, continuationText, diagnostics) {
   const duplicateHeadingRegex = /^(Capitolo\s+\d+\s*[—\-:–]?.*)$/i;
   continuation = continuation.replace(duplicateHeadingRegex, '').trim();
 
-  return `${existing}\n\n${continuation}`.replace(/\n{3,}/g, '\n\n').trim();
+  return normalizeChapterLayout(stripArtificialTransitions(`${existing}\n\n${continuation}`));
 }
 
 async function completeSubsectionIfNeeded({ input, context, subsection, nextSubsection, index, total, system, targetWords, sectionText }) {
@@ -935,6 +936,7 @@ function buildSubsectionContinuationPrompt(input, context, subsection, index, to
     '- Non iniziare la sottosezione successiva e non inserire altre numerazioni.',
     '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
     '- Chiudi con una frase completa, non tronca.',
+    '- Non inserire annunci del capitolo successivo o commenti metadiscorsivi sul capitolo appena svolto.',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -959,7 +961,7 @@ function mergeSectionContinuation(existingText, continuationText, subsection, ne
   }
 
   if (!continuation) return existing;
-  return `${existing}\n\n${continuation}`.replace(/\n{3,}/g, '\n\n').trim();
+  return normalizeChapterLayout(stripArtificialTransitions(`${existing}\n\n${continuation}`));
 }
 
 function buildChapterFallbackPrompt(input, context, targetWords) {
@@ -976,6 +978,7 @@ function buildChapterFallbackPrompt(input, context, targetWords) {
     '- Inserisci i titoli delle sottosezioni con numerazione esplicita, esattamente come nell’indice.',
     '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
     '- Non fermarti a metà capitolo e non saltare le ultime sottosezioni.',
+    '- Evita frasi come "nel capitolo successivo", "nei capitoli successivi" o "in questo capitolo" usate come raccordo artificiale.',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -998,6 +1001,7 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     '- Mantieni 7-10 paragrafi continui, densi e argomentativi.',
     '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
     '- Non chiudere in modo sbrigativo e non restare generico.',
+    '- Evita anticipazioni del capitolo successivo e chiuse metadiscorsive sul capitolo appena svolto.',
     '- Mantieni stile accademico, rigore terminologico e coerenza con la tesi.',
     obj.theme ? `ARGOMENTO DELLA TESI: ${clip(String(obj.theme), 1200)}` : '',
     obj.faculty || obj.degreeCourse || obj.degreeType
@@ -1062,6 +1066,112 @@ function postProcessChapterText(text, context) {
   }
 
   return cleaned.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function stripArtificialTransitions(text) {
+  let cleaned = String(text || '');
+  const sentencePatterns = [
+    /\b(?:nel|in)\s+(?:prossimo|successivo)\s+capitolo\b[^.!?]*[.!?]/gi,
+    /\b(?:nei\s+capitoli\s+successivi|nei\s+successivi\s+paragrafi)\b[^.!?]*[.!?]/gi,
+    /\b(?:come\s+si\s+è\s+(?:visto|osservato|emerso)|alla\s+luce\s+di\s+quanto\s+emerso)\s+(?:in|nel)\s+(?:presente|questo)\s+capitolo\b[^.!?]*[.!?]/gi,
+    /\b(?:è\s+su\s+questa\s+base\s+che|su\s+questa\s+base)\s+(?:il\s+capitolo\s+successivo|i\s+capitoli\s+successivi)\b[^.!?]*[.!?]/gi,
+    /\b(?:il|questo|tale)\s+(?:capitolo|paragrafo|quadro|percorso|punto)\b[^.!?]*(?:prossimo\s+capitolo|capitoli\s+successivi)\b[^.!?]*[.!?]/gi,
+    /\b(?:in|nel)\s+(?:presente|questo)\s+capitolo\b[^.!?]*(?:si\s+vedrà|si\s+analizzerà|si\s+esaminerà|verrà\s+affrontato|sarà\s+affrontato)[^.!?]*[.!?]/gi,
+  ];
+
+  for (const pattern of sentencePatterns) {
+    cleaned = cleaned.replace(pattern, ' ');
+  }
+
+  return cleaned
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function normalizeChapterLayout(text) {
+  const source = String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!source) return '';
+
+  const rawLines = source.split('\n').map((line) => line.trim());
+  const blocks = [];
+  let paragraph = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push({ type: 'paragraph', text: paragraph.join(' ').replace(/\s+/g, ' ').trim() });
+    paragraph = [];
+  };
+
+  for (const line of rawLines) {
+    if (!line) {
+      flushParagraph();
+      continue;
+    }
+    if (isStructuralHeadingLine(line)) {
+      flushParagraph();
+      blocks.push({ type: 'heading', text: line });
+      continue;
+    }
+    paragraph.push(line);
+  }
+  flushParagraph();
+
+  const merged = [];
+  for (const block of blocks) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.type === 'paragraph' && block.type === 'paragraph' && shouldMergeParagraphBlocks(prev.text, block.text)) {
+      prev.text = smartJoinParagraphs(prev.text, block.text);
+    } else {
+      merged.push({ ...block });
+    }
+  }
+
+  return merged
+    .map((block) => block.text.trim())
+    .filter(Boolean)
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function isStructuralHeadingLine(line) {
+  const value = String(line || '').trim();
+  return /^Capitolo\s+\d+\b/i.test(value) || /^\d+\.\d+\s+\S+/.test(value);
+}
+
+function shouldMergeParagraphBlocks(previous, next) {
+  const prev = String(previous || '').trim();
+  const curr = String(next || '').trim();
+  if (!prev || !curr) return false;
+  if (!/[.!?)]$/.test(prev)) return true;
+  if (/[,:;]$/.test(prev)) return true;
+  if (/^[a-zàèéìòù]/.test(curr)) return true;
+  if (/^(e|ed|o|od|oppure|ma|mentre|come|con|per|tra|fra|nei|nelle|negli|dei|degli|delle|del|della|dello|di|da|a|ad|che)\b/i.test(curr)) return true;
+  return false;
+}
+
+function smartJoinParagraphs(previous, next) {
+  const prev = String(previous || '').trim();
+  const curr = String(next || '').trim();
+  if (!prev) return curr;
+  if (!curr) return prev;
+
+  const prevLastWord = prev.split(/\s+/).slice(-1)[0] || '';
+  const nextFirstWord = curr.split(/\s+/)[0] || '';
+  const joinWithoutSpace = !/[.!?)]$/.test(prev)
+    && /^[A-ZÀ-Ý][a-zà-ÿ]{2,5}$/.test(prevLastWord)
+    && /^[a-zà-ÿ]{2,}$/.test(nextFirstWord);
+
+  return `${prev}${joinWithoutSpace ? '' : ' '}${curr}`.replace(/\s+/g, ' ').trim();
 }
 
 function cleanChapterHeading(heading, currentChapterNumber) {
@@ -1131,6 +1241,7 @@ function buildSystemPrompt(task, input) {
     'Scrivi in italiano accademico, chiaro, formale e coerente.',
     'Non inventare fonti, dati empirici, citazioni puntuali o risultati non verificabili.',
     'Evita tono giornalistico, slogan, elenchi inutili e formule artificiali di raccordo.',
+    'Evita formule metadiscorsive artificiali come "nel prossimo capitolo", "nei capitoli successivi", "in questo capitolo si vedrà" o "come emerso nel presente capitolo".',
     'Mantieni continuità logica, rigore terminologico e pertinenza disciplinare.',
   ];
   if (task === 'outline_draft') {
