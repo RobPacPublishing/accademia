@@ -529,6 +529,7 @@ async function generateChapterDraftStructured(input) {
 
   for (let i = 0; i < context.subsections.length; i += 1) {
     const subsection = context.subsections[i];
+    const nextSubsection = context.subsections[i + 1] || null;
     const prompt = buildChapterSubsectionPrompt(input, context, subsection, i, context.subsections.length, sectionTargetWords);
     let raw = await generateWithProviders({
       prompt,
@@ -539,7 +540,7 @@ async function generateChapterDraftStructured(input) {
       openaiTimeoutMs: 50_000,
     });
 
-    let sectionText = postProcessChapterSectionText(raw, subsection);
+    let sectionText = postProcessChapterSectionText(raw, subsection, nextSubsection);
     if (countWords(sectionText) < Math.max(520, Math.floor(sectionTargetWords * 0.78))) {
       const retryPrompt = buildChapterSubsectionRetryPrompt(input, context, subsection, i, context.subsections.length, Math.max(sectionTargetWords + 120, 920), sectionText);
       raw = await generateWithProviders({
@@ -550,20 +551,36 @@ async function generateChapterDraftStructured(input) {
         fallbackTimeoutMs: 45_000,
         openaiTimeoutMs: 50_000,
       });
-      sectionText = postProcessChapterSectionText(raw, subsection);
+      sectionText = postProcessChapterSectionText(raw, subsection, nextSubsection);
     }
+
+    sectionText = await completeSubsectionIfNeeded({
+      input,
+      context,
+      subsection,
+      nextSubsection,
+      index: i,
+      total: context.subsections.length,
+      system,
+      targetWords: sectionTargetWords,
+      sectionText,
+    });
 
     parts.push(sectionText);
   }
 
   let finalParts = [...parts];
-  let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${finalParts.join('\n\n')}`, context);
+  let chapterText = postProcessChapterText(`${context.chapterHeading}
+
+${finalParts.join('\n\n')}`, context);
   if (countWords(chapterText) < Math.max(1400, Math.floor(targetWords * 0.86))) {
     const expandedParts = [];
     for (let i = 0; i < finalParts.length; i += 1) {
       const subsection = context.subsections[i];
+      const nextSubsection = context.subsections[i + 1] || null;
       let sectionText = finalParts[i];
-      if (countWords(sectionText) < Math.max(620, Math.floor(sectionTargetWords * 0.9))) {
+      const diagnostics = inspectSubsectionCompletion(sectionText, subsection, sectionTargetWords);
+      if (countWords(sectionText) < Math.max(620, Math.floor(sectionTargetWords * 0.9)) || diagnostics.suspiciousEnding) {
         const expandPrompt = buildChapterSubsectionRetryPrompt(input, context, subsection, i, context.subsections.length, Math.max(sectionTargetWords + 180, 980), sectionText);
         const expandedRaw = await generateWithProviders({
           prompt: expandPrompt,
@@ -573,12 +590,25 @@ async function generateChapterDraftStructured(input) {
           fallbackTimeoutMs: 45_000,
           openaiTimeoutMs: 50_000,
         });
-        sectionText = postProcessChapterSectionText(expandedRaw, subsection);
+        sectionText = postProcessChapterSectionText(expandedRaw, subsection, nextSubsection);
+        sectionText = await completeSubsectionIfNeeded({
+          input,
+          context,
+          subsection,
+          nextSubsection,
+          index: i,
+          total: context.subsections.length,
+          system,
+          targetWords: Math.max(sectionTargetWords, 980),
+          sectionText,
+        });
       }
       expandedParts.push(sectionText);
     }
     finalParts = expandedParts;
-    chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${finalParts.join('\n\n')}`, context);
+    chapterText = postProcessChapterText(`${context.chapterHeading}
+
+${finalParts.join('\n\n')}`, context);
   }
 
   chapterText = await completeChapterIfNeeded({ input, context, system, targetWords, sectionTargetWords, chapterText });
@@ -591,7 +621,9 @@ function parseChapterContext(input) {
   const currentChapterIndex = Number.isFinite(Number(obj.currentChapterIndex)) ? Number(obj.currentChapterIndex) : 0;
   const currentChapterNumber = currentChapterIndex + 1;
   const normalizedLines = outline
-    .split(/\r?\n/)
+    .split(/
+?
+/)
     .map((line) => normalizeOutlineLine(line))
     .filter(Boolean);
 
@@ -636,6 +668,8 @@ function parseChapterContext(input) {
       ? `Capitolo ${currentChapterNumber} — ${cleanedTitle}`
       : `Capitolo ${currentChapterNumber}`;
   }
+
+  chapterHeading = cleanChapterHeading(chapterHeading, currentChapterNumber);
 
   return {
     currentChapterIndex,
@@ -760,6 +794,7 @@ function inspectChapterCompletion(chapterText, context, targetWords, sectionTarg
   const words = countWords(text);
   const missingHeadings = [];
   const thinSections = [];
+  const suspiciousSections = [];
 
   for (let i = 0; i < (context.subsections || []).length; i += 1) {
     const subsection = context.subsections[i];
@@ -773,6 +808,9 @@ function inspectChapterCompletion(chapterText, context, targetWords, sectionTarg
     if (blockWords < Math.max(500, Math.floor(sectionTargetWords * 0.72))) {
       thinSections.push({ subsection, words: blockWords });
     }
+    if (hasSuspiciousEnding(block)) {
+      suspiciousSections.push({ subsection, words: blockWords });
+    }
   }
 
   const lastSubsection = context.subsections?.[context.subsections.length - 1] || null;
@@ -780,7 +818,7 @@ function inspectChapterCompletion(chapterText, context, targetWords, sectionTarg
   const suspiciousEnding = hasSuspiciousEnding(text);
   const tooShort = words < Math.max(1600, Math.floor(targetWords * 0.9));
   const weakLastSection = lastBlock && countWords(lastBlock) < Math.max(540, Math.floor(sectionTargetWords * 0.75));
-  const needsCompletion = Boolean(missingHeadings.length || thinSections.length || suspiciousEnding || tooShort || weakLastSection);
+  const needsCompletion = Boolean(missingHeadings.length || thinSections.length || suspiciousSections.length || suspiciousEnding || tooShort || weakLastSection);
   const missingWords = Math.max(700, targetWords - words, weakLastSection ? Math.floor(sectionTargetWords * 0.45) : 0);
 
   return {
@@ -789,6 +827,7 @@ function inspectChapterCompletion(chapterText, context, targetWords, sectionTarg
     missingWords,
     missingHeadings,
     thinSections,
+    suspiciousSections,
     suspiciousEnding,
     weakLastSection,
     lastSubsection,
@@ -832,22 +871,31 @@ function buildChapterCompletionPrompt(input, context, targetWords, diagnostics, 
   const thinList = diagnostics.thinSections.length
     ? diagnostics.thinSections.map((x) => `${x.subsection.code} ${x.subsection.title} [attuale: ${x.words} parole circa]`).join('\n')
     : '';
+  const suspiciousList = diagnostics.suspiciousSections?.length
+    ? diagnostics.suspiciousSections.map((x) => `${x.subsection.code} ${x.subsection.title} [chiusura sospetta]`).join('\n')
+    : '';
 
   return [
     buildProviderPrompt('chapter_draft', input),
     `CAPITOLO DA COMPLETARE: ${context.chapterHeading}`,
     `OBIETTIVO FINALE: almeno ${targetWords} parole complessive per il capitolo.`,
     `PASSAGGIO DI COMPLETAMENTO: ${pass + 1}`,
-    `BOZZA ATTUALE DEL CAPITOLO:\n${clip(currentText, 14000)}`,
+    `BOZZA ATTUALE DEL CAPITOLO:
+${clip(currentText, 14000)}`,
     diagnostics.lastSubsection ? `ULTIMA SOTTOSEZIONE COINVOLTA: ${diagnostics.lastSubsection.code} ${diagnostics.lastSubsection.title}` : '',
-    missingList ? `SOTTOSEZIONI ANCORA MANCANTI O DA RIPRISTINARE:\n${missingList}` : '',
-    thinList ? `SOTTOSEZIONI TROPPO BREVI DA IRROBUSTIRE:\n${thinList}` : '',
+    missingList ? `SOTTOSEZIONI ANCORA MANCANTI O DA RIPRISTINARE:
+${missingList}` : '',
+    thinList ? `SOTTOSEZIONI TROPPO BREVI DA IRROBUSTIRE:
+${thinList}` : '',
+    suspiciousList ? `SOTTOSEZIONI PRESENTI MA ANCORA TRONCHE O SOSPETTE:
+${suspiciousList}` : '',
     diagnostics.suspiciousEnding ? 'ATTENZIONE: la bozza attuale sembra chiudersi in modo troncato o sospetto.' : '',
     'REGOLE OBBLIGATORIE:',
     '- Restituisci solo il testo mancante da aggiungere in coda alla bozza attuale.',
     '- Non riscrivere da capo il capitolo intero.',
     '- Non ripetere i paragrafi già presenti.',
     '- Se una sottosezione manca del tutto, inserisci la sua intestazione esatta con numerazione esplicita.',
+    '- Se una sottosezione presente risulta troncata, continua solo la parte mancante e poi prosegui oltre.',
     '- Se l’ultima sottosezione è presente ma incompleta, continua direttamente il suo sviluppo in modo naturale e poi chiudi il capitolo.',
     '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
     '- Chiudi il testo con una frase completa, non tronca.',
@@ -866,14 +914,124 @@ function mergeChapterContinuation(existingText, continuationText, diagnostics) {
 
   if (diagnostics?.lastSubsection) {
     const repeatedHeading = `${diagnostics.lastSubsection.code} ${diagnostics.lastSubsection.title}`;
-    const repeatedRegex = new RegExp(`^${escapeRegExp(repeatedHeading)}\\s*`, 'i');
+    const repeatedRegex = new RegExp(`^${escapeRegExp(repeatedHeading)}\s*`, 'i');
     if (repeatedRegex.test(continuation) && existing.toLowerCase().includes(repeatedHeading.toLowerCase())) {
       continuation = continuation.replace(repeatedRegex, '').trim();
     }
   }
 
   if (!continuation) return existing;
-  return `${existing}\n\n${continuation}`.replace(/\n{3,}/g, '\n\n').trim();
+  return `${existing}
+
+${continuation}`.replace(/
+{3,}/g, '
+
+').trim();
+}
+
+async function completeSubsectionIfNeeded({ input, context, subsection, nextSubsection, index, total, system, targetWords, sectionText }) {
+  let current = postProcessChapterSectionText(sectionText, subsection, nextSubsection);
+  const maxPasses = 2;
+
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const diagnostics = inspectSubsectionCompletion(current, subsection, targetWords);
+    if (!diagnostics.needsCompletion) return current;
+
+    const continuationPrompt = buildChapterSubsectionContinuationPrompt(
+      input,
+      context,
+      subsection,
+      index,
+      total,
+      targetWords,
+      current,
+      pass,
+      diagnostics,
+    );
+
+    const continuationRaw = await generateWithProviders({
+      prompt: continuationPrompt,
+      system,
+      maxTokens: wordsToMaxTokens(Math.max(650, diagnostics.missingWords)),
+      primaryTimeoutMs: 60_000,
+      fallbackTimeoutMs: 45_000,
+      openaiTimeoutMs: 50_000,
+    });
+
+    const merged = mergeSectionContinuation(current, continuationRaw, subsection, nextSubsection);
+    const normalized = postProcessChapterSectionText(merged, subsection, nextSubsection);
+    if (normalized === current) break;
+    current = normalized;
+  }
+
+  return current;
+}
+
+function inspectSubsectionCompletion(sectionText, subsection, targetWords) {
+  const block = extractOwnSubsectionBody(sectionText, subsection);
+  const words = countWords(block);
+  const suspiciousEnding = hasSuspiciousEnding(block);
+  const tooShort = words < Math.max(620, Math.floor(targetWords * 0.88));
+  const needsCompletion = Boolean(suspiciousEnding || tooShort);
+  const missingWords = Math.max(500, targetWords - words, suspiciousEnding ? 320 : 0);
+  return { needsCompletion, words, suspiciousEnding, missingWords };
+}
+
+function extractOwnSubsectionBody(sectionText, subsection) {
+  const heading = `${subsection.code} ${subsection.title}`;
+  return String(sectionText || '')
+    .replace(new RegExp(`^${escapeRegExp(heading)}\s*`, 'i'), '')
+    .trim();
+}
+
+function buildChapterSubsectionContinuationPrompt(input, context, subsection, index, total, targetWords, currentText, pass, diagnostics) {
+  return [
+    buildProviderPrompt('chapter_draft', input),
+    `TASK: chapter_draft_section_continuation`,
+    `CAPITOLO DI RIFERIMENTO: ${context.chapterHeading}`,
+    `SOTTOSEZIONE DA COMPLETARE: ${subsection.code} ${subsection.title}`,
+    `POSIZIONE: ${index + 1} di ${total}`,
+    `OBIETTIVO MINIMO PER LA SOTTOSEZIONE: almeno ${targetWords} parole complessive.`,
+    `PASSAGGIO DI COMPLETAMENTO SOTTOSEZIONE: ${pass + 1}`,
+    `TESTO ATTUALE DELLA SOTTOSEZIONE:
+${clip(currentText, 9000)}`,
+    diagnostics?.suspiciousEnding ? 'ATTENZIONE: la sottosezione attuale sembra chiudersi in modo troncato o sospetto.' : '',
+    'REGOLE OBBLIGATORIE:',
+    '- Restituisci solo la prosecuzione mancante di questa stessa sottosezione.',
+    '- Non riscrivere l’intestazione se è già presente.',
+    '- Non iniziare la sottosezione successiva e non inserire altre numerazioni.',
+    '- Non usare markdown, non usare asterischi, non usare elenchi puntati.',
+    '- Chiudi con una frase completa, non tronca.',
+  ].filter(Boolean).join('\n\n');
+}
+
+function mergeSectionContinuation(existingText, continuationText, subsection, nextSubsection) {
+  const existing = String(existingText || '').trim();
+  let continuation = cleanModelText(continuationText)
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/^\s*[-–—*]\s+/gm, '')
+    .trim();
+
+  const currentHeading = `${subsection.code} ${subsection.title}`;
+  continuation = continuation.replace(new RegExp(`^${escapeRegExp(currentHeading)}\s*`, 'i'), '').trim();
+
+  if (nextSubsection) {
+    const nextHeading = `${nextSubsection.code} ${nextSubsection.title}`;
+    const nextRegex = new RegExp(`(^|\n)${escapeRegExp(nextHeading)}(?=\n|$)`, 'i');
+    const match = continuation.match(nextRegex);
+    if (match && typeof match.index === 'number') {
+      continuation = continuation.slice(0, match.index).trim();
+    }
+  }
+
+  if (!continuation) return existing;
+  return `${existing}
+
+${continuation}`.replace(/
+{3,}/g, '
+
+').trim();
 }
 
 function buildChapterFallbackPrompt(input, context, targetWords) {
@@ -932,7 +1090,7 @@ function buildChapterSubsectionRetryPrompt(input, context, subsection, index, to
   ].filter(Boolean).join('\n\n');
 }
 
-function postProcessChapterSectionText(text, subsection) {
+function postProcessChapterSectionText(text, subsection, nextSubsection) {
   let cleaned = cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
@@ -940,14 +1098,31 @@ function postProcessChapterSectionText(text, subsection) {
     .trim();
 
   const heading = `${subsection.code} ${subsection.title}`;
-  cleaned = cleaned.replace(new RegExp(`^${escapeRegExp(heading)}\\s*`, 'i'), heading + '\n\n');
-  cleaned = cleaned.replace(/^\d+\.\d+\s+.+?(?:\n|$)/, '').trim();
+  cleaned = cleaned.replace(new RegExp(`^${escapeRegExp(heading)}\s*`, 'i'), heading + '
+
+');
+  cleaned = cleaned.replace(/^\d+\.\d+\s+.+?(?:
+|$)/, '').trim();
 
   if (!cleaned.startsWith(heading)) {
-    cleaned = `${heading}\n\n${cleaned}`.trim();
+    cleaned = `${heading}
+
+${cleaned}`.trim();
   }
 
-  return cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  if (nextSubsection) {
+    const nextHeading = `${nextSubsection.code} ${nextSubsection.title}`;
+    const nextRegex = new RegExp(`(^|\n)${escapeRegExp(nextHeading)}(?=\n|$)`, 'i');
+    const nextMatch = cleaned.match(nextRegex);
+    if (nextMatch && typeof nextMatch.index === 'number') {
+      cleaned = cleaned.slice(0, nextMatch.index).trim();
+    }
+  }
+
+  return cleaned.replace(/
+{3,}/g, '
+
+').trim();
 }
 
 function postProcessChapterText(text, context) {
@@ -955,25 +1130,71 @@ function postProcessChapterText(text, context) {
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .replace(/^\s*[-–—*]\s+/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/
+{3,}/g, '
+
+')
     .trim();
 
-  const chapterHeading = normalizeOutlineLine(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`);
-  cleaned = cleaned.replace(new RegExp(`^${escapeRegExp(chapterHeading)}\\s*`, 'i'), chapterHeading + '\n\n');
+  const chapterHeading = cleanChapterHeading(normalizeOutlineLine(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`), context.currentChapterNumber);
+  cleaned = stripDuplicateLeadingChapterTitle(cleaned, chapterHeading);
+  cleaned = cleaned.replace(new RegExp(`^${escapeRegExp(chapterHeading)}\s*`, 'i'), chapterHeading + '
+
+');
 
   if (!cleaned.startsWith(chapterHeading)) {
-    cleaned = `${chapterHeading}\n\n${cleaned}`;
+    cleaned = `${chapterHeading}
+
+${cleaned}`;
   }
 
   for (const subsection of context.subsections || []) {
     const heading = `${subsection.code} ${subsection.title}`;
-    const headingRegex = new RegExp(`(^|\\n)${escapeRegExp(heading)}(?=\\n|$)`, 'i');
+    const headingRegex = new RegExp(`(^|\n)${escapeRegExp(heading)}(?=\n|$)`, 'i');
     if (!headingRegex.test(cleaned)) {
-      cleaned = `${cleaned}\n\n${heading}`;
+      cleaned = `${cleaned}
+
+${heading}`;
     }
   }
 
-  return cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned.replace(/
+{3,}/g, '
+
+').trim();
+}
+
+function cleanChapterHeading(heading, currentChapterNumber) {
+  let cleaned = String(heading || '').trim();
+  cleaned = cleaned.replace(/\s+/g, ' ');
+  cleaned = cleaned.replace(/^capitolo\s+(\d+)\s*[—\-:–]?\s*[\.·•]\s*/i, 'Capitolo $1 — ');
+  cleaned = cleaned.replace(/^capitolo\s+(\d+)\s*[—\-:–]?\s*/i, 'Capitolo $1 — ');
+  cleaned = cleaned.replace(/^Capitolo\s+(\d+)\s+—\s+Capitolo\s+\s+—\s+/i, 'Capitolo $1 — ');
+  cleaned = cleaned.replace(/^Capitolo\s+(\d+)\s+—\s+[\.·•]\s*/i, 'Capitolo $1 — ');
+  cleaned = cleaned.replace(/^Capitolo\s+(\d+)\s+—\s*$/i, 'Capitolo $1');
+  cleaned = cleaned.trim();
+
+  if (!/^Capitolo\s+\d+/i.test(cleaned)) {
+    const titleOnly = cleaned.replace(/^[\.·•\-–—:\s]+/, '').trim();
+    return titleOnly ? `Capitolo ${currentChapterNumber} — ${titleOnly}` : `Capitolo ${currentChapterNumber}`;
+  }
+
+  return cleaned;
+}
+
+function stripDuplicateLeadingChapterTitle(text, chapterHeading) {
+  const cleaned = String(text || '').trim();
+  const titleOnly = String(chapterHeading || '').replace(/^Capitolo\s+\d+\s*[—\-:–]?\s*/i, '').trim();
+  if (!titleOnly) return cleaned;
+  const lines = cleaned.split('
+');
+  if (lines.length < 2) return cleaned;
+  const firstLine = lines[0].trim().replace(/[.]+$/, '').trim();
+  const secondLine = lines[1].trim();
+  if (firstLine.toLowerCase() === titleOnly.toLowerCase() && /^Capitolo\s+\d+/i.test(secondLine)) {
+    return lines.slice(1).join('\n').trim();
+  }
+  return cleaned;
 }
 
 function escapeRegExp(value) {
