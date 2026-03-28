@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=wzWH1h1Ohojn8J2ADwMXq5RuRU2-UQYIfOnWHts2zqOKgDVy4ahBXppLczzxsLnV0S8DbUkrFaDjgHgTlYsSYrrTg2jEz_JBdbucjGweLQq3KOpruskUnwKugIlK0xRY4HWtMwPDzCA4JOsRPHCydg2CK2DEexxu2WiKgzrIXV1HCmYRUsBAvVXw3X-j9WhklhEHUBNs0sdcoGnGsFPUbsi4fpjREm4WfPSh4QYxRe9GIVI3wuz0FzTYAB2RaJZYPbLu0jzIgWhnlZALBGgUUg" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=Ww9DCn9wGh-bYh-WUsYJ2zqvwUwJ25B9PdhSY1dzaRqnqPjhhWc2dtkIZKa3j1PTzNY5oFNNnEkKrA4MUiT4ikgVuzGp5VbSt2OuNxqeiX1DIJ4I-KcxxduREpx4sJ6uKh7nLV5N24s3_rvZQwe5Cr4ZAcGhX6cneD2Vu1smK3t7T9Jihc6QhtpYI5NW9gT1UpEkgbUYd6i2anvhPLSqPX_ErAL2nfEU0f2BiKmA4X7X9mxDZln_WAZb1vQLfJ8FYQ6d7BoNbERpftsQt1MjPw" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -132,6 +132,8 @@
   .tutor-panel-title{font-size:12px;letter-spacing:1.1px;text-transform:uppercase;font-weight:700;color:#8eb7ff;}
   .tutor-panel-subtitle{font-size:12px;color:var(--text3);line-height:1.55;}
   .approval-row .hint{font-size:12px;color:var(--text3);flex:1;min-width:140px;}
+.approval-alert{display:block;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,215,102,.34);background:linear-gradient(180deg, rgba(255,215,102,.18), rgba(201,168,76,.08));color:var(--text);line-height:1.65;box-shadow:0 10px 24px rgba(0,0,0,.14);}
+.approval-alert strong{color:#ffd766;}
   .btn-approve{padding:9px 20px;background:rgba(94,184,122,.1);border:1px solid rgba(94,184,122,.35);border-radius:var(--radius-sm);color:var(--green);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-approve:hover{background:rgba(94,184,122,.18);}
   .btn-redo{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
@@ -407,7 +409,7 @@
 
 <main class="container" id="appContainer" style="display:none;">
   <div class="hero">
-    <div class="hero-label">✦ Powered by ChatGPT e Claude AI</div>
+    <div class="hero-label">✦ Powered by Claude AI + Web Search accademico</div>
     <h1>La tua laurea,<br>con I.A.</h1>
     <p>Genera passo dopo passo indice, abstract e capitoli con fonti accademiche reali ricercate in tempo reale.</p>
   </div>
@@ -771,26 +773,24 @@
   </div>
 </div>
 
-
 <div class="modal-overlay" id="compatibilityPopupModal">
-  <div class="modal modal-wide">
-    <button class="modal-close" onclick="dismissCompatibilityPopup()">✕</button>
+  <div class="modal" style="max-width:640px;">
+    <button class="modal-close" onclick="closeModal('compatibilityPopupModal')">×</button>
     <h2>Test di compatibilità</h2>
-    <p>Prima di iniziare, verifica in modo rapido se la tua facoltà rientra nel perimetro della versione attuale di AccademIA. Il controllo definitivo resta comunque nel form principale dell’app.</p>
-    <div class="form-group" style="margin-top:6px;">
+    <p style="margin-top:8px;">Prima di iniziare, verifica rapidamente la facoltà: il test serve a rendere più chiaro il perimetro d’uso di questa versione di AccademIA.</p>
+    <div class="form-group" style="margin-top:14px;">
       <label for="compatPopupFaculty">Facoltà</label>
       <select id="compatPopupFaculty" onchange="renderCompatibilityPopupResult()"></select>
     </div>
     <div id="compatPopupResult" style="margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;line-height:1.65;color:var(--text2);">Seleziona una facoltà per vedere l’esito orientativo.</div>
-    <div style="margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(201,168,76,.16);background:rgba(201,168,76,.06);font-size:12px;line-height:1.65;color:var(--text2);">
-      <strong style="color:var(--gold)">Nota:</strong> se la compatibilità risulta parziale, nell’app dovrai comunque confermare il perimetro limitato prima di procedere.
-    </div>
-    <div class="modal-actions" style="margin-top:16px;">
-      <button class="btn-modal-save" type="button" onclick="applyCompatibilityPopupSelection()">Continua nell’app</button>
-      <button class="btn-modal-cancel" type="button" onclick="dismissCompatibilityPopup()">Chiudi</button>
+    <div style="margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(201,168,76,.18);background:rgba(201,168,76,.06);font-size:12px;line-height:1.65;color:var(--text);"><strong style="color:var(--gold)">Nota:</strong> il test orienta il perimetro di utilizzo, ma non sostituisce la verifica critica del contenuto generato.</div>
+    <div class="modal-actions">
+      <button class="btn-modal-save" type="button" onclick="confirmCompatibilityPopup()">Ho capito</button>
+      <button class="btn-modal-cancel" type="button" onclick="closeModal('compatibilityPopupModal')">Chiudi</button>
     </div>
   </div>
 </div>
+
 
 <div class="modal-overlay" id="accountModal">
   <div class="modal">
@@ -2173,7 +2173,7 @@ function acceptDisclaimer(){
   ensureSyncKey();
   applyAccessState(true);
   restoreProgressOnLoad(false);
-  setTimeout(maybeShowCompatibilityPopup, 120);
+  setTimeout(()=>maybeOpenCompatibilityPopup(true),220);
 }
 
 function logoutAccess(){
@@ -2215,79 +2215,12 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   applyAccessState(unlocked);
   checkDisclaimer();
   await restoreProgressOnLoad(false);
+  if(unlocked) setTimeout(()=>maybeOpenCompatibilityPopup(false),220);
   ensureThesisGuardFromSavedState();
   renderSingleThesisNotice();
   renderWorkflowHud();
-  if(unlocked) setTimeout(maybeShowCompatibilityPopup, 120);
   pingVisit();
 });
-
-function isCompatibilityPopupEligible(){
-  return !thesis.indice && !thesis.abstract && !(thesis.chapters||[]).length && !(thesis.approvedChapters||[]).length;
-}
-
-function populateCompatibilityPopupSelect(){
-  const popup=document.getElementById('compatPopupFaculty');
-  const main=document.getElementById('facolta');
-  if(!popup || !main) return;
-  popup.innerHTML=main.innerHTML;
-  if(main.value) popup.value=main.value;
-}
-
-function renderCompatibilityPopupResult(){
-  const select=document.getElementById('compatPopupFaculty');
-  const box=document.getElementById('compatPopupResult');
-  if(!select || !box) return;
-  const facolta=(select.value||'').trim();
-  if(!facolta){
-    box.innerHTML='Seleziona una facoltà per vedere l’esito orientativo.';
-    return;
-  }
-  const kind=getFacultyCompatibility(facolta);
-  if(kind==='best'){
-    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} rientra tra le aree oggi presidiate meglio da AccademIA.`;
-    return;
-  }
-  if(kind==='good'){
-    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative, di review o con forte impianto argomentativo.${escHtml(facultyNoticeTail(facolta))}`;
-    return;
-  }
-  if(kind==='partial'){
-    const partial=getPartialFacultyGuidance(facolta);
-    if(partial){
-      box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo entro un perimetro limitato. Focus consigliato: ${escHtml(partial.focus)}. Ammesso: ${escHtml(partial.allow)}. Non ammesso: ${escHtml(partial.avoid)}.`;
-    }else{
-      box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale. Non è il perimetro giusto per tesi cliniche, di laboratorio, con dati originali o analisi statistiche proprietarie.`;
-    }
-    return;
-  }
-  box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} non rientra tra le facoltà presidiate in modo affidabile da questa versione di AccademIA.`;
-}
-
-function dismissCompatibilityPopup(){
-  sessionStorage.setItem(COMPAT_POPUP_SESSION_KEY,'1');
-  closeModal('compatibilityPopupModal');
-}
-
-function applyCompatibilityPopupSelection(){
-  const popup=document.getElementById('compatPopupFaculty');
-  const main=document.getElementById('facolta');
-  if(popup && main && popup.value && main.value!==popup.value){
-    main.value=popup.value;
-    handleProjectStructureChange();
-  }
-  dismissCompatibilityPopup();
-  document.getElementById('formCard')?.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function maybeShowCompatibilityPopup(){
-  if(sessionStorage.getItem(ACCESS_SESSION_KEY)!=='1') return;
-  if(sessionStorage.getItem(COMPAT_POPUP_SESSION_KEY)==='1') return;
-  if(!isCompatibilityPopupEligible()) return;
-  populateCompatibilityPopupSelect();
-  renderCompatibilityPopupResult();
-  openModal('compatibilityPopupModal');
-}
 
 // ── GUIDA COLLASSABILE ──
 function toggleGuide(){
@@ -2719,7 +2652,7 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
   const display=visible?'flex':'none';
   const hint=approved
     ? `Capitolo ${idx+1} approvato. Le revisioni restano disponibili nelle azioni dedicate sopra.`
-    : `<strong style="color:var(--gold)">Verifica il capitolo prima di approvarlo.</strong> Controlla completezza, coerenza e fonti, così eviti revisioni inutili. Le revisioni capitolo e relatore restano separate nelle azioni dedicate sopra.`;
+    : `Approva il Capitolo ${idx+1} per confermarlo definitivamente. Le revisioni capitolo e relatore restano separate nelle azioni dedicate sopra.`;
   const primaryLabel=approved
     ? (idx<total-1 ? `➜ Vai al Cap. ${idx+2}` : '✓ Vai al controllo finale')
     : (idx<total-1 ? `✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}` : '✓ Approva ultimo capitolo e concludi');
@@ -2930,6 +2863,66 @@ function facultyNoticeTail(facolta){
   const partial=getPartialFacultyGuidance(facolta);
   if(partial) return ` Focus da privilegiare: ${partial.focus}. Ammesso: ${partial.allow}.`;
   return '';
+}
+
+function isPristineThesisState(){
+  return !thesis.indice && !thesis.abstract && !(thesis.chapters||[]).length && !(thesis.approvedChapters||[]).length;
+}
+
+function syncCompatibilityPopupFaculty(){
+  const popup=document.getElementById('compatPopupFaculty');
+  const main=document.getElementById('facolta');
+  if(!popup || !main) return;
+  popup.innerHTML=main.innerHTML;
+  popup.value=main.value || '';
+}
+
+function renderCompatibilityPopupResult(){
+  const select=document.getElementById('compatPopupFaculty');
+  const box=document.getElementById('compatPopupResult');
+  if(!select || !box) return;
+  const facolta=(select.value||'').trim();
+  if(!facolta){
+    box.innerHTML='Seleziona una facoltà per vedere l’esito orientativo.';
+    return;
+  }
+  const kind=getFacultyCompatibility(facolta);
+  if(kind==='veryGood'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} rientra tra le aree oggi presidiate meglio da AccademIA.`;
+    return;
+  }
+  if(kind==='good'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative, di review o con forte impianto argomentativo.${escHtml(facultyNoticeTail(facolta))}`;
+    return;
+  }
+  if(kind==='partial'){
+    const partial=getPartialFacultyGuidance(facolta);
+    box.innerHTML=partial
+      ? `<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo entro un perimetro limitato. Focus consigliato: ${escHtml(partial.focus)}. Ammesso: ${escHtml(partial.allow)}. Non ammesso: ${escHtml(partial.avoid)}.`
+      : `<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale.`;
+    return;
+  }
+  box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} non rientra tra le facoltà presidiate in modo affidabile da questa versione di AccademIA.`;
+}
+
+function confirmCompatibilityPopup(){
+  const popup=document.getElementById('compatPopupFaculty');
+  const main=document.getElementById('facolta');
+  if(popup && main && popup.value && main.value!==popup.value){
+    main.value=popup.value;
+    handleProjectStructureChange();
+  }
+  closeModal('compatibilityPopupModal');
+}
+
+function maybeOpenCompatibilityPopup(forceFreshAccess=false){
+  if(sessionStorage.getItem(ACCESS_SESSION_KEY)!=='1') return;
+  if(sessionStorage.getItem(COMPAT_POPUP_SESSION_KEY)==='1') return;
+  if(!forceFreshAccess && !isPristineThesisState()) return;
+  syncCompatibilityPopupFaculty();
+  renderCompatibilityPopupResult();
+  openModal('compatibilityPopupModal');
+  sessionStorage.setItem(COMPAT_POPUP_SESSION_KEY,'1');
 }
 
 function renderCompatibilityNotice(){
