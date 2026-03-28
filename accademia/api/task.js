@@ -842,6 +842,23 @@ function normalizeOutlineLine(line) {
     .trim();
 }
 
+
+function sectionContextExcerpt(value, max = 2400) {
+  const normalized = String(value || '').replace(/
+/g, '
+').trim();
+  if (!normalized) return '';
+  const blocks = normalized
+    .split(/
+{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const tail = blocks.length > 6 ? blocks.slice(-6).join('
+
+') : normalized;
+  return clip(tail, max);
+}
+
 function buildChapterSubsectionPrompt(input, context, subsection, index, total, minWordsPerSection = 760) {
   const obj = input && typeof input === 'object' ? input : {};
   const prevSummary = index > 0
