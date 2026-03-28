@@ -454,13 +454,38 @@ function normalizeGenerationTask(task) {
   }
 }
 
+function sanitizeTaskInput(input) {
+  const obj = input && typeof input === 'object' ? { ...input } : {};
+  if (Array.isArray(obj.previousChapters)) {
+    obj.previousChapters = obj.previousChapters
+      .map((item) => {
+        if (!item || typeof item !== 'object') return '';
+        const idx = item.index ? `Capitolo ${item.index}` : 'Capitolo';
+        const title = item.title ? ` — ${item.title}` : '';
+        const summary = item.summary ? `: ${clip(String(item.summary), 500)}` : '';
+        return `${idx}${title}${summary}`;
+      })
+      .filter(Boolean)
+      .join('
+');
+  }
+  if (Array.isArray(obj.approvedChapters)) {
+    obj.approvedChapters = obj.approvedChapters.slice(0, 3).map((ch, i) => ({
+      title: String(ch?.title || `Capitolo ${i + 1}`),
+      content: clip(String(ch?.content || ''), 800),
+    }));
+  }
+  return obj;
+}
+
 async function generateText(task, input) {
+  const safeInput = sanitizeTaskInput(input);
   if (task === 'chapter_draft') {
-    return await generateChapterDraftStructured(input);
+    return await generateChapterDraftStructured(safeInput);
   }
 
-  const prompt = buildProviderPrompt(task, input);
-  const system = buildSystemPrompt(task, input);
+  const prompt = buildProviderPrompt(task, safeInput);
+  const system = buildSystemPrompt(task, safeInput);
   const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : 2600);
   return await generateWithProviders({ prompt, system, maxTokens });
 }
@@ -490,7 +515,10 @@ async function generateWithProviders({ prompt, system, maxTokens, primaryTimeout
       return cleaned;
     } catch (err) {
       lastError = err;
-      const isRecoverable = isProviderTimeout(err) || isProviderOverload(err) || /rate limit|overloaded|temporarily unavailable/i.test(String(err?.message || ''));
+      const isRecoverable = isProviderTimeout(err)
+        || isProviderOverload(err)
+        || isProviderBadRequestRecoverable(err)
+        || /rate limit|overloaded|temporarily unavailable/i.test(String(err?.message || ''));
       if (!isRecoverable) break;
     }
   }
@@ -695,7 +723,7 @@ Tipo laurea: ${clip(String(obj.degreeType || ''), 100)}
 Metodologia: ${clip(String(obj.methodology || ''), 120)}`
       : '',
     obj.previousChapters ? `CAPITOLI PRECEDENTI (estratto breve):
-${clip(String(obj.previousChapters), 1200)}` : '',
+${clip(typeof obj.previousChapters === 'string' ? obj.previousChapters : JSON.stringify(obj.previousChapters), 900)}` : '',
     priorExcerpt ? `SOTTOSEZIONI GIÀ SVILUPPATE DEL CAPITOLO CORRENTE:
 ${priorExcerpt}` : '',
   ].filter(Boolean).join('\n\n');
@@ -986,6 +1014,13 @@ function isProviderTimeout(err) {
 function isProviderOverload(err) {
   const msg = String(err?.message || '');
   return /overload|overloaded|529|503|temporarily unavailable|rate limit/i.test(msg);
+}
+
+function isProviderBadRequestRecoverable(err) {
+  const status = Number(err?.statusCode || 0);
+  const msg = String(err?.message || '');
+  if (status !== 400) return false;
+  return /prompt|context|too long|maximum context|invalid request|bad request|max token|messages/i.test(msg) || status === 400;
 }
 
 function cleanModelText(text) {
