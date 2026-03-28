@@ -6,7 +6,7 @@
 <title>AccademIA — La tua laurea con I.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=QtvW3O5KTrtA4AIK54GmDxlGBr-UGDgsiTZ_v_n-0_zAzm8Vau3HT7LXmJ7PXso-4zqC0i99BEsdCfdTHHR2YxMPC7xnTqMtyVq4epWe9u1TE96IU-Qn65p5GsHWiHG6zUeaqVI0iv6eCVytchVBgL_axpHbW3Oe_fyej-mh9UYH184J-m4ULxhefGmS8GB5eU1ZPXTLdYlZdQY4UkcqXB8raOvQBqb5zZRman4eVokl3IpaHlcHhgQfUCC0Wp5OIcsfnq0MSXRFlKQq5b1n1w" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=Nrl4G7XNuFGSb07nKjSNeKqgoJ5sixG4u94GMe-M5rcuLR1FBq_GRQN4_w1IY2Yz531XSNqNAhlQtCiztG_UxG9r4bvppU7tcqoezwRA1XODTOSduEp34cpE9dbFPNSiM986U9KNPIVqxWN73Qq2UgET7hDSVyytxlGZLBgW-SAxiIVy5khed5O5D7vaZTihrBE5Q4mKda5FqKuPx3HQYe4xGR0sJ_6vBOnUeB-5FkXOxzXTcycoaohQYjcBNoj1ZdgqwYQebc515EGFCKwKig" charset="UTF-8"></script><script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=C3Vxg8PLavBCsGQVWH2VLeDu2Nd1K0uvUkuY6GoYx2rzB6A3FCSJrdGt1_aCxytQ8hWKjwTskgGYVUxDqXoKrj0w9HNNi69Q0cZhVBpeCnFUfLbpOOGwk_9d7C5tcpxdFLnM4ohgFcf2LXraqMurGaTyuTv9chxzhyTji-unQQVoSGAn-u7B2_HLsolNCTnWAeMeL0MflGMkFKgaUP95d8vjcOXUjtbuJ8IqLNGoit6uVoVOb_fI8uQney95VSysSlXNIBkdBAK3sMn7Ikphvg" charset="UTF-8"></script><style>
   :root {
     --bg:#050505;--bg2:#0e0e0e;--bg3:#141414;--bg4:#1a1a1a;
     --border:#2a2a2a;--border2:#333;
@@ -132,6 +132,9 @@
   .tutor-panel-title{font-size:12px;letter-spacing:1.1px;text-transform:uppercase;font-weight:700;color:#8eb7ff;}
   .tutor-panel-subtitle{font-size:12px;color:var(--text3);line-height:1.55;}
   .approval-row .hint{font-size:12px;color:var(--text3);flex:1;min-width:140px;}
+.approval-alert{display:block;flex:1 1 100%;padding:18px 20px;border-radius:16px;border:1px solid rgba(255,215,102,.38);background:linear-gradient(180deg, rgba(255,215,102,.22), rgba(201,168,76,.10));color:var(--text);line-height:1.72;box-shadow:0 14px 34px rgba(0,0,0,.22);}
+.approval-alert strong{display:block;color:#ffd766;font-size:15px;letter-spacing:.02em;margin-bottom:6px;}
+.approval-alert .approval-alert-text{display:block;font-size:13px;color:var(--text);}
   .btn-approve{padding:9px 20px;background:rgba(94,184,122,.1);border:1px solid rgba(94,184,122,.35);border-radius:var(--radius-sm);color:var(--green);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-approve:hover{background:rgba(94,184,122,.18);}
   .btn-redo{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
@@ -768,6 +771,24 @@
     </div>
     <div class="guide-note" style="margin-top:16px"><strong>⚠ Verifica sempre le fonti</strong> prima della consegna. AccademIA usa web search reale, ma alcune citazioni potrebbero richiedere accesso istituzionale (JSTOR, Scopus, PubMed).</div>
     <div class="modal-actions" style="margin-top:16px"><button class="btn-modal-cancel" style="flex:1" onclick="closeModal('guideModal')">Chiudi</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="compatibilityPopupModal">
+  <div class="modal" style="max-width:640px;">
+    <button class="modal-close" onclick="closeModal('compatibilityPopupModal')">×</button>
+    <h2>Test di compatibilità</h2>
+    <p style="margin-top:8px;">Prima di iniziare, verifica rapidamente la facoltà: il test serve a rendere più chiaro il perimetro d’uso di questa versione di AccademIA.</p>
+    <div class="form-group" style="margin-top:14px;">
+      <label for="compatPopupFaculty">Facoltà</label>
+      <select id="compatPopupFaculty" onchange="renderCompatibilityPopupResult()"></select>
+    </div>
+    <div id="compatPopupResult" style="margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;line-height:1.65;color:var(--text2);">Seleziona una facoltà per vedere l’esito orientativo.</div>
+    <div style="margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(201,168,76,.18);background:rgba(201,168,76,.06);font-size:12px;line-height:1.65;color:var(--text);"><strong style="color:var(--gold)">Nota:</strong> il test orienta il perimetro di utilizzo, ma non sostituisce la verifica critica del contenuto generato.</div>
+    <div class="modal-actions">
+      <button class="btn-modal-save" type="button" onclick="confirmCompatibilityPopup()">Ho capito</button>
+      <button class="btn-modal-cancel" type="button" onclick="closeModal('compatibilityPopupModal')">Chiudi</button>
+    </div>
   </div>
 </div>
 
@@ -2047,6 +2068,7 @@ const ACCESS_CODE = 'robpac-accademia-2026';
 const ACCESS_SESSION_KEY = '_td_gate_v12';
 const OWNER_FREE_RENEWAL_SESSION_KEY = '_td_owner_free_renewal_v1';
 const ACCESS_KEY_CACHE = 'accademia_has_access_key_v1';
+const COMPAT_POPUP_SESSION_KEY = '_td_compat_popup_seen_v1';
 
 function getAccessElements(){
   return {
@@ -2152,6 +2174,7 @@ function acceptDisclaimer(){
   ensureSyncKey();
   applyAccessState(true);
   restoreProgressOnLoad(false);
+  setTimeout(()=>maybeOpenCompatibilityPopup(true),220);
 }
 
 function logoutAccess(){
@@ -2193,6 +2216,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   applyAccessState(unlocked);
   checkDisclaimer();
   await restoreProgressOnLoad(false);
+  if(unlocked) setTimeout(()=>maybeOpenCompatibilityPopup(false),220);
   ensureThesisGuardFromSavedState();
   renderSingleThesisNotice();
   renderWorkflowHud();
@@ -2454,15 +2478,18 @@ function renderNextChapterLauncher(){
     nc.innerHTML='';
     return;
   }
-  const hasApprovedPrevious=thesis.currentChapterIdx>0 && !!(thesis.approvedChapters||[])[thesis.currentChapterIdx-1];
-  if(hasApprovedPrevious && !thesis.chapters[thesis.currentChapterIdx]){
+  const nextIdx=thesis.currentChapterIdx;
+  const prevApproved=nextIdx>0 && !!(thesis.approvedChapters||[])[nextIdx-1];
+  const nextAlreadyPresent=!!thesis.chapters[nextIdx];
+  if(prevApproved && !nextAlreadyPresent){
     nc.classList.remove('visible');
     nc.innerHTML='';
     return;
   }
-  const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
-  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
-  if(!thesis.chapters[thesis.currentChapterIdx]) nc.classList.add('visible');
+  const nextTitle=thesis.chapterTitles[nextIdx]||'';
+  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${nextIdx+1} — ${escHtml(nextTitle)}</button>`;
+  if(!nextAlreadyPresent) nc.classList.add('visible');
+  else nc.classList.remove('visible');
 }
 
 function removeChapterDomFrom(startIdx){
@@ -2633,17 +2660,20 @@ ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
 
 function getChapterApprovalRow(idx,total,approved,visible=true){
   const display=visible?'flex':'none';
-  const nextAlreadyGenerated=idx<total-1 && !!((thesis.chapters||[])[idx+1]?.content || '').trim();
   const hint=approved
     ? `Capitolo ${idx+1} approvato. Le revisioni restano disponibili nelle azioni dedicate sopra.`
     : `Approva il Capitolo ${idx+1} per confermarlo definitivamente. Le revisioni capitolo e relatore restano separate nelle azioni dedicate sopra.`;
   const primaryLabel=approved
-    ? (idx<total-1 ? (nextAlreadyGenerated ? `➜ Vai al Cap. ${idx+2}` : `✦ Genera Cap. ${idx+2}`) : '✓ Vai al controllo finale')
-    : (idx<total-1 ? `✓ Approva Capitolo ${idx+1}` : '✓ Approva ultimo capitolo e concludi');
+    ? (idx<total-1 ? `✦ Genera Cap. ${idx+2}` : '✓ Vai al controllo finale')
+    : (idx<total-1 ? `✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}` : '✓ Approva ultimo capitolo e concludi');
   const primaryAction=approved
     ? (idx<total-1 ? `goToNextChapterFromApproved(${idx})` : 'focusFinalTools()')
     : (idx<total-1 ? `approveChapter(${idx})` : 'approveLastChapter()');
+  const alertHtml=approved
+    ? ''
+    : `<div class="approval-alert"><strong>Verifica con attenzione prima di approvare</strong><span class="approval-alert-text">Controlla completezza del capitolo, coerenza con indice e abstract, eventuali a capo anomali, passaggi poco naturali e osservazioni del relatore. Un controllo adesso può evitarti revisioni inutili dopo l'approvazione.</span></div>`;
   return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
+        ${alertHtml}
         <span class="hint">${hint}</span>
         <div class="actions">
           <button class="btn-approve" onclick="${primaryAction}">${primaryLabel}</button>
@@ -2652,20 +2682,13 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
 }
 
 function goToNextChapterFromApproved(idx){
-  const nextIdx=idx+1;
-  thesis.currentChapterIdx=Math.max(thesis.currentChapterIdx, nextIdx);
-  const existing=document.getElementById(`chap-${nextIdx}`);
-  if(existing || ((thesis.chapters||[])[nextIdx]?.content || '').trim()){
-    const target=existing || document.getElementById(`chap-${nextIdx}`);
-    if(target) target.scrollIntoView({behavior:'smooth',block:'start'});
-    saveProgress();
-    return;
-  }
+  thesis.currentChapterIdx=Math.max(thesis.currentChapterIdx, idx+1);
   const nc=document.getElementById('nextChapters');
   if(nc){
     nc.classList.remove('visible');
     nc.innerHTML='';
   }
+  syncChapterActionButtons(idx);
   saveProgress();
   generateNextChapter();
 }
@@ -2715,11 +2738,7 @@ function restoreProgressUI(savedForm=null){
     const total=thesis.chapterTitles.length;
     thesis.chapters.forEach((_,idx)=>renderSavedChapterBlock(idx,total));
     if(total>0) updateChapterProgressBar(Math.min(thesis.currentChapterIdx,total-1), total, false);
-    if(thesis.currentChapterIdx<total){
-      const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
-      document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
-      if(!thesis.chapters[thesis.currentChapterIdx]) document.getElementById('nextChapters').classList.add('visible');
-    }
+    renderNextChapterLauncher();
     thesis.chapters.forEach((_,idx)=>renderRevCounter(idx));
     refreshRevisionUi();
   }
@@ -2854,6 +2873,66 @@ function facultyNoticeTail(facolta){
   const partial=getPartialFacultyGuidance(facolta);
   if(partial) return ` Focus da privilegiare: ${partial.focus}. Ammesso: ${partial.allow}.`;
   return '';
+}
+
+function isPristineThesisState(){
+  return !thesis.indice && !thesis.abstract && !(thesis.chapters||[]).length && !(thesis.approvedChapters||[]).length;
+}
+
+function syncCompatibilityPopupFaculty(){
+  const popup=document.getElementById('compatPopupFaculty');
+  const main=document.getElementById('facolta');
+  if(!popup || !main) return;
+  popup.innerHTML=main.innerHTML;
+  popup.value=main.value || '';
+}
+
+function renderCompatibilityPopupResult(){
+  const select=document.getElementById('compatPopupFaculty');
+  const box=document.getElementById('compatPopupResult');
+  if(!select || !box) return;
+  const facolta=(select.value||'').trim();
+  if(!facolta){
+    box.innerHTML='Seleziona una facoltà per vedere l’esito orientativo.';
+    return;
+  }
+  const kind=getFacultyCompatibility(facolta);
+  if(kind==='veryGood'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} rientra tra le aree oggi presidiate meglio da AccademIA.`;
+    return;
+  }
+  if(kind==='good'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative, di review o con forte impianto argomentativo.${escHtml(facultyNoticeTail(facolta))}`;
+    return;
+  }
+  if(kind==='partial'){
+    const partial=getPartialFacultyGuidance(facolta);
+    box.innerHTML=partial
+      ? `<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo entro un perimetro limitato. Focus consigliato: ${escHtml(partial.focus)}. Ammesso: ${escHtml(partial.allow)}. Non ammesso: ${escHtml(partial.avoid)}.`
+      : `<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale.`;
+    return;
+  }
+  box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} non rientra tra le facoltà presidiate in modo affidabile da questa versione di AccademIA.`;
+}
+
+function confirmCompatibilityPopup(){
+  const popup=document.getElementById('compatPopupFaculty');
+  const main=document.getElementById('facolta');
+  if(popup && main && popup.value && main.value!==popup.value){
+    main.value=popup.value;
+    handleProjectStructureChange();
+  }
+  closeModal('compatibilityPopupModal');
+}
+
+function maybeOpenCompatibilityPopup(forceFreshAccess=false){
+  if(sessionStorage.getItem(ACCESS_SESSION_KEY)!=='1') return;
+  if(sessionStorage.getItem(COMPAT_POPUP_SESSION_KEY)==='1') return;
+  if(!forceFreshAccess && !isPristineThesisState()) return;
+  syncCompatibilityPopupFaculty();
+  renderCompatibilityPopupResult();
+  openModal('compatibilityPopupModal');
+  sessionStorage.setItem(COMPAT_POPUP_SESSION_KEY,'1');
 }
 
 function renderCompatibilityNotice(){
@@ -3372,8 +3451,10 @@ function getChapterRole(idx,total,title,metod){
 }
 
 async function generateNextChapter(){
+  if(window.__chapterGenLock){showToast('Generazione capitolo già in corso.',true);return;}
   if(!ensureCompatibilityGuard()) return;
   if(!ensureSingleThesisCommit('chapter_generation')) return;
+  window.__chapterGenLock=true;
   await saveLastValidState('prima_generazione_capitolo',{silent:true});
   setPhaseButtonBusy('btnChapterAction',true,'<span class="spinner"></span>Generazione capitolo...');
   const idx=thesis.currentChapterIdx;
@@ -3554,9 +3635,12 @@ ${getChapterApprovalRow(idx,total,false,false)}
       setChapterOperationStatus(`Capitolo ${idx+1} generato correttamente.`,false,false);
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
+      window.__chapterGenLock=false;
+      setPhaseButtonBusy('btnChapterAction',false);
       saveProgress();
     });
   }catch(e){
+    window.__chapterGenLock=false;
     resetChapterUiAfterError(idx,`Errore nel Capitolo ${idx+1}: ${e.message}`);
     showToast('Errore cap.'+(idx+1)+': '+e.message,true);
     setPhaseButtonBusy('btnChapterAction',false);
@@ -3574,7 +3658,6 @@ function approveChapter(idx){
     nc.classList.remove('visible');
     nc.innerHTML='';
   }
-  syncChapterActionButtons(idx);
   saveProgress();
   triggerAutoSnapshot('chapter');
 }
@@ -3808,21 +3891,6 @@ function setChapterOperationStatus(message,isError=false,isBusy=false){
 }
 
 function resetChapterUiAfterError(idx,message){
-  const hadContent=!!(((thesis.chapters||[])[idx]?.content)||'').trim();
-  if(!hadContent){
-    const block=document.getElementById(`chap-${idx}`);
-    if(block) block.remove();
-    const nc=document.getElementById('nextChapters');
-    if(nc){
-      nc.classList.remove('visible');
-      nc.innerHTML='';
-    }
-    renderNextChapterLauncher();
-    setPhaseButtonBusy('btnChapterAction',false);
-    setChapterOperationStatus(message||`Errore durante la generazione del Capitolo ${idx+1}.`,true);
-    if(document.activeElement && typeof document.activeElement.blur==='function') document.activeElement.blur();
-    return;
-  }
   const chip=document.getElementById(`chapChip-${idx}`);
   if(chip){
     chip.className='status-chip error';
@@ -3830,11 +3898,9 @@ function resetChapterUiAfterError(idx,message){
   }
   const output=document.getElementById(`chapOutput-${idx}`);
   if(output) output.classList.remove('typing');
-  const body=document.getElementById(`chapText-${idx}`);
-  if(body && !body.textContent.trim()) body.textContent='Operazione non completata. Riprova.';
   syncChapterPanelState(idx);
   syncChapterActionButtons(idx);
-  setChapterOperationStatus(message||`Errore durante l'operazione sul Capitolo ${idx+1}.`,true);
+  setChapterOperationStatus(message||`Errore durante l\'operazione sul Capitolo ${idx+1}.`,true);
   if(document.activeElement && typeof document.activeElement.blur==='function') document.activeElement.blur();
 }
 
