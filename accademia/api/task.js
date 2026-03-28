@@ -7,8 +7,6 @@ const RESEND_FROM = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const ADMIN_DASH_KEY = process.env.ADMIN_DASH_KEY || process.env.ACC_ADMIN_DASH_KEY || '';
-const OWNER_MASTER_EMAILS = new Set(parseCsv(process.env.OWNER_MASTER_EMAILS || process.env.ACC_OWNER_MASTER_EMAILS || 'robpacpublishing@gmail.com').map(normalizeEmail).filter(Boolean));
-const OWNER_MASTER_SYNC_KEYS = new Set(parseCsv(process.env.OWNER_MASTER_SYNC_KEYS || process.env.ACC_OWNER_MASTER_SYNC_KEYS || '').map((x) => String(x || '').trim()).filter(Boolean));
 const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_MODEL_PRIMARY || 'claude-sonnet-4-6';
 const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK || 'claude-haiku-4-5-20251001';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
@@ -47,7 +45,6 @@ export default async function handler(req, res) {
       case '__state_save': {
         const owner = await resolveOwner(input);
         assert(owner, 'syncKey o sessionToken mancanti');
-        await enforceLicensePolicy(owner, task, input);
         await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
         await recordEvent('state_save', { scope: owner.scope });
         return sendJson(res, 200, { ok: true });
@@ -140,7 +137,6 @@ export default async function handler(req, res) {
       case '__account_save': {
         const owner = await resolveOwner(input);
         assert(owner && owner.scope === 'account', 'sessionToken mancante o non valido');
-        await enforceLicensePolicy(owner, task, input);
         await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
         await recordEvent('account_save', { scope: owner.scope, email: redactEmail(owner.email) });
         return sendJson(res, 200, { ok: true });
@@ -171,8 +167,6 @@ export default async function handler(req, res) {
       case 'tutor_revision':
       case 'revisione_relatore':
       case 'revisione_capitolo': {
-        const owner = await resolveOwner(input);
-        if (owner) await enforceLicensePolicy(owner, task, input);
         const canonicalTask = normalizeGenerationTask(task);
         const text = await generateText(canonicalTask, input);
         await recordStat('provider_success', { task: canonicalTask, requestedTask: task });
@@ -245,43 +239,36 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function parseCsv(value) {
-  return String(value || '').split(',').map((x) => x.trim()).filter(Boolean);
-}
-
 function hashEmail(email) {
   return createHash('sha256').update(email).digest('hex').slice(0, 24);
 }
 
 async function resolveOwner(input) {
-  const sessionToken = String(input?.sessionToken || '').trim();
-  if (sessionToken) {
-    const session = await getJson(accountSessionKey(sessionToken));
-    if (session?.email) {
-      const email = normalizeEmail(session.email);
-      const id = hashEmail(email);
-      return {
-        scope: 'account',
-        email,
-        sessionToken,
-        stateKey: `accademia:account:${id}:state`,
-        snapshotsKey: `accademia:account:${id}:snapshots`,
-        recoveryKey: `accademia:account:${id}:recovery`,
-        licenseKey: `accademia:account:${id}:license`,
-      };
-    }
+  const syncKey = String(input?.syncKey || '').trim();
+  if (syncKey) {
+    const safe = safeKey(syncKey);
+    return {
+      scope: 'sync',
+      syncKey,
+      stateKey: `accademia:sync:${safe}:state`,
+      snapshotsKey: `accademia:sync:${safe}:snapshots`,
+      recoveryKey: `accademia:sync:${safe}:recovery`,
+    };
   }
 
-  const syncKey = String(input?.syncKey || '').trim();
-  if (!syncKey) return null;
-  const safe = safeKey(syncKey);
+  const sessionToken = String(input?.sessionToken || '').trim();
+  if (!sessionToken) return null;
+  const session = await getJson(accountSessionKey(sessionToken));
+  if (!session?.email) return null;
+  const email = normalizeEmail(session.email);
+  const id = hashEmail(email);
   return {
-    scope: 'sync',
-    syncKey,
-    stateKey: `accademia:sync:${safe}:state`,
-    snapshotsKey: `accademia:sync:${safe}:snapshots`,
-    recoveryKey: `accademia:sync:${safe}:recovery`,
-    licenseKey: `accademia:sync:${safe}:license`,
+    scope: 'account',
+    email,
+    sessionToken,
+    stateKey: `accademia:account:${id}:state`,
+    snapshotsKey: `accademia:account:${id}:snapshots`,
+    recoveryKey: `accademia:account:${id}:recovery`,
   };
 }
 
@@ -449,180 +436,6 @@ function parseUnlockConfig() {
 }
 
 
-
-function defaultLicenseRecord() {
-  return {
-    version: 1,
-    mode: 'single',
-    stage: 'none',
-    thesisId: '',
-    previewCount: 0,
-    previewLimit: 3,
-    profile: null,
-    reservedAt: '',
-    lockedAt: '',
-    updatedAt: '',
-  };
-}
-
-function sanitizeLicenseRecord(record) {
-  const base = defaultLicenseRecord();
-  const next = record && typeof record === 'object' ? { ...base, ...record } : { ...base };
-  next.previewLimit = 3;
-  next.profile = next.profile && typeof next.profile === 'object'
-    ? {
-        topicRaw: String(next.profile.topicRaw || '').trim(),
-        topicNorm: normalizeTopic(next.profile.topicRaw || next.profile.topicNorm || ''),
-        faculty: String(next.profile.faculty || '').trim(),
-        course: String(next.profile.course || '').trim(),
-        degreeType: String(next.profile.degreeType || '').trim(),
-        methodology: String(next.profile.methodology || '').trim(),
-      }
-    : null;
-  if (next.stage !== 'preview' && next.stage !== 'locked') next.stage = 'none';
-  return next;
-}
-
-function normalizeTopic(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function topicSimilarity(a, b) {
-  const A = new Set(normalizeTopic(a).split(' ').filter((t) => t && t.length > 2));
-  const B = new Set(normalizeTopic(b).split(' ').filter((t) => t && t.length > 2));
-  if (!A.size || !B.size) return 0;
-  let common = 0;
-  A.forEach((tok) => { if (B.has(tok)) common += 1; });
-  return common / Math.max(A.size, B.size);
-}
-
-function hasProfileIdentity(profile) {
-  return !!(profile && profile.topicNorm && profile.faculty && profile.course && profile.degreeType);
-}
-
-function areProfilesCompatible(a, b) {
-  if (!hasProfileIdentity(a) || !hasProfileIdentity(b)) return false;
-  if (a.faculty !== b.faculty) return false;
-  if (a.course !== b.course) return false;
-  if (a.degreeType !== b.degreeType) return false;
-  if (a.methodology && b.methodology && a.methodology !== b.methodology) return false;
-  if (a.topicNorm === b.topicNorm) return true;
-  if (a.topicNorm.includes(b.topicNorm) || b.topicNorm.includes(a.topicNorm)) return true;
-  return topicSimilarity(a.topicNorm, b.topicNorm) >= 0.42;
-}
-
-function extractProfileFromInput(input) {
-  const payloadThesis = input?.payload?.thesis || {};
-  const topicRaw = String(input?.theme || payloadThesis?.argomento || '').trim();
-  const faculty = String(input?.faculty || payloadThesis?.facolta || '').trim();
-  const course = String(input?.degreeCourse || payloadThesis?.corso || '').trim();
-  const degreeType = String(input?.degreeType || payloadThesis?.tipo || '').trim();
-  const methodology = String(input?.methodology || payloadThesis?.metodologia || '').trim();
-  return { topicRaw, topicNorm: normalizeTopic(topicRaw), faculty, course, degreeType, methodology };
-}
-
-function payloadHasCommittedWork(payload) {
-  const thesis = payload?.thesis || {};
-  return !!(String(thesis?.abstract || '').trim() || (Array.isArray(thesis?.chapters) && thesis.chapters.some((ch) => String(ch?.content || '').trim())));
-}
-
-function payloadHasPreviewWork(payload) {
-  const thesis = payload?.thesis || {};
-  return !!(String(thesis?.indice || '').trim() || (Array.isArray(thesis?.chapterTitles) && thesis.chapterTitles.length));
-}
-
-function isMasterOwner(owner, input) {
-  if (ADMIN_DASH_KEY && String(input?.adminKey || '').trim() === ADMIN_DASH_KEY) return true;
-  if (owner?.scope === 'account' && OWNER_MASTER_EMAILS.has(normalizeEmail(owner.email))) return true;
-  if (owner?.scope === 'sync' && OWNER_MASTER_SYNC_KEYS.has(String(owner.syncKey || '').trim())) return true;
-  return false;
-}
-
-function makeLicenseError(message) {
-  const err = new Error(message);
-  err.statusCode = 403;
-  err.error = 'license_locked';
-  return err;
-}
-
-async function persistLicenseRecord(owner, record) {
-  if (!owner?.licenseKey) return;
-  const next = sanitizeLicenseRecord(record);
-  next.updatedAt = new Date().toISOString();
-  await putJson(owner.licenseKey, next);
-}
-
-async function enforceLicensePolicy(owner, task, input) {
-  if (!owner?.licenseKey) return null;
-  if (isMasterOwner(owner, input)) return sanitizeLicenseRecord(await getJson(owner.licenseKey));
-  const requestedTask = normalizeGenerationTask(task);
-  let record = sanitizeLicenseRecord(await getJson(owner.licenseKey));
-  const profile = extractProfileFromInput(input);
-  const hasProfile = hasProfileIdentity(profile);
-
-  if (task === '__state_save' || task === '__account_save') {
-    const payload = input?.payload || {};
-    if (!hasProfile) return record;
-    if (record.stage === 'locked' && !areProfilesCompatible(record.profile, profile)) {
-      throw makeLicenseError('Questa licenza è già associata a una tesi diversa e non può essere riutilizzata per un nuovo progetto.');
-    }
-    if (record.stage === 'preview' && !areProfilesCompatible(record.profile, profile)) {
-      throw makeLicenseError('Questa licenza è già in preparazione su un’altra tesi. Puoi proseguire solo su quel progetto.');
-    }
-    if (record.stage === 'none') {
-      if (payloadHasCommittedWork(payload)) {
-        record = { ...record, stage: 'locked', thesisId: record.thesisId || makeId('thesis'), profile, lockedAt: new Date().toISOString() };
-      } else if (payloadHasPreviewWork(payload)) {
-        record = { ...record, stage: 'preview', thesisId: record.thesisId || makeId('thesis'), profile, previewCount: Math.max(1, Number(record.previewCount) || 0), reservedAt: record.reservedAt || new Date().toISOString() };
-      }
-    } else if (record.stage === 'preview' && payloadHasCommittedWork(payload)) {
-      record = { ...record, stage: 'locked', thesisId: record.thesisId || makeId('thesis'), profile: record.profile || profile, lockedAt: record.lockedAt || new Date().toISOString() };
-    }
-    await persistLicenseRecord(owner, record);
-    return record;
-  }
-
-  const generationTasks = new Set(['outline_draft', 'abstract_draft', 'chapter_draft', 'chapter_review', 'tutor_revision']);
-  if (!generationTasks.has(requestedTask) || !hasProfile) return record;
-
-  if (record.stage === 'none') {
-    if (requestedTask === 'outline_draft') {
-      record = { ...record, stage: 'preview', thesisId: makeId('thesis'), profile, previewCount: 1, reservedAt: new Date().toISOString() };
-    } else {
-      record = { ...record, stage: 'locked', thesisId: makeId('thesis'), profile, lockedAt: new Date().toISOString() };
-    }
-    await persistLicenseRecord(owner, record);
-    return record;
-  }
-
-  if (!areProfilesCompatible(record.profile, profile)) {
-    const msg = record.stage === 'locked'
-      ? 'Questa licenza è già associata a una tesi diversa e non può essere usata per generarne un’altra.'
-      : 'Questa licenza è già stata impegnata su un’altra tesi. Puoi proseguire solo su quel progetto.';
-    throw makeLicenseError(msg);
-  }
-
-  if (record.stage === 'preview' && requestedTask === 'outline_draft') {
-    if ((Number(record.previewCount) || 0) >= record.previewLimit) {
-      throw makeLicenseError('Hai già usato le proposte indice iniziali consentite per questa licenza. Ora puoi proseguire solo con questa tesi.');
-    }
-    record.previewCount = (Number(record.previewCount) || 0) + 1;
-  }
-
-  if (record.stage === 'preview' && requestedTask !== 'outline_draft') {
-    record.stage = 'locked';
-    record.lockedAt = record.lockedAt || new Date().toISOString();
-  }
-
-  await persistLicenseRecord(owner, record);
-  return record;
-}
-
 function normalizeGenerationTask(task) {
   switch (String(task || '').trim()) {
     case 'outline_review':
@@ -641,18 +454,25 @@ function normalizeGenerationTask(task) {
   }
 }
 
+
 async function generateText(task, input) {
-  const prompt = buildProviderPrompt(task, input);
   const system = buildSystemPrompt(task, input);
-  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : 2600);
+  const prompt = buildProviderPrompt(task, input);
+  const maxTokens = getTaskMaxTokens(task);
 
   const attempts = [];
   if (ANTHROPIC_API_KEY) {
-    attempts.push(() => callAnthropic({ model: ANTHROPIC_PRIMARY_MODEL, system, prompt, maxTokens, timeoutMs: 45_000 }));
-    attempts.push(() => callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(1800, maxTokens), timeoutMs: 30_000 }));
+    attempts.push((customPrompt = prompt, customMaxTokens = maxTokens, timeoutMs = getTaskTimeout(task)) =>
+      callAnthropic({ model: ANTHROPIC_PRIMARY_MODEL, system, prompt: customPrompt, maxTokens: customMaxTokens, timeoutMs })
+    );
+    attempts.push((customPrompt = shrinkPrompt(prompt), customMaxTokens = Math.min(2600, maxTokens), timeoutMs = 35_000) =>
+      callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: customPrompt, maxTokens: customMaxTokens, timeoutMs })
+    );
   }
   if (OPENAI_API_KEY) {
-    attempts.push(() => callOpenAI({ model: OPENAI_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(2200, maxTokens), timeoutMs: 35_000 }));
+    attempts.push((customPrompt = shrinkPrompt(prompt), customMaxTokens = Math.min(4200, maxTokens), timeoutMs = 40_000) =>
+      callOpenAI({ model: OPENAI_MODEL, system, prompt: customPrompt, maxTokens: customMaxTokens, timeoutMs })
+    );
   }
 
   if (!attempts.length) {
@@ -664,13 +484,30 @@ async function generateText(task, input) {
   let lastError = null;
   for (const attempt of attempts) {
     try {
-      const text = await attempt();
-      const cleaned = cleanModelText(text);
-      if (!cleaned) throw new Error('Provider ha restituito testo vuoto');
-      return cleaned;
+      let text = cleanModelText(await attempt());
+      if (!text) throw new Error('Provider ha restituito testo vuoto');
+
+      if (taskRequiresContinuation(task) && chapterLooksIncomplete(text, input)) {
+        const continuationPrompt = buildContinuationPrompt(task, input, text);
+        const continuation = cleanModelText(await attempt(continuationPrompt, Math.min(2600, getContinuationMaxTokens(task)), getContinuationTimeout(task)));
+        if (continuation) {
+          text = mergeContinuationText(text, continuation);
+        }
+      }
+
+      if (taskRequiresContinuation(task) && chapterLooksIncomplete(text, input)) {
+        const err = new Error('Contenuto capitolo incompleto: provider ha restituito una versione troncata');
+        err.statusCode = 502;
+        throw err;
+      }
+
+      return text;
     } catch (err) {
       lastError = err;
-      const isRecoverable = isProviderTimeout(err) || isProviderOverload(err) || /rate limit|overloaded|temporarily unavailable/i.test(String(err?.message || ''));
+      const isRecoverable =
+        isProviderTimeout(err) ||
+        isProviderOverload(err) ||
+        /rate limit|overloaded|temporarily unavailable|troncata|incompleto/i.test(String(err?.message || ''));
       if (!isRecoverable) break;
     }
   }
@@ -681,6 +518,144 @@ async function generateText(task, input) {
     throw err;
   }
   throw lastError || new Error('Generazione non riuscita');
+}
+
+function getTaskMaxTokens(task) {
+  if (task === 'outline_draft' || task === 'outline_review') return 1800;
+  if (task === 'abstract_draft' || task === 'abstract_review') return 1600;
+  if (task === 'chapter_draft') return 5200;
+  if (task === 'chapter_review' || task === 'tutor_revision') return 4800;
+  return 2600;
+}
+
+function getTaskTimeout(task) {
+  if (task === 'chapter_draft' || task === 'chapter_review' || task === 'tutor_revision') return 70_000;
+  return 45_000;
+}
+
+function getContinuationMaxTokens(task) {
+  if (task === 'chapter_draft') return 2600;
+  if (task === 'chapter_review' || task === 'tutor_revision') return 2200;
+  return 1800;
+}
+
+function getContinuationTimeout(task) {
+  if (task === 'chapter_draft' || task === 'chapter_review' || task === 'tutor_revision') return 45_000;
+  return 30_000;
+}
+
+function taskRequiresContinuation(task) {
+  return task === 'chapter_draft' || task === 'chapter_review' || task === 'tutor_revision';
+}
+
+function buildContinuationPrompt(task, input, partialText) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const expected = getExpectedChapterSubsections(obj);
+  const expectedText = expected.length
+    ? `Sottosezioni attese per questo capitolo:\n${expected.map((x) => `- ${x}`).join('\n')}`
+    : '';
+  const partialTail = clip(String(partialText || ''), 5000);
+  return [
+    `TASK: ${task}_continuation`,
+    'Il testo precedente risulta interrotto. Devi continuare ESATTAMENTE dal punto in cui si è fermato, senza ricominciare da capo.',
+    'Non ripetere il testo già scritto. Prosegui in continuità logica e stilistica.',
+    'Completa tutte le sottosezioni mancanti del capitolo corrente, se non ancora sviluppate.',
+    expectedText,
+    `TESTO GIÀ GENERATO (PARTE FINALE)\n${partialTail}`
+  ].filter(Boolean).join('\n\n');
+}
+
+function mergeContinuationText(baseText, continuationText) {
+  const base = cleanModelText(baseText);
+  let continuation = cleanModelText(continuationText);
+  if (!continuation) return base;
+  continuation = continuation.replace(/^continua(?:zione)?[:\s-]*/i, '').trim();
+
+  const tail = base.slice(-700);
+  let overlap = '';
+  for (let size = Math.min(220, tail.length, continuation.length); size >= 40; size -= 10) {
+    const candidate = tail.slice(-size).trim();
+    if (candidate && continuation.startsWith(candidate)) {
+      overlap = candidate;
+      break;
+    }
+  }
+  if (overlap) continuation = continuation.slice(overlap.length).trim();
+  return cleanModelText(`${base}\n\n${continuation}`);
+}
+
+function chapterLooksIncomplete(text, input) {
+  const body = cleanModelText(text);
+  if (!body) return true;
+  if (body.length < 1800) return true;
+
+  const expected = getExpectedChapterSubsections(input);
+  if (expected.length) {
+    let found = 0;
+    for (const item of expected) {
+      const key = normalizeHeadingKey(item);
+      if (key && body.toLowerCase().includes(key)) found += 1;
+    }
+    const minimum = Math.max(1, Math.min(expected.length, Math.ceil(expected.length * 0.6)));
+    if (found < minimum) return true;
+  }
+
+  const lower = body.toLowerCase();
+  const endingLooksBroken =
+    /(?:\bteoria\b|\bconcett|\bidentit|\bmercat|\bcomunicaz|\bpolitic|\bcontest|\bsocial|\bprocess)/i.test(body.slice(-20)) &&
+    !/[.!?”»)]\s*$/.test(body);
+  if (endingLooksBroken) return true;
+
+  const choppedPatterns = [
+    /\b(?:il|la|le|i|gli|di|del|della|delle|dei|degli|nel|nella|nelle|con|per|tra|come|che|dove|quale|quali)\s*$/i,
+    /\b\d+(?:\.\d+){1,2}\s*$/i
+  ];
+  if (choppedPatterns.some((rx) => rx.test(body))) return true;
+
+  return false;
+}
+
+function getExpectedChapterSubsections(input) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const outline = String(obj.approvedOutline || '').replace(/\r/g, '');
+  if (!outline) return [];
+  const currentIndex = Number.isFinite(Number(obj.currentChapterIndex)) ? Number(obj.currentChapterIndex) : 0;
+  const chapterNo = currentIndex + 1;
+  const lines = outline.split('\n').map((x) => x.trim()).filter(Boolean);
+  const expected = [];
+  let inChapter = false;
+  for (const line of lines) {
+    const chapterMatch =
+      line.match(new RegExp(`^(?:#+\s*)?(?:capitolo\s*)?${chapterNo}(?:\b|\s|[—:-])`, 'i')) ||
+      line.match(new RegExp(`^(?:#+\s*)?${chapterNo}[\.)\s—:-]`, 'i'));
+    const anotherChapter =
+      line.match(/^(?:#+\s*)?(?:capitolo\s*)?(\d+)(?:|\s|[—:-])/i) ||
+      line.match(/^(?:#+\s*)?(\d+)[\.)\s—:-]/);
+
+    if (chapterMatch) {
+      inChapter = true;
+      continue;
+    }
+    if (inChapter && anotherChapter) {
+      const num = Number(anotherChapter[1]);
+      if (num !== chapterNo) break;
+    }
+    if (inChapter && new RegExp(`^${chapterNo}\.\d+`).test(line)) {
+      expected.push(line.replace(/^#+\s*/, '').trim());
+    }
+  }
+  return expected.slice(0, 12);
+}
+
+function normalizeHeadingKey(line) {
+  return String(line || '')
+    .toLowerCase()
+    .replace(/^#+\s*/, '')
+    .replace(/^\d+(?:\.\d+)+\s*/, '')
+    .replace(/[–—:]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
 }
 
 function buildProviderPrompt(task, input) {
@@ -698,6 +673,10 @@ function buildProviderPrompt(task, input) {
   if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
   if (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex)) {
     sections.push(`CAPITOLO CORRENTE\nIndice: ${Number(obj.currentChapterIndex || 0) + 1}\nTitolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
+  }
+  const expectedSubsections = getExpectedChapterSubsections(obj);
+  if (expectedSubsections.length) {
+    sections.push(`SOTTOSEZIONI ATTESE DEL CAPITOLO CORRENTE\n${clip(expectedSubsections.join('\n'), 2500)}`);
   }
   if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 6000)}`);
   if (Array.isArray(obj.approvedChapters) && obj.approvedChapters.length) {
@@ -720,6 +699,7 @@ function buildSystemPrompt(task, input) {
     base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema e la metodologia.');
   } else {
     base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna e visibilità dei cambiamenti richiesti.');
+    base.push('Per i capitoli, sviluppa il contenuto in modo completo e non interrompere la risposta prima di aver coperto le sottosezioni richieste dall’indice del capitolo corrente.');
     base.push('Se l’input contiene osservazioni del relatore, applicale davvero in modo riconoscibile e non cosmetico.');
   }
   if (input && typeof input === 'object' && input.facultyGuidance) {
