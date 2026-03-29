@@ -4411,7 +4411,9 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
   const baseInput=buildStructuredTaskInput(taskName,userPrompt);
   const chapterDraftRunId=`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
   let progressPackets=0;
-  for(let step=0; step<80; step+=1){
+  let stalledSteps=0;
+  let lastProgressFingerprint='';
+  for(let step=0; step<220; step+=1){
     const stepInput={
       ...baseInput,
       extra:{
@@ -4431,16 +4433,34 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
       progressPackets+=1;
       onProgress(d.progress);
     }
-    if(d && (d.done || d.chapterComplete)){
+    if(d && (d.done || d.chapterComplete || d.status==='complete')){
       if(d.text) return {text:d.text||'',sources:[]};
-      if(step<79) continue;
+      if(step<219) continue;
+    }
+    const progressFp=d && d.progress
+      ? JSON.stringify({
+          completed:Number(d.progress.completedSubsections||0),
+          total:Number(d.progress.totalSubsections||0),
+          code:String(d.progress.currentSubsection?.code||''),
+          words:String((d.progress.currentText||'').trim().split(/\s+/).filter(Boolean).length)
+        })
+      : '';
+    if(progressFp && progressFp===lastProgressFingerprint){
+      stalledSteps+=1;
+    } else {
+      stalledSteps=0;
+      lastProgressFingerprint=progressFp;
+    }
+    const resumableStatus=d && (d.resumeRequired || d.status==='resume_required' || d.status==='in_progress');
+    if(stalledSteps>=16 && resumableStatus){
+      throw new Error('Generazione in pausa: riprendi dal progresso salvato (resume) per completare il capitolo.');
     }
     if(!d || (!d.progress && !d.done && !d.chapterComplete && step>0 && progressPackets===0)){
       throw new Error('Nessun avanzamento progressivo ricevuto dal backend.');
     }
-    await new Promise(resolve=>setTimeout(resolve,220));
+    await new Promise(resolve=>setTimeout(resolve,resumableStatus?260:220));
   }
-  throw new Error('Generazione progressiva non completata entro il limite di tentativi: riprova.');
+  throw new Error('Generazione non ancora completa in questa sessione, ma progresso salvato e riprendibile.');
 }
 
 // ══════════════════════════════════════════════
