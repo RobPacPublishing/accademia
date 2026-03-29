@@ -3467,8 +3467,21 @@ ${getChapterApprovalRow(idx,total,false,false)}
   setChapterOperationStatus(`Generazione del Capitolo ${idx+1} in corso...`,false,true);
 
   try{
-    const result=await callClaudeWithSearch(prompt,'chapter_draft');
-    const text=(result.text||'').trim();
+    let result=null;
+    let text='';
+    let guard=0;
+    while(guard<18){
+      result=await callClaudeWithSearch(prompt,'chapter_draft');
+      text=(result.text||text||'').trim();
+      const progress=result?.progress||null;
+      if(progress && !result?.chapterComplete){
+        const currentLabel=progress.currentSubsection ? `${progress.currentSubsection.code} ${progress.currentSubsection.title}` : `step ${Math.max(1,progress.completedSubsections||0)}`;
+        setChapterOperationStatus(`Capitolo ${idx+1}: completata ${progress.completedSubsections||0}/${progress.totalSubsections||0} · in corso ${currentLabel}`,false,true);
+      }
+      if(result?.chapterComplete) break;
+      guard+=1;
+    }
+    if(!(result&&result.chapterComplete)) throw new Error('Generazione progressiva non completata: riprova per continuare dalla prossima sottosezione.');
     if(!text) throw new Error('Nessun contenuto restituito dal backend');
     thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale'}],currentVersion:0};
     streamText(`chapText-${idx}`,text,()=>{
@@ -4389,7 +4402,7 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft'){
   });
   const d=await r.json().catch(()=>({}));
   if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
-  return {text:d.text||'',sources:[]};
+  return {text:d.text||'',sources:[],chapterComplete:!!d.chapterComplete,progress:d.progress||null};
 }
 
 // ══════════════════════════════════════════════
