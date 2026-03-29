@@ -554,11 +554,7 @@ async function generateChapterDraftStructured(input) {
     parts.push(postProcessChapterSectionText(result.text, subsection));
   }
 
-  let chapterText = postProcessChapterText(`${context.chapterHeading}
-
-${parts.join('
-
-')}`, context);
+  let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
   let finalAttempts = 0;
   while (finalAttempts < 3 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
     const lastSubsection = context.subsections[context.subsections.length - 1];
@@ -571,11 +567,7 @@ ${parts.join('
       targetWords: targets.sectionWords,
     });
     parts[parts.length - 1] = postProcessChapterSectionText(continued.text, lastSubsection);
-    chapterText = postProcessChapterText(`${context.chapterHeading}
-
-${parts.join('
-
-')}`, context);
+    chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
     finalAttempts += 1;
   }
 
@@ -667,24 +659,14 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     '- Usa paragrafi continui, tono accademico, lessico naturale.',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Non usare il marcatore se la sottosezione non è completa.',
-    obj.theme ? `ARGOMENTO DELLA TESI:
-${clip(String(obj.theme), 700)}` : '',
+    obj.theme ? `ARGOMENTO DELLA TESI:\n${clip(String(obj.theme), 700)}` : '',
     obj.faculty || obj.degreeCourse || obj.degreeType
-      ? `CONTESTO ACCADEMICO:
-Facoltà: ${clip(String(obj.faculty || ''), 120)}
-Corso: ${clip(String(obj.degreeCourse || ''), 160)}
-Tipo laurea: ${clip(String(obj.degreeType || ''), 60)}
-Metodologia: ${clip(String(obj.methodology || ''), 60)}`
+      ? `CONTESTO ACCADEMICO:\nFacoltà: ${clip(String(obj.faculty || ''), 120)}\nCorso: ${clip(String(obj.degreeCourse || ''), 160)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 60)}\nMetodologia: ${clip(String(obj.methodology || ''), 60)}`
       : '',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO:
-${clip(String(obj.approvedAbstract), 900)}` : '',
-    summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):
-${summarizePreviousContext(obj.previousChapters)}` : '',
-    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):
-${clip(String(previousSectionText), 420)}` : '',
-  ].filter(Boolean).join('
-
-');
+    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 900)}` : '',
+    summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):\n${summarizePreviousContext(obj.previousChapters)}` : '',
+    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):\n${clip(String(previousSectionText), 420)}` : '',
+  ].filter(Boolean).join('\n\n');
 }
 
 async function generateOneSubsection({ input, context, subsection, index, total, system, targetWords, previousSectionText }) {
@@ -718,13 +700,9 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Non inserire formule come "nel prossimo capitolo" o riepiloghi scolastici.',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Se non è ancora completa, non usare il marcatore.',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO:
-${clip(String(obj.approvedAbstract), 700)}` : '',
-    `TESTO GIÀ GENERATO:
-${clip(String(existingText), 1700)}`,
-  ].filter(Boolean).join('
-
-');
+    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 700)}` : '',
+    `TESTO GIÀ GENERATO:\n${clip(String(existingText), 1700)}`,
+  ].filter(Boolean).join('\n\n');
 
   const addition = await generateWithProviders({
     prompt,
@@ -737,9 +715,7 @@ ${clip(String(existingText), 1700)}`,
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
   return {
-    text: `${stripCompletionMarker(existingText).trim()}
-
-${cleanedAddition}`.trim(),
+    text: `${stripCompletionMarker(existingText).trim()}\n\n${cleanedAddition}`.trim(),
     complete: hasCompletionMarker(addition),
   };
 }
@@ -760,57 +736,17 @@ function stripCompletionMarker(text) {
     .trim();
 }
 
-function countWords(text) {
-  const m = String(text || '').trim().match(/\S+/g);
-  return m ? m.length : 0;
-}
-
-function needsMoreSectionText(sectionText, targetWords) {
-  const words = countWords(sectionText);
-  if (words < Math.max(700, targetWords * 0.82)) return true;
-  return isTextLikelyTruncated(sectionText);
-}
-
-function chapterNeedsCompletion(chapterText, targetWords, context) {
-  if (countWords(chapterText) < targetWords * 0.88) return true;
-  const last = context.subsections[context.subsections.length - 1];
-  if (!last) return false;
-  const idx = chapterText.lastIndexOf(`${last.code} ${last.title}`);
-  if (idx === -1) return false;
-  return isTextLikelyTruncated(chapterText.slice(idx));
-}
-
-function isTextLikelyTruncated(text) {
-  const trimmed = String(text || '').trim();
-  if (!trimmed) return true;
-  if (/[,:;\-–—(]$/.test(trimmed)) return true;
-  if (/\b(e|ed|o|oppure|con|per|di|a|da|in|su|tra|fra|come|che|nel|nella|nei|nelle|della|delle|degli|dei|del)\s*$/i.test(trimmed)) return true;
-  if (!/[.!?)]$/.test(trimmed)) return true;
-  return false;
-}
-
-function cleanContinuationText(text, subsection) {
-  return cleanModelText(text)
-    .replace(/^#+\s*/gm, '')
-    .replace(/\*\*/g, '')
-    .replace(new RegExp(`^${escapeRegex(subsection.code)}\\s+${escapeRegex(subsection.title)}\\s*`, 'i'), '')
-    .trim();
-}
-
-function escapeRegex(value) {
-  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function postProcessChapterSectionText(text, subsection) {
   let cleaned = cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
-    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   const heading = `${subsection.code} ${subsection.title}`;
-  cleaned = cleaned.replace(new RegExp(`^${escapeRegex(heading)}\\s*`, 'i'), '').trim();
-  return `${heading}\n\n${cleaned}`.trim();
+  if (!cleaned.startsWith(heading)) {
+    cleaned = `${heading}\n\n${cleaned.replace(/^\d+\.\d+\s+.+?(\n|$)/, '').trim()}`.trim();
+  }
+  return cleaned;
 }
 
 function postProcessChapterText(text, context) {
@@ -818,12 +754,47 @@ function postProcessChapterText(text, context) {
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .replace(/\n{3,}/g, '\n\n')
-    .replace(/\b(nel|nei|nelle)\s+(prossimi?|successivi?)\s+capitol[io][^.!?]*[.!?]/gi, '')
     .trim();
 
   const chapterHeading = cleanChapterHeading(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`, context.currentChapterNumber);
-  cleaned = cleaned.replace(new RegExp(`^${escapeRegex(chapterHeading)}\\s*`, 'i'), '').trim();
-  return `${chapterHeading}\n\n${cleaned}`.trim();
+  if (!cleaned.startsWith(chapterHeading)) {
+    cleaned = `${chapterHeading}\n\n${cleaned}`;
+  }
+  return cleaned;
+}
+
+function needsMoreSectionText(sectionText, targetWords) {
+  const words = wordCount(sectionText);
+  return words < Math.max(520, targetWords - 120) || endsSuspiciously(sectionText);
+}
+
+function chapterNeedsCompletion(chapterText, targetWords, context) {
+  if (wordCount(chapterText) < Math.max(1800, targetWords - 180)) return true;
+  if (endsSuspiciously(chapterText)) return true;
+  const last = context.subsections[context.subsections.length - 1];
+  return last ? !chapterText.includes(last.code) : false;
+}
+
+function wordCount(text) {
+  return String(text || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function endsSuspiciously(text) {
+  const s = String(text || '').trim();
+  if (!s) return true;
+  return /(?:\b(?:e|ed|o|oppure|ma|perché|poiché|mentre|quando|dove|come|con|senza|tra|fra|di|a|da|in|su|per)\s*$|[:;,\-–—]\s*$|\b(?:infatti|inoltre|tuttavia|pertanto|quindi)\s*$)$/i.test(s);
+}
+
+function cleanContinuationText(text, subsection) {
+  return stripCompletionMarker(text)
+    .replace(new RegExp(`^${escapeRegex(subsection.code)}\\s+${escapeRegex(subsection.title)}\\s*`, 'i'), '')
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .trim();
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildProviderPrompt(task, input) {
