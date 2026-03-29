@@ -513,7 +513,18 @@ async function generateChapterDraftStructured(input) {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
   const progressKey = buildChapterDraftProgressKey(input, context);
+  const draftControl = parseChapterDraftControl(input);
+
+  if (draftControl.resetRequested) {
+    await clearChapterDraftProgress(progressKey);
+  }
+
   const savedProgress = await loadChapterDraftProgress(progressKey, context);
+  const progressCompatible = savedProgress ? isSavedProgressCompatible(savedProgress, context, draftControl.runId) : false;
+  if (savedProgress && !progressCompatible) {
+    await clearChapterDraftProgress(progressKey);
+  }
+  const effectiveSavedProgress = (savedProgress && progressCompatible) ? savedProgress : null;
 
   if (!context.subsections.length) {
     const prompt = buildProviderPrompt('chapter_draft', input);
@@ -529,7 +540,7 @@ async function generateChapterDraftStructured(input) {
   }
 
   const targets = deriveChapterTargets(input, context);
-  const byCode = new Map((savedProgress?.subsections || []).map((x) => [x.code, x]));
+  const byCode = new Map((effectiveSavedProgress?.subsections || []).map((x) => [x.code, x]));
   let targetIndex = -1;
 
   for (let i = 0; i < context.subsections.length; i += 1) {
@@ -539,7 +550,7 @@ async function generateChapterDraftStructured(input) {
       targetIndex = i;
       break;
     }
-    const consideredComplete = !!saved.complete || !needsMoreSectionText(saved.text, targets.sectionWords);
+    const consideredComplete = isStoredSubsectionComplete(saved, targets.sectionWords);
     if (!consideredComplete) {
       targetIndex = i;
       break;
@@ -547,23 +558,27 @@ async function generateChapterDraftStructured(input) {
   }
 
   if (targetIndex === -1) {
-    const completedParts = context.subsections
-      .map((subsection) => byCode.get(subsection.code))
-      .filter((x) => x && x.complete && !needsMoreSectionText(x.text, targets.sectionWords))
-      .map((x) => x.text);
-    const chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${completedParts.join('\n\n')}`, context);
-    await clearChapterDraftProgress(progressKey);
-    return {
-      text: chapterText,
-      done: true,
-      chapterComplete: true,
-      progress: {
-        chapterNumber: context.currentChapterNumber,
-        completedSubsections: context.subsections.length,
-        totalSubsections: context.subsections.length,
-        currentSubsection: null,
-      },
-    };
+    const completedParts = context.subsections.map((subsection) => byCode.get(subsection.code));
+    const allSubsectionsComplete = completedParts.length === context.subsections.length
+      && completedParts.every((x) => isStoredSubsectionComplete(x, targets.sectionWords));
+    if (!allSubsectionsComplete) {
+      targetIndex = Math.max(0, context.subsections.findIndex((subsection) => !isStoredSubsectionComplete(byCode.get(subsection.code), targets.sectionWords)));
+    } else {
+      const orderedText = completedParts.map((x) => x.text);
+      const chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${orderedText.join('\n\n')}`, context);
+      await clearChapterDraftProgress(progressKey);
+      return {
+        text: chapterText,
+        done: true,
+        chapterComplete: true,
+        progress: {
+          chapterNumber: context.currentChapterNumber,
+          completedSubsections: context.subsections.length,
+          totalSubsections: context.subsections.length,
+          currentSubsection: null,
+        },
+      };
+    }
   }
 
   const subsection = context.subsections[targetIndex];
@@ -594,7 +609,7 @@ async function generateChapterDraftStructured(input) {
   const normalized = postProcessChapterSectionText(result.text, subsection);
   const isComplete = !needsMoreSectionText(normalized, targets.sectionWords);
   const attempts = Number(previousSaved?.attempts || 0) + 1;
-  await saveChapterDraftProgress(progressKey, context, subsection, { text: normalized, complete: isComplete, attempts });
+  await saveChapterDraftProgress(progressKey, context, subsection, { text: normalized, complete: isComplete, attempts }, draftControl.runId);
 
   return {
     text: '',
@@ -602,7 +617,7 @@ async function generateChapterDraftStructured(input) {
     chapterComplete: false,
     progress: {
       chapterNumber: context.currentChapterNumber,
-      completedSubsections: countCompletedSubsections(context, { ...savedProgress, subsections: mergeSavedSubsections(savedProgress?.subsections || [], { ...subsection, text: normalized, complete: isComplete, attempts }) }, targets.sectionWords),
+      completedSubsections: countCompletedSubsections(context, { ...effectiveSavedProgress, subsections: mergeSavedSubsections(effectiveSavedProgress?.subsections || [], { ...subsection, text: normalized, complete: isComplete, attempts }) }, targets.sectionWords),
       totalSubsections: context.subsections.length,
       currentSubsection: {
         index: targetIndex,
@@ -613,6 +628,14 @@ async function generateChapterDraftStructured(input) {
       currentText: normalized,
     },
   };
+}
+
+function parseChapterDraftControl(input) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const extra = obj.extra && typeof obj.extra === 'object' ? obj.extra : {};
+  const runId = String(extra.chapterDraftRunId || extra.chapterRunId || obj.chapterDraftRunId || '').trim();
+  const resetRequested = !!(extra.chapterDraftReset || obj.chapterDraftReset);
+  return { runId, resetRequested };
 }
 
 function deriveChapterTargets(input, context) {
@@ -698,13 +721,19 @@ async function loadChapterDraftProgress(progressKey, context) {
       const normalized = postProcessChapterSectionText(item.text, subsection);
       subsections.push({ code: subsection.code, title: subsection.title, text: normalized, complete: item.complete, attempts: item.attempts });
     }
-    return { subsections };
+    return {
+      chapterNumber: Number(saved.chapterNumber || 0),
+      chapterHeading: String(saved.chapterHeading || ''),
+      runId: String(saved.runId || '').trim(),
+      subsectionSignature: String(saved.subsectionSignature || ''),
+      subsections,
+    };
   } catch (_) {
     return null;
   }
 }
 
-async function saveChapterDraftProgress(progressKey, context, subsection, result) {
+async function saveChapterDraftProgress(progressKey, context, subsection, result, runId = '') {
   if (!progressKey) return;
   try {
     const current = (await getJson(progressKey)) || {};
@@ -722,6 +751,8 @@ async function saveChapterDraftProgress(progressKey, context, subsection, result
     await putJson(progressKey, {
       chapterHeading: context.chapterHeading,
       chapterNumber: context.currentChapterNumber,
+      runId: String(runId || '').trim(),
+      subsectionSignature: buildSubsectionSignature(context),
       subsections: next,
       completedParts: next.filter((x) => x.complete).length,
       updatedAt: new Date().toISOString(),
@@ -739,10 +770,33 @@ function countCompletedSubsections(context, savedProgress, targetWords) {
   for (const subsection of context.subsections) {
     const saved = byCode.get(subsection.code);
     if (!saved) break;
-    if (!saved.complete || needsMoreSectionText(saved.text, targetWords)) break;
+    if (!isStoredSubsectionComplete(saved, targetWords)) break;
     count += 1;
   }
   return count;
+}
+
+function isStoredSubsectionComplete(saved, targetWords) {
+  if (!saved || typeof saved.text !== 'string') return false;
+  return !needsMoreSectionText(saved.text, targetWords);
+}
+
+function buildSubsectionSignature(context) {
+  const list = Array.isArray(context?.subsections)
+    ? context.subsections.map((x) => `${x.code}|${x.title}`).join('||')
+    : '';
+  return `${context?.currentChapterNumber || 0}::${list}`;
+}
+
+function isSavedProgressCompatible(savedProgress, context, runId) {
+  if (!savedProgress || typeof savedProgress !== 'object') return false;
+  if (Number(savedProgress.chapterNumber || 0) !== Number(context.currentChapterNumber || 0)) return false;
+  const expectedSignature = buildSubsectionSignature(context);
+  if (savedProgress.subsectionSignature && savedProgress.subsectionSignature !== expectedSignature) return false;
+  const normalizedRunId = String(runId || '').trim();
+  const savedRunId = String(savedProgress.runId || '').trim();
+  if (normalizedRunId && savedRunId && normalizedRunId !== savedRunId) return false;
+  return true;
 }
 
 async function clearChapterDraftProgress(progressKey) {

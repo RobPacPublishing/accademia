@@ -4409,12 +4409,21 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
   }
 
   const baseInput=buildStructuredTaskInput(taskName,userPrompt);
+  const chapterDraftRunId=`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
   let progressPackets=0;
   for(let step=0; step<80; step+=1){
+    const stepInput={
+      ...baseInput,
+      extra:{
+        ...(baseInput.extra||{}),
+        chapterDraftRunId,
+        chapterDraftReset:step===0
+      }
+    };
     const r=await fetch('/api/task',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({task:taskName,input:baseInput})
+      body:JSON.stringify({task:taskName,input:stepInput})
     });
     const d=await r.json().catch(()=>({}));
     if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
