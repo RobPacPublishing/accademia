@@ -4409,7 +4409,8 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
   }
 
   const baseInput=buildStructuredTaskInput(taskName,userPrompt);
-  for(let step=0; step<30; step+=1){
+  let progressPackets=0;
+  for(let step=0; step<80; step+=1){
     const r=await fetch('/api/task',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -4417,10 +4418,20 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
     });
     const d=await r.json().catch(()=>({}));
     if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
-    if(typeof onProgress==='function' && d && d.progress) onProgress(d.progress);
-    if(d && d.done && d.text) return {text:d.text||'',sources:[]};
+    if(typeof onProgress==='function' && d && d.progress){
+      progressPackets+=1;
+      onProgress(d.progress);
+    }
+    if(d && (d.done || d.chapterComplete)){
+      if(d.text) return {text:d.text||'',sources:[]};
+      if(step<79) continue;
+    }
+    if(!d || (!d.progress && !d.done && !d.chapterComplete && step>0 && progressPackets===0)){
+      throw new Error('Nessun avanzamento progressivo ricevuto dal backend.');
+    }
+    await new Promise(resolve=>setTimeout(resolve,220));
   }
-  throw new Error('Generazione progressiva non completata: riprova.');
+  throw new Error('Generazione progressiva non completata entro il limite di tentativi: riprova.');
 }
 
 // ══════════════════════════════════════════════
