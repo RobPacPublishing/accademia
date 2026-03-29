@@ -20,6 +20,7 @@ const SUBSECTION_MIN_WORDS_FLOOR = 260;
 const SUBSECTION_MAX_WORDS_HARD_CAP = 980;
 const SUBSECTION_MAX_ATTEMPTS = 3;
 const SUBSECTION_CONTINUE_MAX_TOKENS = 520;
+const SUBSECTION_MIN_PARAGRAPHS = 2;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -593,7 +594,7 @@ async function generateChapterDraftStructured(input) {
   const previousComplete = targetIndex > 0 ? byCode.get(context.subsections[targetIndex - 1].code) : null;
   const previousSectionText = previousComplete?.text || '';
   const previousAttempts = Number(previousSaved?.attempts || 0);
-  const canContinueCurrent = previousSaved?.text && previousAttempts < SUBSECTION_MAX_ATTEMPTS;
+  const canContinueCurrent = !!previousSaved?.text;
 
   const result = canContinueCurrent
     ? await continueOneSubsection({
@@ -606,7 +607,7 @@ async function generateChapterDraftStructured(input) {
         hardCapWords: targets.sectionHardCapWords,
       })
     : (previousSaved?.text
-      ? { text: previousSaved.text, complete: false, forcedByCap: true }
+      ? { text: previousSaved.text, complete: false, forcedByCap: false }
     : await generateOneSubsection({
         input,
         context,
@@ -978,6 +979,7 @@ function postProcessChapterSectionText(text, subsection, context = null) {
   }
   cleaned = trimSectionAfterUnexpectedHeading(cleaned, subsection, context);
   cleaned = preserveSectionNumbering(cleaned, subsection);
+  cleaned = normalizeSectionFormatting(cleaned, subsection);
   return cleaned;
 }
 
@@ -997,7 +999,10 @@ function postProcessChapterText(text, context) {
 
 function needsMoreSectionText(sectionText, targetWords) {
   const words = wordCount(sectionText);
-  return words < Math.max(520, targetWords - 120) || endsSuspiciously(sectionText);
+  return words < Math.max(520, targetWords - 120)
+    || endsSuspiciously(sectionText)
+    || hasOpenStructures(sectionText)
+    || !hasMinimumParagraphs(sectionText, SUBSECTION_MIN_PARAGRAPHS);
 }
 
 function evaluateSubsectionReadiness(text, subsection, targets, meta = {}) {
@@ -1010,8 +1015,7 @@ function evaluateSubsectionReadiness(text, subsection, targets, meta = {}) {
   const hitHardCap = words >= Number(targets?.sectionHardCapWords || SUBSECTION_MAX_WORDS_HARD_CAP);
   const hitAttemptCap = attempts >= SUBSECTION_MAX_ATTEMPTS;
   const completeByContent = integrityOk && enoughWords;
-  const completeByForcedStop = integrityOk && (hitHardCap || hitAttemptCap || forcedByCap);
-  const complete = completeByContent || (providerMarkedComplete && integrityOk && enoughWords) || completeByForcedStop;
+  const complete = completeByContent || (providerMarkedComplete && integrityOk && enoughWords);
   return { complete, words, integrityOk, enoughWords, hitHardCap, hitAttemptCap };
 }
 
@@ -1038,6 +1042,57 @@ function cleanContinuationText(text, subsection) {
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .trim();
+}
+
+function normalizeSectionFormatting(text, subsection) {
+  const normalized = preserveSectionNumbering(String(text || ''), subsection);
+  const lines = normalized.split(/\r?\n/);
+  const heading = lines.shift() || `${subsection.code} ${subsection.title}`;
+  let body = lines.join('\n').trim();
+  body = body
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/([A-Za-zÀ-ÖØ-öø-ÿ])-\s*\n\s*([A-Za-zÀ-ÖØ-öø-ÿ])/g, '$1$2')
+    .replace(/([A-Za-zÀ-ÖØ-öø-ÿ])\s+\n\s*([A-Za-zÀ-ÖØ-öø-ÿ])/g, '$1 $2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  body = enforceSubsectionParagraphing(body);
+  return body ? `${heading}\n\n${body}`.trim() : heading;
+}
+
+function enforceSubsectionParagraphing(bodyText) {
+  const body = String(bodyText || '').trim();
+  if (!body) return '';
+  const paragraphs = body.split(/\n{2,}/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (paragraphs.length >= SUBSECTION_MIN_PARAGRAPHS) return paragraphs.join('\n\n');
+  const compact = paragraphs.join(' ').replace(/\s+/g, ' ').trim();
+  if (!compact) return '';
+  const sentences = compact.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [compact];
+  const rebuilt = [];
+  let bucket = [];
+  let bucketWords = 0;
+  const targetWords = Math.max(80, Math.ceil(wordCount(compact) / SUBSECTION_MIN_PARAGRAPHS));
+  for (const sentence of sentences) {
+    const cleanSentence = sentence.replace(/\s+/g, ' ').trim();
+    if (!cleanSentence) continue;
+    const sentenceWords = wordCount(cleanSentence);
+    if (bucketWords >= targetWords && rebuilt.length < SUBSECTION_MIN_PARAGRAPHS - 1) {
+      rebuilt.push(bucket.join(' ').trim());
+      bucket = [cleanSentence];
+      bucketWords = sentenceWords;
+      continue;
+    }
+    bucket.push(cleanSentence);
+    bucketWords += sentenceWords;
+  }
+  if (bucket.length) rebuilt.push(bucket.join(' ').trim());
+  const cleanedRebuilt = rebuilt.filter(Boolean);
+  if (cleanedRebuilt.length >= SUBSECTION_MIN_PARAGRAPHS) return cleanedRebuilt.join('\n\n');
+  const midpoint = Math.ceil(sentences.length / 2);
+  const first = sentences.slice(0, midpoint).join(' ').replace(/\s+/g, ' ').trim();
+  const second = sentences.slice(midpoint).join(' ').replace(/\s+/g, ' ').trim();
+  return [first, second].filter(Boolean).join('\n\n');
 }
 
 function enforceSubsectionHardCap(text, subsection, hardCapWords) {
@@ -1096,9 +1151,45 @@ function passesSubsectionIntegrityChecks(text, subsection) {
   const withoutHeading = content.slice(heading.length).trim();
   if (wordCount(withoutHeading) < 160) return false;
   if (endsSuspiciously(withoutHeading)) return false;
+  if (hasOpenStructures(withoutHeading)) return false;
+  if (!hasMinimumParagraphs(withoutHeading, SUBSECTION_MIN_PARAGRAPHS)) return false;
   const lines = content.split(/\r?\n/).slice(1);
   if (lines.some((line) => /^\d+\.\d+\s+/.test(line.trim()))) return false;
   return /[.!?)]\s*$/.test(withoutHeading);
+}
+
+function hasMinimumParagraphs(text, minParagraphs) {
+  const body = String(text || '').trim();
+  if (!body) return false;
+  const paragraphs = body.split(/\n{2,}/).map((p) => p.trim()).filter((p) => wordCount(p) >= 20);
+  return paragraphs.length >= Math.max(1, Number(minParagraphs || 1));
+}
+
+function hasOpenStructures(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return true;
+  if (/[,:;(\[\{«“"'\-–—]\s*$/.test(normalized)) return true;
+  const delimiters = [
+    ['(', ')'],
+    ['[', ']'],
+    ['{', '}'],
+    ['«', '»'],
+    ['“', '”'],
+    ['"', '"'],
+  ];
+  for (const [open, close] of delimiters) {
+    if (open === close) {
+      const count = (normalized.match(new RegExp(escapeRegex(open), 'g')) || []).length;
+      if (count % 2 !== 0) return true;
+    } else {
+      const openCount = (normalized.match(new RegExp(escapeRegex(open), 'g')) || []).length;
+      const closeCount = (normalized.match(new RegExp(escapeRegex(close), 'g')) || []).length;
+      if (openCount > closeCount) return true;
+    }
+  }
+  const trimmedTail = tailWords(normalized, 18);
+  if (/\b(?:e|ed|o|oppure|ma|perché|poiché|mentre|quando|dove|come|con|senza|tra|fra|di|a|da|in|su|per|nel|nella|nelle|negli|degli|delle)\s*$/i.test(trimmedTail)) return true;
+  return false;
 }
 
 function createSubsectionSignature(context, subsection, text) {
