@@ -32,6 +32,14 @@ const INCOMPLETE_TAIL_PATTERNS = [
   /si traduce in$/i,
   /pu[oò] essere letta come$/i,
 ];
+const LOGICALLY_OPEN_ENDING_PATTERNS = [
+  /\b(?:come|cos[iì])\s+vedremo\b/i,
+  /\b(?:nel|nei|nelle)\s+prossim[oi]\b/i,
+  /\b(?:sar[aà]|verr[aà])\s+approfondit[ao]\b/i,
+  /\b(?:resta|rimane)\s+da\b/i,
+  /\bin\s+attesa\s+di\b/i,
+  /\bda\s+completare\b/i,
+];
 
 export default async function handler(req, res) {
   setCors(res);
@@ -585,6 +593,7 @@ async function generateChapterDraftStructured(input) {
     const completedParts = savedIntegrity.canonicalEntries;
     const allSubsectionsComplete = savedIntegrity.allExpectedPresentOnce
       && savedIntegrity.noDuplicates
+      && savedIntegrity.inExpectedOrder
       && completedParts.length === context.subsections.length
       && completedParts.every((x, idx) => isStoredSubsectionComplete(x, targets.sectionWords, context.subsections[idx]));
     if (!allSubsectionsComplete) {
@@ -1202,43 +1211,101 @@ function passesSubsectionIntegrityChecks(text, subsection) {
 
 function analyzeSubsectionCompletion(text, subsection) {
   const content = String(text || '').trim();
-  if (!content) return { complete: false, hasValidHeading: false, hasEnoughBodyWords: false, hasMinimumParagraphs: false, noNestedHeading: false, needsTailClosure: true };
+  if (!content) return defaultSubsectionAnalysis();
   const heading = `${subsection.code} ${subsection.title}`;
   const hasValidHeading = content.startsWith(heading);
   if (!hasValidHeading) {
-    return { complete: false, hasValidHeading: false, hasEnoughBodyWords: false, hasMinimumParagraphs: false, noNestedHeading: false, needsTailClosure: true };
+    return defaultSubsectionAnalysis();
   }
   const withoutHeading = content.slice(heading.length).trim();
   const hasEnoughBodyWords = wordCount(withoutHeading) >= 160;
-  const hasEnoughParagraphs = hasMinimumParagraphs(withoutHeading, SUBSECTION_MIN_PARAGRAPHS);
+  const bodyParagraphs = getBodyParagraphs(withoutHeading);
+  const hasEnoughParagraphs = bodyParagraphs.length >= SUBSECTION_MIN_PARAGRAPHS;
   const closure = hasIncompleteTail(withoutHeading);
   const noSuspiciousEnding = !endsSuspiciously(withoutHeading);
   const noOpenStructures = !hasOpenStructures(withoutHeading);
-  const punctuationClosed = /[.!?)]\s*$/.test(withoutHeading);
+  const finalSentence = extractFinalSentence(withoutHeading);
+  const punctuationClosed = finalSentence.punctuationClosed;
+  const lastParagraphClosed = isLastParagraphClosed(bodyParagraphs);
+  const grammarClosed = punctuationClosed && !finalSentence.suspiciousTail;
+  const logicClosed = !finalSentence.logicallyOpen;
   const lines = content.split(/\r?\n/).slice(1);
   const noNestedHeading = !lines.some((line) => /^\d+\.\d+\s+/.test(line.trim()));
   const complete = hasEnoughBodyWords
     && hasEnoughParagraphs
+    && lastParagraphClosed
+    && grammarClosed
+    && logicClosed
     && noSuspiciousEnding
     && noOpenStructures
-    && punctuationClosed
     && !closure.incomplete
     && noNestedHeading;
+  const needsTailClosure = noNestedHeading
+    && hasEnoughBodyWords
+    && hasEnoughParagraphs
+    && (!lastParagraphClosed || !grammarClosed || !logicClosed || closure.incomplete || !noSuspiciousEnding || !noOpenStructures);
   return {
     complete,
     hasValidHeading,
     hasEnoughBodyWords,
     hasMinimumParagraphs: hasEnoughParagraphs,
     noNestedHeading,
-    needsTailClosure: noNestedHeading && hasEnoughBodyWords && hasEnoughParagraphs && (closure.incomplete || !noSuspiciousEnding || !noOpenStructures || !punctuationClosed),
+    hasText: withoutHeading.length > 0,
+    lastParagraphClosed,
+    grammarClosed,
+    logicClosed,
+    needsTailClosure,
+  };
+}
+
+function defaultSubsectionAnalysis() {
+  return {
+    complete: false,
+    hasValidHeading: false,
+    hasEnoughBodyWords: false,
+    hasMinimumParagraphs: false,
+    noNestedHeading: false,
+    hasText: false,
+    lastParagraphClosed: false,
+    grammarClosed: false,
+    logicClosed: false,
+    needsTailClosure: true,
   };
 }
 
 function hasMinimumParagraphs(text, minParagraphs) {
   const body = String(text || '').trim();
   if (!body) return false;
-  const paragraphs = body.split(/\n{2,}/).map((p) => p.trim()).filter((p) => wordCount(p) >= 20);
+  const paragraphs = getBodyParagraphs(body);
   return paragraphs.length >= Math.max(1, Number(minParagraphs || 1));
+}
+
+function getBodyParagraphs(text) {
+  return String(text || '')
+    .trim()
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\s+/g, ' ').trim())
+    .filter((p) => wordCount(p) >= 20);
+}
+
+function extractFinalSentence(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return { sentence: '', punctuationClosed: false, suspiciousTail: true, logicallyOpen: true };
+  const punctuationClosed = /[.!?)]$/.test(normalized);
+  const chunks = normalized.match(/[^.!?]+[.!?)]|[^.!?]+$/g) || [normalized];
+  const sentence = String(chunks[chunks.length - 1] || normalized).trim();
+  const suspiciousTail = /(?:\b(?:e|ed|o|oppure|ma|perché|poiché|mentre|quando|dove|come|con|senza|tra|fra|di|a|da|in|su|per|nel|nella|nelle|negli|degli|delle)\s*$|[:;,\-–—]\s*$)$/i.test(sentence);
+  const logicallyOpen = LOGICALLY_OPEN_ENDING_PATTERNS.some((pattern) => pattern.test(sentence));
+  return { sentence, punctuationClosed, suspiciousTail, logicallyOpen };
+}
+
+function isLastParagraphClosed(paragraphs) {
+  const lastParagraph = Array.isArray(paragraphs) && paragraphs.length ? String(paragraphs[paragraphs.length - 1] || '').trim() : '';
+  if (!lastParagraph) return false;
+  if (wordCount(lastParagraph) < 20) return false;
+  if (hasIncompleteTail(lastParagraph).incomplete) return false;
+  const finalSentence = extractFinalSentence(lastParagraph);
+  return finalSentence.punctuationClosed && !finalSentence.suspiciousTail && !finalSentence.logicallyOpen;
 }
 
 function hasOpenStructures(text) {
@@ -1301,8 +1368,14 @@ function evaluateSavedProgressIntegrity(context, savedProgress, targetWords) {
   const canonicalEntries = context.subsections.map((subsection) => savedSubsections.find((x) => x && x.code === subsection.code)).filter(Boolean);
   const allExpectedPresentOnce = context.subsections.every((subsection) => Number(counts.get(subsection.code) || 0) === 1);
   const noDuplicates = [...counts.values()].every((count) => count <= 1);
+  const expectedOrder = context.subsections.map((subsection) => subsection.code);
+  const savedOrder = savedSubsections
+    .filter((item) => item && expectedOrder.includes(item.code))
+    .map((item) => item.code);
+  const inExpectedOrder = savedOrder.length === expectedOrder.length
+    && savedOrder.every((code, idx) => code === expectedOrder[idx]);
   const allComplete = context.subsections.every((subsection) => isStoredSubsectionComplete(savedSubsections.find((x) => x && x.code === subsection.code), targetWords, subsection));
-  return { canonicalEntries, allExpectedPresentOnce, noDuplicates, allComplete };
+  return { canonicalEntries, allExpectedPresentOnce, noDuplicates, inExpectedOrder, allComplete };
 }
 
 function escapeRegex(value) {
