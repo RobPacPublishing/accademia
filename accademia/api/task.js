@@ -15,6 +15,7 @@ const SESSION_TTL_SECONDS = 60 * 24 * 60 * 60;
 const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
 const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
+const CHAPTER_DRAFT_TTL_SECONDS = 6 * 60 * 60;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -508,6 +509,8 @@ async function generateWithProviders({ prompt, system, maxTokens, primaryTimeout
 async function generateChapterDraftStructured(input) {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
+  const progressKey = buildChapterDraftProgressKey(input, context);
+  const savedProgress = await loadChapterDraftProgress(progressKey, context);
 
   if (!context.subsections.length) {
     const prompt = buildProviderPrompt('chapter_draft', input);
@@ -523,20 +526,23 @@ async function generateChapterDraftStructured(input) {
   }
 
   const targets = deriveChapterTargets(input, context);
-  const parts = [];
+  const parts = Array.isArray(savedProgress?.parts) ? [...savedProgress.parts] : [];
 
-  for (let i = 0; i < context.subsections.length; i += 1) {
+  for (let i = parts.length; i < context.subsections.length; i += 1) {
     const subsection = context.subsections[i];
-    let result = await generateOneSubsection({
-      input,
-      context,
-      subsection,
-      index: i,
-      total: context.subsections.length,
-      system,
-      targetWords: targets.sectionWords,
-      previousSectionText: parts[i - 1] || '',
-    });
+    const previousSaved = savedProgress?.subsections?.[i];
+    let result = previousSaved?.text
+      ? { text: String(previousSaved.text || ''), complete: !!previousSaved.complete }
+      : await generateOneSubsection({
+          input,
+          context,
+          subsection,
+          index: i,
+          total: context.subsections.length,
+          system,
+          targetWords: targets.sectionWords,
+          previousSectionText: parts[i - 1] || '',
+        });
 
     let attempts = 0;
     while (attempts < 4 && (!result.complete || needsMoreSectionText(result.text, targets.sectionWords))) {
@@ -549,9 +555,12 @@ async function generateChapterDraftStructured(input) {
         targetWords: targets.sectionWords,
       });
       attempts += 1;
+      await saveChapterDraftProgress(progressKey, context, parts, subsection, result);
     }
 
-    parts.push(postProcessChapterSectionText(result.text, subsection));
+    const normalized = postProcessChapterSectionText(result.text, subsection);
+    parts.push(normalized);
+    await saveChapterDraftProgress(progressKey, context, parts, subsection, { text: normalized, complete: result.complete });
   }
 
   let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
@@ -567,10 +576,12 @@ async function generateChapterDraftStructured(input) {
       targetWords: targets.sectionWords,
     });
     parts[parts.length - 1] = postProcessChapterSectionText(continued.text, lastSubsection);
+    await saveChapterDraftProgress(progressKey, context, parts, lastSubsection, { text: parts[parts.length - 1], complete: continued.complete });
     chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
     finalAttempts += 1;
   }
 
+  await clearChapterDraftProgress(progressKey);
   return chapterText;
 }
 
@@ -601,19 +612,21 @@ function parseChapterContext(input) {
   let inside = false;
 
   for (const line of normalizedLines) {
-    const chapterMatch = line.match(/^(?:capitolo\s+)?(\d+)\s*[—\-:.]?\s*(.*)$/i);
-    if (chapterMatch && /capitolo/i.test(line)) {
+    const chapterMatch = line.match(/^capitolo\s+(\d+)\s*[—\-:.]?\s*(.*)$/i) || line.match(/^(\d+)\.\s+(.+)$/);
+    if (chapterMatch) {
       const n = Number(chapterMatch[1]);
-      if (n === currentChapterNumber) {
-        inside = true;
-        chapterHeading = cleanChapterHeading(line, currentChapterNumber);
-        continue;
+      if (Number.isFinite(n) && n >= 1) {
+        if (n === currentChapterNumber) {
+          inside = true;
+          chapterHeading = cleanChapterHeading(line, currentChapterNumber);
+          continue;
+        }
+        if (inside) break;
       }
-      if (inside) break;
     }
 
     if (!inside) continue;
-    const subsectionMatch = line.match(/^(\d+\.\d+)\s+(.+)$/);
+    const subsectionMatch = line.match(/^(\d+\.\d+)(?:\s*[—\-:.]\s*|\s+)(.+)$/);
     if (subsectionMatch && Number(subsectionMatch[1].split('.')[0]) === currentChapterNumber) {
       subsections.push({ code: subsectionMatch[1], title: subsectionMatch[2].trim() });
     }
@@ -624,10 +637,78 @@ function parseChapterContext(input) {
 
 function cleanChapterHeading(line, chapterNumber) {
   const cleaned = normalizeOutlineLine(line)
-    .replace(new RegExp(`^capitolo\\s+${chapterNumber}\\s*[—:.-]?\\s*`, 'i'), '')
+    .replace(new RegExp(`^(?:capitolo\\s+)?${chapterNumber}\\s*[—:.-]?\\s*`, 'i'), '')
     .replace(/^\.\s*/, '')
     .trim();
   return cleaned ? `Capitolo ${chapterNumber} — ${cleaned}` : `Capitolo ${chapterNumber}`;
+}
+
+function buildChapterDraftProgressKey(input, context) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const syncKey = String(obj.syncKey || '').trim();
+  const sessionToken = String(obj.sessionToken || '').trim();
+  const ownerKey = syncKey ? `sync:${safeKey(syncKey)}` : (sessionToken ? `session:${safeKey(sessionToken)}` : '');
+  if (!ownerKey) return '';
+  return `accademia:chapter:draft:${ownerKey}:${context.currentChapterNumber}`;
+}
+
+async function loadChapterDraftProgress(progressKey, context) {
+  if (!progressKey) return null;
+  try {
+    const saved = await getJson(progressKey);
+    if (!saved || typeof saved !== 'object') return null;
+    const byCode = new Map((Array.isArray(saved.subsections) ? saved.subsections : [])
+      .filter((x) => x && x.code && typeof x.text === 'string')
+      .map((x) => [String(x.code), { text: String(x.text), complete: !!x.complete }]));
+
+    const subsections = [];
+    const parts = [];
+    for (const subsection of context.subsections) {
+      const item = byCode.get(subsection.code);
+      if (!item) break;
+      const normalized = postProcessChapterSectionText(item.text, subsection);
+      subsections.push({ code: subsection.code, title: subsection.title, text: normalized, complete: item.complete });
+      if (item.complete && !needsMoreSectionText(normalized, 540)) {
+        parts.push(normalized);
+        continue;
+      }
+      break;
+    }
+    return { subsections, parts };
+  } catch (_) {
+    return null;
+  }
+}
+
+async function saveChapterDraftProgress(progressKey, context, parts, subsection, result) {
+  if (!progressKey) return;
+  try {
+    const current = (await getJson(progressKey)) || {};
+    const subsections = Array.isArray(current.subsections) ? current.subsections : [];
+    const entry = {
+      code: subsection.code,
+      title: subsection.title,
+      text: postProcessChapterSectionText(result.text, subsection),
+      complete: !!result.complete,
+      updatedAt: new Date().toISOString(),
+    };
+    const next = [...subsections.filter((x) => x && x.code !== subsection.code), entry]
+      .sort((a, b) => context.subsections.findIndex((x) => x.code === a.code) - context.subsections.findIndex((x) => x.code === b.code));
+    await putJson(progressKey, {
+      chapterHeading: context.chapterHeading,
+      chapterNumber: context.currentChapterNumber,
+      subsections: next,
+      completedParts: parts.length,
+      updatedAt: new Date().toISOString(),
+    }, CHAPTER_DRAFT_TTL_SECONDS);
+  } catch (_) {}
+}
+
+async function clearChapterDraftProgress(progressKey) {
+  if (!progressKey) return;
+  try {
+    await delKey(progressKey);
+  } catch (_) {}
 }
 
 function normalizeOutlineLine(line) {
