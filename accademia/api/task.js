@@ -21,6 +21,17 @@ const SUBSECTION_MAX_WORDS_HARD_CAP = 980;
 const SUBSECTION_MAX_ATTEMPTS = 3;
 const SUBSECTION_CONTINUE_MAX_TOKENS = 520;
 const SUBSECTION_MIN_PARAGRAPHS = 2;
+const SUBSECTION_CLOSURE_MAX_TOKENS = 260;
+const INCOMPLETE_TAIL_PATTERNS = [
+  /in questo senso$/i,
+  /questo implica che$/i,
+  /la questione riguarda$/i,
+  /da questo punto di vista$/i,
+  /restituisce una$/i,
+  /contribuisce a$/i,
+  /si traduce in$/i,
+  /pu[oò] essere letta come$/i,
+];
 
 export default async function handler(req, res) {
   setCors(res);
@@ -556,7 +567,7 @@ async function generateChapterDraftStructured(input) {
       targetIndex = i;
       break;
     }
-    const consideredComplete = isStoredSubsectionComplete(saved, targets.sectionWords);
+    const consideredComplete = isStoredSubsectionComplete(saved, targets.sectionWords, subsection);
     if (!consideredComplete) {
       targetIndex = i;
       break;
@@ -568,9 +579,9 @@ async function generateChapterDraftStructured(input) {
     const allSubsectionsComplete = savedIntegrity.allExpectedPresentOnce
       && savedIntegrity.noDuplicates
       && completedParts.length === context.subsections.length
-      && completedParts.every((x) => isStoredSubsectionComplete(x, targets.sectionWords));
+      && completedParts.every((x, idx) => isStoredSubsectionComplete(x, targets.sectionWords, context.subsections[idx]));
     if (!allSubsectionsComplete) {
-      targetIndex = Math.max(0, context.subsections.findIndex((subsection) => !isStoredSubsectionComplete(byCode.get(subsection.code), targets.sectionWords)));
+      targetIndex = Math.max(0, context.subsections.findIndex((subsection) => !isStoredSubsectionComplete(byCode.get(subsection.code), targets.sectionWords, subsection)));
     } else {
       const orderedText = completedParts.map((x) => x.text);
       const chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${orderedText.join('\n\n')}`, context);
@@ -595,6 +606,17 @@ async function generateChapterDraftStructured(input) {
   const previousSectionText = previousComplete?.text || '';
   const previousAttempts = Number(previousSaved?.attempts || 0);
   const canContinueCurrent = !!previousSaved?.text;
+  const previousAnalysis = canContinueCurrent
+    ? analyzeSubsectionCompletion(previousSaved.text, subsection)
+    : null;
+  const resumeForClosureOnly = !!(
+    previousAnalysis
+    && previousAnalysis.hasEnoughBodyWords
+    && previousAnalysis.hasMinimumParagraphs
+    && previousAnalysis.hasValidHeading
+    && previousAnalysis.noNestedHeading
+    && previousAnalysis.needsTailClosure
+  );
 
   const result = canContinueCurrent
     ? await continueOneSubsection({
@@ -605,6 +627,7 @@ async function generateChapterDraftStructured(input) {
         existingText: previousSaved.text,
         targetWords: targets.sectionWords,
         hardCapWords: targets.sectionHardCapWords,
+        closeOnly: resumeForClosureOnly,
       })
     : (previousSaved?.text
       ? { text: previousSaved.text, complete: false, forcedByCap: false }
@@ -816,16 +839,18 @@ function countCompletedSubsections(context, savedProgress, targetWords) {
   for (const subsection of context.subsections) {
     const saved = byCode.get(subsection.code);
     if (!saved) break;
-    if (!isStoredSubsectionComplete(saved, targetWords)) break;
+    if (!isStoredSubsectionComplete(saved, targetWords, subsection)) break;
     count += 1;
   }
   return count;
 }
 
-function isStoredSubsectionComplete(saved, targetWords) {
+function isStoredSubsectionComplete(saved, targetWords, expectedSubsection = null) {
   if (!saved || typeof saved.text !== 'string') return false;
   if (!saved.complete || String(saved.status || '') !== 'complete') return false;
-  return !needsMoreSectionText(saved.text, targetWords) && passesSubsectionIntegrityChecks(saved.text, saved);
+  const expected = expectedSubsection || saved;
+  if (!expected?.code || !expected?.title) return false;
+  return !needsMoreSectionText(saved.text, targetWords) && passesSubsectionIntegrityChecks(saved.text, expected);
 }
 
 function buildSubsectionSignature(context) {
@@ -910,7 +935,7 @@ async function generateOneSubsection({ input, context, subsection, index, total,
   };
 }
 
-async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords, hardCapWords }) {
+async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords, hardCapWords, closeOnly = false }) {
   const obj = input && typeof input === 'object' ? input : {};
   const currentWords = wordCount(existingText);
   if (currentWords >= Math.max(320, hardCapWords - 25)) {
@@ -925,7 +950,9 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Non ripetere il titolo della sottosezione.',
     '- Non ricominciare da capo.',
     '- Continua esattamente dal punto in cui il testo si è fermato.',
-    '- Aggiungi solo il testo mancante per completare la sottosezione in modo pieno e naturale.',
+    closeOnly
+      ? '- Il testo è quasi completo: aggiungi solo il minimo indispensabile per chiudere il ragionamento finale in modo pieno, senza riespandere la sezione.'
+      : '- Aggiungi solo il testo mancante per completare la sottosezione in modo pieno e naturale.',
     `- Mantieniti entro il limite assoluto di ${hardCapWords} parole complessive.`,
     '- Non inserire formule come "nel prossimo capitolo" o riepiloghi scolastici.',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
@@ -937,7 +964,7 @@ async function continueOneSubsection({ input, context, subsection, system, exist
   const addition = await generateWithProviders({
     prompt,
     system,
-    maxTokens: SUBSECTION_CONTINUE_MAX_TOKENS,
+    maxTokens: closeOnly ? SUBSECTION_CLOSURE_MAX_TOKENS : SUBSECTION_CONTINUE_MAX_TOKENS,
     primaryTimeoutMs: 22_000,
     fallbackTimeoutMs: 18_000,
     openaiTimeoutMs: 20_000,
@@ -999,8 +1026,10 @@ function postProcessChapterText(text, context) {
 
 function needsMoreSectionText(sectionText, targetWords) {
   const words = wordCount(sectionText);
+  const closure = hasIncompleteTail(sectionText);
   return words < Math.max(520, targetWords - 120)
     || endsSuspiciously(sectionText)
+    || closure.incomplete
     || hasOpenStructures(sectionText)
     || !hasMinimumParagraphs(sectionText, SUBSECTION_MIN_PARAGRAPHS);
 }
@@ -1010,13 +1039,14 @@ function evaluateSubsectionReadiness(text, subsection, targets, meta = {}) {
   const providerMarkedComplete = !!meta.providerMarkedComplete;
   const attempts = Number(meta.attempts || 0);
   const forcedByCap = !!meta.forcedByCap;
-  const integrityOk = passesSubsectionIntegrityChecks(text, subsection);
+  const analysis = analyzeSubsectionCompletion(text, subsection);
+  const integrityOk = analysis.complete;
   const enoughWords = words >= Number(targets?.sectionSufficientWords || SUBSECTION_MIN_WORDS_FLOOR);
   const hitHardCap = words >= Number(targets?.sectionHardCapWords || SUBSECTION_MAX_WORDS_HARD_CAP);
   const hitAttemptCap = attempts >= SUBSECTION_MAX_ATTEMPTS;
   const completeByContent = integrityOk && enoughWords;
   const complete = completeByContent || (providerMarkedComplete && integrityOk && enoughWords);
-  return { complete, words, integrityOk, enoughWords, hitHardCap, hitAttemptCap };
+  return { complete, words, integrityOk, enoughWords, hitHardCap, hitAttemptCap, needsTailClosure: analysis.needsTailClosure, forcedByCap };
 }
 
 function chapterNeedsCompletion(chapterText, targetWords, context) {
@@ -1144,18 +1174,41 @@ function trimSectionAfterUnexpectedHeading(text, subsection, context) {
 }
 
 function passesSubsectionIntegrityChecks(text, subsection) {
+  return analyzeSubsectionCompletion(text, subsection).complete;
+}
+
+function analyzeSubsectionCompletion(text, subsection) {
   const content = String(text || '').trim();
-  if (!content) return false;
+  if (!content) return { complete: false, hasValidHeading: false, hasEnoughBodyWords: false, hasMinimumParagraphs: false, noNestedHeading: false, needsTailClosure: true };
   const heading = `${subsection.code} ${subsection.title}`;
-  if (!content.startsWith(heading)) return false;
+  const hasValidHeading = content.startsWith(heading);
+  if (!hasValidHeading) {
+    return { complete: false, hasValidHeading: false, hasEnoughBodyWords: false, hasMinimumParagraphs: false, noNestedHeading: false, needsTailClosure: true };
+  }
   const withoutHeading = content.slice(heading.length).trim();
-  if (wordCount(withoutHeading) < 160) return false;
-  if (endsSuspiciously(withoutHeading)) return false;
-  if (hasOpenStructures(withoutHeading)) return false;
-  if (!hasMinimumParagraphs(withoutHeading, SUBSECTION_MIN_PARAGRAPHS)) return false;
+  const hasEnoughBodyWords = wordCount(withoutHeading) >= 160;
+  const hasEnoughParagraphs = hasMinimumParagraphs(withoutHeading, SUBSECTION_MIN_PARAGRAPHS);
+  const closure = hasIncompleteTail(withoutHeading);
+  const noSuspiciousEnding = !endsSuspiciously(withoutHeading);
+  const noOpenStructures = !hasOpenStructures(withoutHeading);
+  const punctuationClosed = /[.!?)]\s*$/.test(withoutHeading);
   const lines = content.split(/\r?\n/).slice(1);
-  if (lines.some((line) => /^\d+\.\d+\s+/.test(line.trim()))) return false;
-  return /[.!?)]\s*$/.test(withoutHeading);
+  const noNestedHeading = !lines.some((line) => /^\d+\.\d+\s+/.test(line.trim()));
+  const complete = hasEnoughBodyWords
+    && hasEnoughParagraphs
+    && noSuspiciousEnding
+    && noOpenStructures
+    && punctuationClosed
+    && !closure.incomplete
+    && noNestedHeading;
+  return {
+    complete,
+    hasValidHeading,
+    hasEnoughBodyWords,
+    hasMinimumParagraphs: hasEnoughParagraphs,
+    noNestedHeading,
+    needsTailClosure: noNestedHeading && hasEnoughBodyWords && hasEnoughParagraphs && (closure.incomplete || !noSuspiciousEnding || !noOpenStructures || !punctuationClosed),
+  };
 }
 
 function hasMinimumParagraphs(text, minParagraphs) {
@@ -1192,6 +1245,23 @@ function hasOpenStructures(text) {
   return false;
 }
 
+function hasIncompleteTail(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return { incomplete: true, reason: 'empty' };
+  const compactTail = tailWords(normalized, 16).toLowerCase().replace(/[.!?…]+$/g, '').trim();
+  if (!compactTail) return { incomplete: true, reason: 'empty_tail' };
+  if (INCOMPLETE_TAIL_PATTERNS.some((pattern) => pattern.test(compactTail))) {
+    return { incomplete: true, reason: 'known_open_formula' };
+  }
+  if (/(?:\b(?:una|un|il|lo|la|i|gli|le)\s+[a-zà-öø-ÿ]+)$/.test(compactTail) && /(?:restituisce|implica|riguarda)\s+(?:una|un|il|lo|la|i|gli|le)\s+[a-zà-öø-ÿ]+$/i.test(compactTail)) {
+    return { incomplete: true, reason: 'dangling_object' };
+  }
+  if (/^(?:in|da|per|con|senza|tra|fra|su|a|di)\b/i.test(compactTail) && compactTail.split(/\s+/).length <= 4) {
+    return { incomplete: true, reason: 'short_prep_tail' };
+  }
+  return { incomplete: false, reason: '' };
+}
+
 function createSubsectionSignature(context, subsection, text) {
   const base = `${context.currentChapterNumber}|${subsection.code}|${subsection.title}|${String(text || '').trim()}`;
   return createHash('sha256').update(base).digest('hex').slice(0, 20);
@@ -1208,7 +1278,7 @@ function evaluateSavedProgressIntegrity(context, savedProgress, targetWords) {
   const canonicalEntries = context.subsections.map((subsection) => savedSubsections.find((x) => x && x.code === subsection.code)).filter(Boolean);
   const allExpectedPresentOnce = context.subsections.every((subsection) => Number(counts.get(subsection.code) || 0) === 1);
   const noDuplicates = [...counts.values()].every((count) => count <= 1);
-  const allComplete = context.subsections.every((subsection) => isStoredSubsectionComplete(savedSubsections.find((x) => x && x.code === subsection.code), targetWords));
+  const allComplete = context.subsections.every((subsection) => isStoredSubsectionComplete(savedSubsections.find((x) => x && x.code === subsection.code), targetWords, subsection));
   return { canonicalEntries, allExpectedPresentOnce, noDuplicates, allComplete };
 }
 
