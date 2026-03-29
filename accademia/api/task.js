@@ -14,6 +14,7 @@ const OTP_TTL_SECONDS = 10 * 60;
 const SESSION_TTL_SECONDS = 60 * 24 * 60 * 60;
 const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
+const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
 
 export default async function handler(req, res) {
   setCors(res);
@@ -513,10 +514,10 @@ async function generateChapterDraftStructured(input) {
     const raw = await generateWithProviders({
       prompt,
       system,
-      maxTokens: 2600,
-      primaryTimeoutMs: 40_000,
-      fallbackTimeoutMs: 28_000,
-      openaiTimeoutMs: 30_000,
+      maxTokens: 2200,
+      primaryTimeoutMs: 34_000,
+      fallbackTimeoutMs: 24_000,
+      openaiTimeoutMs: 26_000,
     });
     return postProcessChapterText(raw, context);
   }
@@ -526,7 +527,7 @@ async function generateChapterDraftStructured(input) {
 
   for (let i = 0; i < context.subsections.length; i += 1) {
     const subsection = context.subsections[i];
-    let sectionText = await generateOneSubsection({
+    let result = await generateOneSubsection({
       input,
       context,
       subsection,
@@ -538,26 +539,30 @@ async function generateChapterDraftStructured(input) {
     });
 
     let attempts = 0;
-    while (attempts < 2 && needsMoreSectionText(sectionText, targets.sectionWords)) {
-      sectionText = await continueOneSubsection({
+    while (attempts < 4 && (!result.complete || needsMoreSectionText(result.text, targets.sectionWords))) {
+      result = await continueOneSubsection({
         input,
         context,
         subsection,
         system,
-        existingText: sectionText,
+        existingText: result.text,
         targetWords: targets.sectionWords,
       });
       attempts += 1;
     }
 
-    parts.push(postProcessChapterSectionText(sectionText, subsection));
+    parts.push(postProcessChapterSectionText(result.text, subsection));
   }
 
-  let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
+  let chapterText = postProcessChapterText(`${context.chapterHeading}
+
+${parts.join('
+
+')}`, context);
   let finalAttempts = 0;
-  while (finalAttempts < 2 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
+  while (finalAttempts < 3 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
     const lastSubsection = context.subsections[context.subsections.length - 1];
-    parts[parts.length - 1] = await continueOneSubsection({
+    const continued = await continueOneSubsection({
       input,
       context,
       subsection: lastSubsection,
@@ -565,8 +570,12 @@ async function generateChapterDraftStructured(input) {
       existingText: parts[parts.length - 1],
       targetWords: targets.sectionWords,
     });
-    parts[parts.length - 1] = postProcessChapterSectionText(parts[parts.length - 1], lastSubsection);
-    chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
+    parts[parts.length - 1] = postProcessChapterSectionText(continued.text, lastSubsection);
+    chapterText = postProcessChapterText(`${context.chapterHeading}
+
+${parts.join('
+
+')}`, context);
     finalAttempts += 1;
   }
 
@@ -579,9 +588,9 @@ function deriveChapterTargets(input, context) {
   const explicit = Number(obj?.constraints?.minWordsChapter || obj?.minWordsChapter || obj?.targetWords || 0);
   let chapterWords = Number.isFinite(explicit) && explicit >= 1800
     ? explicit
-    : Math.max(3200, context.subsections.length * (degree.includes('magistr') ? 1150 : 900));
-  chapterWords = Math.min(chapterWords, 7000);
-  const sectionWords = Math.max(800, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
+    : Math.max(3000, context.subsections.length * (degree.includes('magistr') ? 1000 : 820));
+  chapterWords = Math.min(chapterWords, 6200);
+  const sectionWords = Math.max(720, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
   return { chapterWords, sectionWords };
 }
 
@@ -641,7 +650,7 @@ function normalizeOutlineLine(line) {
 function buildChapterSubsectionPrompt(input, context, subsection, index, total, targetWords, previousSectionText) {
   const obj = input && typeof input === 'object' ? input : {};
   const prevSummary = index > 0
-    ? `La sottosezione precedente è ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetere contenuti già sviluppati.`
+    ? `La sottosezione precedente è ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetizioni.`
     : 'Apri il capitolo con una sottosezione introduttiva ma già analitica.';
 
   return [
@@ -649,21 +658,33 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     `SVILUPPA SOLO QUESTA SOTTOSEZIONE: ${subsection.code} ${subsection.title}`,
     `CAPITOLO: ${context.chapterHeading}`,
     `POSIZIONE NEL CAPITOLO: ${index + 1} di ${total}`,
-    `TARGET INDICATIVO: ${targetWords}-${targetWords + 180} parole`,
+    `TARGET INDICATIVO: circa ${targetWords}-${targetWords + 120} parole`,
     prevSummary,
     'REGOLE OBBLIGATORIE:',
     `- Inizia esattamente con l'intestazione: ${subsection.code} ${subsection.title}`,
     '- Produci solo la sottosezione richiesta.',
     '- Nessun markdown, nessun elenco puntato, nessuna conclusione sul capitolo successivo.',
-    '- Usa paragrafi continui, tono accademico, lessico naturale, niente formule artificiali.',
-    obj.theme ? `ARGOMENTO DELLA TESI:\n${clip(String(obj.theme), 900)}` : '',
+    '- Usa paragrafi continui, tono accademico, lessico naturale.',
+    `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
+    '- Non usare il marcatore se la sottosezione non è completa.',
+    obj.theme ? `ARGOMENTO DELLA TESI:
+${clip(String(obj.theme), 700)}` : '',
     obj.faculty || obj.degreeCourse || obj.degreeType
-      ? `CONTESTO ACCADEMICO:\nFacoltà: ${clip(String(obj.faculty || ''), 180)}\nCorso: ${clip(String(obj.degreeCourse || ''), 220)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 80)}\nMetodologia: ${clip(String(obj.methodology || ''), 80)}`
+      ? `CONTESTO ACCADEMICO:
+Facoltà: ${clip(String(obj.faculty || ''), 120)}
+Corso: ${clip(String(obj.degreeCourse || ''), 160)}
+Tipo laurea: ${clip(String(obj.degreeType || ''), 60)}
+Metodologia: ${clip(String(obj.methodology || ''), 60)}`
       : '',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 1400)}` : '',
-    summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):\n${summarizePreviousContext(obj.previousChapters)}` : '',
-    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):\n${clip(String(previousSectionText), 700)}` : '',
-  ].filter(Boolean).join('\n\n');
+    obj.approvedAbstract ? `ABSTRACT APPROVATO:
+${clip(String(obj.approvedAbstract), 900)}` : '',
+    summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):
+${summarizePreviousContext(obj.previousChapters)}` : '',
+    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):
+${clip(String(previousSectionText), 420)}` : '',
+  ].filter(Boolean).join('
+
+');
 }
 
 async function generateOneSubsection({ input, context, subsection, index, total, system, targetWords, previousSectionText }) {
@@ -671,12 +692,15 @@ async function generateOneSubsection({ input, context, subsection, index, total,
   const raw = await generateWithProviders({
     prompt,
     system,
-    maxTokens: Math.min(2200, Math.max(1200, Math.round(targetWords * 1.7))),
-    primaryTimeoutMs: 38_000,
-    fallbackTimeoutMs: 26_000,
-    openaiTimeoutMs: 28_000,
+    maxTokens: Math.min(1500, Math.max(850, Math.round(targetWords * 1.1))),
+    primaryTimeoutMs: 30_000,
+    fallbackTimeoutMs: 22_000,
+    openaiTimeoutMs: 24_000,
   });
-  return postProcessChapterSectionText(raw, subsection);
+  return {
+    text: stripCompletionMarker(raw),
+    complete: hasCompletionMarker(raw),
+  };
 }
 
 async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords }) {
@@ -692,27 +716,48 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Continua esattamente dal punto in cui il testo si è fermato.',
     '- Aggiungi solo il testo mancante per completare la sottosezione in modo pieno e naturale.',
     '- Non inserire formule come "nel prossimo capitolo" o riepiloghi scolastici.',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 900)}` : '',
-    `TESTO GIÀ GENERATO:\n${clip(String(existingText), 2200)}`,
-  ].filter(Boolean).join('\n\n');
+    `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
+    '- Se non è ancora completa, non usare il marcatore.',
+    obj.approvedAbstract ? `ABSTRACT APPROVATO:
+${clip(String(obj.approvedAbstract), 700)}` : '',
+    `TESTO GIÀ GENERATO:
+${clip(String(existingText), 1700)}`,
+  ].filter(Boolean).join('
+
+');
 
   const addition = await generateWithProviders({
     prompt,
     system,
-    maxTokens: 1200,
-    primaryTimeoutMs: 28_000,
-    fallbackTimeoutMs: 22_000,
-    openaiTimeoutMs: 24_000,
+    maxTokens: 800,
+    primaryTimeoutMs: 22_000,
+    fallbackTimeoutMs: 18_000,
+    openaiTimeoutMs: 20_000,
   });
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
-  return `${existingText.trim()}\n\n${cleanedAddition}`.trim();
+  return {
+    text: `${stripCompletionMarker(existingText).trim()}
+
+${cleanedAddition}`.trim(),
+    complete: hasCompletionMarker(addition),
+  };
 }
 
 function summarizePreviousContext(previousChapters) {
   const text = String(previousChapters || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
-  return clip(text, 1400);
+  return clip(text, 900);
+}
+
+function hasCompletionMarker(text) {
+  return String(text || '').includes(SECTION_COMPLETE_MARKER);
+}
+
+function stripCompletionMarker(text) {
+  return cleanModelText(text)
+    .replace(new RegExp(`${escapeRegex(SECTION_COMPLETE_MARKER)}\\s*$`), '')
+    .trim();
 }
 
 function countWords(text) {
