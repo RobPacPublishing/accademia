@@ -170,9 +170,12 @@ export default async function handler(req, res) {
       case 'revisione_relatore':
       case 'revisione_capitolo': {
         const canonicalTask = normalizeGenerationTask(task);
-        const text = await generateText(canonicalTask, input);
+        const generated = await generateText(canonicalTask, input);
         await recordStat('provider_success', { task: canonicalTask, requestedTask: task });
-        return sendJson(res, 200, { text, task: canonicalTask });
+        if (generated && typeof generated === 'object' && typeof generated.text === 'string') {
+          return sendJson(res, 200, { ...generated, task: canonicalTask });
+        }
+        return sendJson(res, 200, { text: String(generated || ''), task: canonicalTask });
       }
 
       default:
@@ -522,67 +525,90 @@ async function generateChapterDraftStructured(input) {
       fallbackTimeoutMs: 24_000,
       openaiTimeoutMs: 26_000,
     });
-    return postProcessChapterText(raw, context);
+    return { text: postProcessChapterText(raw, context), done: true, progress: null };
   }
 
   const targets = deriveChapterTargets(input, context);
-  const parts = Array.isArray(savedProgress?.parts) ? [...savedProgress.parts] : [];
+  const byCode = new Map((savedProgress?.subsections || []).map((x) => [x.code, x]));
+  let targetIndex = -1;
 
-  for (let i = parts.length; i < context.subsections.length; i += 1) {
+  for (let i = 0; i < context.subsections.length; i += 1) {
     const subsection = context.subsections[i];
-    const previousSaved = savedProgress?.subsections?.[i];
-    let result = previousSaved?.text
-      ? { text: String(previousSaved.text || ''), complete: !!previousSaved.complete }
-      : await generateOneSubsection({
-          input,
-          context,
-          subsection,
-          index: i,
-          total: context.subsections.length,
-          system,
-          targetWords: targets.sectionWords,
-          previousSectionText: parts[i - 1] || '',
-        });
+    const saved = byCode.get(subsection.code);
+    if (!saved) {
+      targetIndex = i;
+      break;
+    }
+    if (!saved.complete || needsMoreSectionText(saved.text, targets.sectionWords)) {
+      targetIndex = i;
+      break;
+    }
+  }
 
-    let attempts = 0;
-    while (attempts < 4 && (!result.complete || needsMoreSectionText(result.text, targets.sectionWords))) {
-      result = await continueOneSubsection({
+  if (targetIndex === -1) {
+    const completedParts = context.subsections
+      .map((subsection) => byCode.get(subsection.code))
+      .filter((x) => x && x.complete && !needsMoreSectionText(x.text, targets.sectionWords))
+      .map((x) => x.text);
+    const chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${completedParts.join('\n\n')}`, context);
+    await clearChapterDraftProgress(progressKey);
+    return {
+      text: chapterText,
+      done: true,
+      progress: {
+        chapterNumber: context.currentChapterNumber,
+        completedSubsections: context.subsections.length,
+        totalSubsections: context.subsections.length,
+        currentSubsection: null,
+      },
+    };
+  }
+
+  const subsection = context.subsections[targetIndex];
+  const previousSaved = byCode.get(subsection.code);
+  const previousComplete = targetIndex > 0 ? byCode.get(context.subsections[targetIndex - 1].code) : null;
+  const previousSectionText = previousComplete?.text || '';
+
+  const result = previousSaved?.text
+    ? await continueOneSubsection({
         input,
         context,
         subsection,
         system,
-        existingText: result.text,
+        existingText: previousSaved.text,
         targetWords: targets.sectionWords,
+      })
+    : await generateOneSubsection({
+        input,
+        context,
+        subsection,
+        index: targetIndex,
+        total: context.subsections.length,
+        system,
+        targetWords: targets.sectionWords,
+        previousSectionText,
       });
-      attempts += 1;
-      await saveChapterDraftProgress(progressKey, context, parts, subsection, result);
-    }
 
-    const normalized = postProcessChapterSectionText(result.text, subsection);
-    parts.push(normalized);
-    await saveChapterDraftProgress(progressKey, context, parts, subsection, { text: normalized, complete: result.complete });
-  }
+  const normalized = postProcessChapterSectionText(result.text, subsection);
+  const isComplete = !!result.complete && !needsMoreSectionText(normalized, targets.sectionWords);
+  await saveChapterDraftProgress(progressKey, context, subsection, { text: normalized, complete: isComplete });
 
-  let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-  let finalAttempts = 0;
-  while (finalAttempts < 3 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
-    const lastSubsection = context.subsections[context.subsections.length - 1];
-    const continued = await continueOneSubsection({
-      input,
-      context,
-      subsection: lastSubsection,
-      system,
-      existingText: parts[parts.length - 1],
-      targetWords: targets.sectionWords,
-    });
-    parts[parts.length - 1] = postProcessChapterSectionText(continued.text, lastSubsection);
-    await saveChapterDraftProgress(progressKey, context, parts, lastSubsection, { text: parts[parts.length - 1], complete: continued.complete });
-    chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-    finalAttempts += 1;
-  }
-
-  await clearChapterDraftProgress(progressKey);
-  return chapterText;
+  return {
+    text: '',
+    done: false,
+    progress: {
+      chapterNumber: context.currentChapterNumber,
+      completedSubsections: countCompletedSubsections(context, { ...savedProgress, subsections: mergeSavedSubsections(savedProgress?.subsections || [], { ...subsection, text: normalized, complete: isComplete }) }, targets.sectionWords),
+      totalSubsections: context.subsections.length,
+      currentSubsection: {
+        index: targetIndex,
+        code: subsection.code,
+        title: subsection.title,
+        complete: isComplete,
+      },
+      currentText: normalized,
+    },
+  };
 }
 
 function deriveChapterTargets(input, context) {
@@ -662,25 +688,19 @@ async function loadChapterDraftProgress(progressKey, context) {
       .map((x) => [String(x.code), { text: String(x.text), complete: !!x.complete }]));
 
     const subsections = [];
-    const parts = [];
     for (const subsection of context.subsections) {
       const item = byCode.get(subsection.code);
       if (!item) break;
       const normalized = postProcessChapterSectionText(item.text, subsection);
       subsections.push({ code: subsection.code, title: subsection.title, text: normalized, complete: item.complete });
-      if (item.complete && !needsMoreSectionText(normalized, 540)) {
-        parts.push(normalized);
-        continue;
-      }
-      break;
     }
-    return { subsections, parts };
+    return { subsections };
   } catch (_) {
     return null;
   }
 }
 
-async function saveChapterDraftProgress(progressKey, context, parts, subsection, result) {
+async function saveChapterDraftProgress(progressKey, context, subsection, result) {
   if (!progressKey) return;
   try {
     const current = (await getJson(progressKey)) || {};
@@ -698,10 +718,26 @@ async function saveChapterDraftProgress(progressKey, context, parts, subsection,
       chapterHeading: context.chapterHeading,
       chapterNumber: context.currentChapterNumber,
       subsections: next,
-      completedParts: parts.length,
+      completedParts: next.filter((x) => x.complete).length,
       updatedAt: new Date().toISOString(),
     }, CHAPTER_DRAFT_TTL_SECONDS);
   } catch (_) {}
+}
+
+function mergeSavedSubsections(saved, latest) {
+  return [...saved.filter((x) => x && x.code !== latest.code), latest];
+}
+
+function countCompletedSubsections(context, savedProgress, targetWords) {
+  const byCode = new Map((savedProgress?.subsections || []).map((x) => [x.code, x]));
+  let count = 0;
+  for (const subsection of context.subsections) {
+    const saved = byCode.get(subsection.code);
+    if (!saved) break;
+    if (!saved.complete || needsMoreSectionText(saved.text, targetWords)) break;
+    count += 1;
+  }
+  return count;
 }
 
 async function clearChapterDraftProgress(progressKey) {

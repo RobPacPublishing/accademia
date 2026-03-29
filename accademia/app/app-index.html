@@ -3467,7 +3467,22 @@ ${getChapterApprovalRow(idx,total,false,false)}
   setChapterOperationStatus(`Generazione del Capitolo ${idx+1} in corso...`,false,true);
 
   try{
-    const result=await callClaudeWithSearch(prompt,'chapter_draft');
+    const result=await callClaudeWithSearch(prompt,'chapter_draft',(progress)=>{
+      const chip=document.getElementById(`chapChip-${idx}`);
+      const code=progress?.currentSubsection?.code||'';
+      const completed=Number(progress?.completedSubsections||0);
+      const totalSubs=Number(progress?.totalSubsections||0);
+      if(chip && totalSubs>0){
+        chip.className='status-chip searching';
+        chip.textContent=code
+          ? `Sottosezione ${code} (${Math.min(completed,totalSubs)}/${totalSubs})`
+          : `Generazione... (${Math.min(completed,totalSubs)}/${totalSubs})`;
+      }
+      if(progress?.currentText){
+        const partial=(progress.currentText||'').trim();
+        if(partial) document.getElementById(`chapText-${idx}`).textContent=partial+'\n\n…';
+      }
+    });
     const text=(result.text||'').trim();
     if(!text) throw new Error('Nessun contenuto restituito dal backend');
     thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale'}],currentVersion:0};
@@ -4381,15 +4396,31 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // ══════════════════════════════════════════════
 // API TASK — unified chapter call
 // ══════════════════════════════════════════════
-async function callClaudeWithSearch(userPrompt, taskName='chapter_draft'){
-  const r=await fetch('/api/task',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
-  });
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
-  return {text:d.text||'',sources:[]};
+async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProgress=null){
+  if(taskName!=='chapter_draft'){
+    const r=await fetch('/api/task',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
+    return {text:d.text||'',sources:[]};
+  }
+
+  const baseInput=buildStructuredTaskInput(taskName,userPrompt);
+  for(let step=0; step<30; step+=1){
+    const r=await fetch('/api/task',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:taskName,input:baseInput})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
+    if(typeof onProgress==='function' && d && d.progress) onProgress(d.progress);
+    if(d && d.done && d.text) return {text:d.text||'',sources:[]};
+  }
+  throw new Error('Generazione progressiva non completata: riprova.');
 }
 
 // ══════════════════════════════════════════════
