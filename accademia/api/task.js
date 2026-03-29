@@ -16,6 +16,10 @@ const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
 const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
 const CHAPTER_DRAFT_TTL_SECONDS = 6 * 60 * 60;
+const SUBSECTION_MIN_WORDS_FLOOR = 260;
+const SUBSECTION_MAX_WORDS_HARD_CAP = 980;
+const SUBSECTION_MAX_ATTEMPTS = 3;
+const SUBSECTION_CONTINUE_MAX_TOKENS = 520;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -588,8 +592,10 @@ async function generateChapterDraftStructured(input) {
   const previousSaved = byCode.get(subsection.code);
   const previousComplete = targetIndex > 0 ? byCode.get(context.subsections[targetIndex - 1].code) : null;
   const previousSectionText = previousComplete?.text || '';
+  const previousAttempts = Number(previousSaved?.attempts || 0);
+  const canContinueCurrent = previousSaved?.text && previousAttempts < SUBSECTION_MAX_ATTEMPTS;
 
-  const result = previousSaved?.text
+  const result = canContinueCurrent
     ? await continueOneSubsection({
         input,
         context,
@@ -597,7 +603,10 @@ async function generateChapterDraftStructured(input) {
         system,
         existingText: previousSaved.text,
         targetWords: targets.sectionWords,
+        hardCapWords: targets.sectionHardCapWords,
       })
+    : (previousSaved?.text
+      ? { text: previousSaved.text, complete: false, forcedByCap: true }
     : await generateOneSubsection({
         input,
         context,
@@ -607,13 +616,16 @@ async function generateChapterDraftStructured(input) {
         system,
         targetWords: targets.sectionWords,
         previousSectionText,
-      });
+      }));
 
-  const normalized = postProcessChapterSectionText(result.text, subsection, context);
-  const isComplete = result.complete
-    && !needsMoreSectionText(normalized, targets.sectionWords)
-    && passesSubsectionIntegrityChecks(normalized, subsection);
   const attempts = Number(previousSaved?.attempts || 0) + 1;
+  const normalized = enforceSubsectionHardCap(postProcessChapterSectionText(result.text, subsection, context), subsection, targets.sectionHardCapWords);
+  const sectionEvaluation = evaluateSubsectionReadiness(normalized, subsection, targets, {
+    providerMarkedComplete: result.complete,
+    attempts,
+    forcedByCap: result.forcedByCap,
+  });
+  const isComplete = sectionEvaluation.complete;
   await saveChapterDraftProgress(
     progressKey,
     context,
@@ -659,7 +671,9 @@ function deriveChapterTargets(input, context) {
     : Math.max(3000, context.subsections.length * (degree.includes('magistr') ? 1000 : 820));
   chapterWords = Math.min(chapterWords, 6200);
   const sectionWords = Math.max(720, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
-  return { chapterWords, sectionWords };
+  const sectionSufficientWords = Math.max(SUBSECTION_MIN_WORDS_FLOOR, Math.min(sectionWords, sectionWords - 180));
+  const sectionHardCapWords = Math.max(sectionSufficientWords + 120, Math.min(SUBSECTION_MAX_WORDS_HARD_CAP, sectionWords + 120));
+  return { chapterWords, sectionWords, sectionSufficientWords, sectionHardCapWords };
 }
 
 function parseChapterContext(input) {
@@ -860,6 +874,7 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     `CAPITOLO: ${context.chapterHeading}`,
     `POSIZIONE NEL CAPITOLO: ${index + 1} di ${total}`,
     `TARGET INDICATIVO: circa ${targetWords}-${targetWords + 120} parole`,
+    `LIMITE MASSIMO ASSOLUTO: non superare ${SUBSECTION_MAX_WORDS_HARD_CAP} parole complessive`,
     prevSummary,
     'REGOLE OBBLIGATORIE:',
     `- Inizia esattamente con l'intestazione: ${subsection.code} ${subsection.title}`,
@@ -872,9 +887,9 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     obj.faculty || obj.degreeCourse || obj.degreeType
       ? `CONTESTO ACCADEMICO:\nFacoltà: ${clip(String(obj.faculty || ''), 120)}\nCorso: ${clip(String(obj.degreeCourse || ''), 160)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 60)}\nMetodologia: ${clip(String(obj.methodology || ''), 60)}`
       : '',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 900)}` : '',
+    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 520)}` : '',
     summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):\n${summarizePreviousContext(obj.previousChapters)}` : '',
-    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):\n${clip(String(previousSectionText), 420)}` : '',
+    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):\n${clip(String(previousSectionText), 260)}` : '',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -894,8 +909,12 @@ async function generateOneSubsection({ input, context, subsection, index, total,
   };
 }
 
-async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords }) {
+async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords, hardCapWords }) {
   const obj = input && typeof input === 'object' ? input : {};
+  const currentWords = wordCount(existingText);
+  if (currentWords >= Math.max(320, hardCapWords - 25)) {
+    return { text: existingText, complete: false, forcedByCap: true };
+  }
   const prompt = [
     'TASK: chapter_draft_section_continue',
     `CONTINUA SOLO LA SOTTOSEZIONE: ${subsection.code} ${subsection.title}`,
@@ -906,17 +925,18 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Non ricominciare da capo.',
     '- Continua esattamente dal punto in cui il testo si è fermato.',
     '- Aggiungi solo il testo mancante per completare la sottosezione in modo pieno e naturale.',
+    `- Mantieniti entro il limite assoluto di ${hardCapWords} parole complessive.`,
     '- Non inserire formule come "nel prossimo capitolo" o riepiloghi scolastici.',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Se non è ancora completa, non usare il marcatore.',
-    obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 700)}` : '',
-    `TESTO GIÀ GENERATO:\n${clip(String(existingText), 1700)}`,
+    obj.approvedAbstract ? `ABSTRACT APPROVATO (estratto):\n${clip(String(obj.approvedAbstract), 360)}` : '',
+    `TESTO GIÀ GENERATO (estratto finale):\n${clip(tailWords(String(existingText), 260), 1200)}`,
   ].filter(Boolean).join('\n\n');
 
   const addition = await generateWithProviders({
     prompt,
     system,
-    maxTokens: 800,
+    maxTokens: SUBSECTION_CONTINUE_MAX_TOKENS,
     primaryTimeoutMs: 22_000,
     fallbackTimeoutMs: 18_000,
     openaiTimeoutMs: 20_000,
@@ -926,6 +946,7 @@ async function continueOneSubsection({ input, context, subsection, system, exist
   return {
     text: `${stripCompletionMarker(existingText).trim()}\n\n${cleanedAddition}`.trim(),
     complete: hasCompletionMarker(addition),
+    forcedByCap: false,
   };
 }
 
@@ -979,6 +1000,21 @@ function needsMoreSectionText(sectionText, targetWords) {
   return words < Math.max(520, targetWords - 120) || endsSuspiciously(sectionText);
 }
 
+function evaluateSubsectionReadiness(text, subsection, targets, meta = {}) {
+  const words = wordCount(text);
+  const providerMarkedComplete = !!meta.providerMarkedComplete;
+  const attempts = Number(meta.attempts || 0);
+  const forcedByCap = !!meta.forcedByCap;
+  const integrityOk = passesSubsectionIntegrityChecks(text, subsection);
+  const enoughWords = words >= Number(targets?.sectionSufficientWords || SUBSECTION_MIN_WORDS_FLOOR);
+  const hitHardCap = words >= Number(targets?.sectionHardCapWords || SUBSECTION_MAX_WORDS_HARD_CAP);
+  const hitAttemptCap = attempts >= SUBSECTION_MAX_ATTEMPTS;
+  const completeByContent = integrityOk && enoughWords;
+  const completeByForcedStop = integrityOk && (hitHardCap || hitAttemptCap || forcedByCap);
+  const complete = completeByContent || (providerMarkedComplete && integrityOk && enoughWords) || completeByForcedStop;
+  return { complete, words, integrityOk, enoughWords, hitHardCap, hitAttemptCap };
+}
+
 function chapterNeedsCompletion(chapterText, targetWords, context) {
   if (wordCount(chapterText) < Math.max(1800, targetWords - 180)) return true;
   if (endsSuspiciously(chapterText)) return true;
@@ -1002,6 +1038,26 @@ function cleanContinuationText(text, subsection) {
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .trim();
+}
+
+function enforceSubsectionHardCap(text, subsection, hardCapWords) {
+  const normalized = preserveSectionNumbering(String(text || ''), subsection);
+  const lines = normalized.split(/\r?\n/);
+  const heading = lines.shift() || `${subsection.code} ${subsection.title}`;
+  const body = lines.join('\n').trim();
+  if (!body) return heading;
+  const maxWords = Math.max(320, Number(hardCapWords || SUBSECTION_MAX_WORDS_HARD_CAP));
+  const bodyWords = body.split(/\s+/).filter(Boolean);
+  if (bodyWords.length <= maxWords) return `${heading}\n\n${body}`.trim();
+  const truncated = bodyWords.slice(0, maxWords).join(' ').replace(/[,:;()\-\u2013\u2014]+$/g, '').trim();
+  const safeEnding = /[.!?)]$/.test(truncated) ? truncated : `${truncated}.`;
+  return `${heading}\n\n${safeEnding}`.trim();
+}
+
+function tailWords(text, maxWords) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return words.join(' ');
+  return words.slice(words.length - maxWords).join(' ');
 }
 
 function preserveSectionNumbering(text, subsection) {
