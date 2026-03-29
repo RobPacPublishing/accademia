@@ -541,6 +541,7 @@ async function generateChapterDraftStructured(input) {
 
   const targets = deriveChapterTargets(input, context);
   const byCode = new Map((effectiveSavedProgress?.subsections || []).map((x) => [x.code, x]));
+  const savedIntegrity = evaluateSavedProgressIntegrity(context, effectiveSavedProgress, targets.sectionWords);
   let targetIndex = -1;
 
   for (let i = 0; i < context.subsections.length; i += 1) {
@@ -558,8 +559,10 @@ async function generateChapterDraftStructured(input) {
   }
 
   if (targetIndex === -1) {
-    const completedParts = context.subsections.map((subsection) => byCode.get(subsection.code));
-    const allSubsectionsComplete = completedParts.length === context.subsections.length
+    const completedParts = savedIntegrity.canonicalEntries;
+    const allSubsectionsComplete = savedIntegrity.allExpectedPresentOnce
+      && savedIntegrity.noDuplicates
+      && completedParts.length === context.subsections.length
       && completedParts.every((x) => isStoredSubsectionComplete(x, targets.sectionWords));
     if (!allSubsectionsComplete) {
       targetIndex = Math.max(0, context.subsections.findIndex((subsection) => !isStoredSubsectionComplete(byCode.get(subsection.code), targets.sectionWords)));
@@ -606,10 +609,18 @@ async function generateChapterDraftStructured(input) {
         previousSectionText,
       });
 
-  const normalized = postProcessChapterSectionText(result.text, subsection);
-  const isComplete = !needsMoreSectionText(normalized, targets.sectionWords);
+  const normalized = postProcessChapterSectionText(result.text, subsection, context);
+  const isComplete = result.complete
+    && !needsMoreSectionText(normalized, targets.sectionWords)
+    && passesSubsectionIntegrityChecks(normalized, subsection);
   const attempts = Number(previousSaved?.attempts || 0) + 1;
-  await saveChapterDraftProgress(progressKey, context, subsection, { text: normalized, complete: isComplete, attempts }, draftControl.runId);
+  await saveChapterDraftProgress(
+    progressKey,
+    context,
+    subsection,
+    { text: normalized, complete: isComplete, attempts, status: isComplete ? 'complete' : 'in_progress' },
+    draftControl.runId,
+  );
 
   return {
     text: '',
@@ -633,7 +644,8 @@ async function generateChapterDraftStructured(input) {
 function parseChapterDraftControl(input) {
   const obj = input && typeof input === 'object' ? input : {};
   const extra = obj.extra && typeof obj.extra === 'object' ? obj.extra : {};
-  const runId = String(extra.chapterDraftRunId || extra.chapterRunId || obj.chapterDraftRunId || '').trim();
+  const incomingRunId = String(extra.chapterDraftRunId || extra.chapterRunId || obj.chapterDraftRunId || '').trim();
+  const runId = incomingRunId || `run_${Date.now()}_${randomBytes(3).toString('hex')}`;
   const resetRequested = !!(extra.chapterDraftReset || obj.chapterDraftReset);
   return { runId, resetRequested };
 }
@@ -712,14 +724,30 @@ async function loadChapterDraftProgress(progressKey, context) {
     if (!saved || typeof saved !== 'object') return null;
     const byCode = new Map((Array.isArray(saved.subsections) ? saved.subsections : [])
       .filter((x) => x && x.code && typeof x.text === 'string')
-      .map((x) => [String(x.code), { text: String(x.text), complete: !!x.complete, attempts: Number(x.attempts || 0) }]));
+      .map((x) => [String(x.code), {
+        text: String(x.text),
+        complete: !!x.complete,
+        attempts: Number(x.attempts || 0),
+        status: String(x.status || ''),
+        signature: String(x.signature || ''),
+        completedAt: x.completedAt ? String(x.completedAt) : null,
+      }]));
 
     const subsections = [];
     for (const subsection of context.subsections) {
       const item = byCode.get(subsection.code);
       if (!item) break;
-      const normalized = postProcessChapterSectionText(item.text, subsection);
-      subsections.push({ code: subsection.code, title: subsection.title, text: normalized, complete: item.complete, attempts: item.attempts });
+      const normalized = postProcessChapterSectionText(item.text, subsection, context);
+      subsections.push({
+        code: subsection.code,
+        title: subsection.title,
+        text: normalized,
+        complete: !!item.complete,
+        attempts: item.attempts,
+        status: String(item.status || (item.complete ? 'complete' : 'in_progress')),
+        signature: String(item.signature || ''),
+        completedAt: item.completedAt ? String(item.completedAt) : null,
+      });
     }
     return {
       chapterNumber: Number(saved.chapterNumber || 0),
@@ -741,9 +769,12 @@ async function saveChapterDraftProgress(progressKey, context, subsection, result
     const entry = {
       code: subsection.code,
       title: subsection.title,
-      text: postProcessChapterSectionText(result.text, subsection),
+      text: postProcessChapterSectionText(result.text, subsection, context),
       complete: !!result.complete,
+      status: String(result.status || (result.complete ? 'complete' : 'in_progress')),
+      signature: createSubsectionSignature(context, subsection, result.text),
       attempts: Number(result.attempts || 0),
+      completedAt: result.complete ? new Date().toISOString() : null,
       updatedAt: new Date().toISOString(),
     };
     const next = [...subsections.filter((x) => x && x.code !== subsection.code), entry]
@@ -778,7 +809,8 @@ function countCompletedSubsections(context, savedProgress, targetWords) {
 
 function isStoredSubsectionComplete(saved, targetWords) {
   if (!saved || typeof saved.text !== 'string') return false;
-  return !needsMoreSectionText(saved.text, targetWords);
+  if (!saved.complete || String(saved.status || '') !== 'complete') return false;
+  return !needsMoreSectionText(saved.text, targetWords) && passesSubsectionIntegrityChecks(saved.text, saved);
 }
 
 function buildSubsectionSignature(context) {
@@ -796,6 +828,7 @@ function isSavedProgressCompatible(savedProgress, context, runId) {
   const normalizedRunId = String(runId || '').trim();
   const savedRunId = String(savedProgress.runId || '').trim();
   if (normalizedRunId && savedRunId && normalizedRunId !== savedRunId) return false;
+  if (!normalizedRunId && savedRunId) return false;
   return true;
 }
 
@@ -912,7 +945,7 @@ function stripCompletionMarker(text) {
     .trim();
 }
 
-function postProcessChapterSectionText(text, subsection) {
+function postProcessChapterSectionText(text, subsection, context = null) {
   let cleaned = cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
@@ -922,6 +955,8 @@ function postProcessChapterSectionText(text, subsection) {
   if (!cleaned.startsWith(heading)) {
     cleaned = `${heading}\n\n${cleaned.replace(/^\d+\.\d+\s+.+?(\n|$)/, '').trim()}`.trim();
   }
+  cleaned = trimSectionAfterUnexpectedHeading(cleaned, subsection, context);
+  cleaned = preserveSectionNumbering(cleaned, subsection);
   return cleaned;
 }
 
@@ -967,6 +1002,67 @@ function cleanContinuationText(text, subsection) {
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .trim();
+}
+
+function preserveSectionNumbering(text, subsection) {
+  const cleaned = String(text || '').trim();
+  if (!cleaned) return `${subsection.code} ${subsection.title}`;
+  const lines = cleaned.split(/\r?\n/);
+  const heading = `${subsection.code} ${subsection.title}`;
+  lines[0] = heading;
+  return lines.join('\n').trim();
+}
+
+function trimSectionAfterUnexpectedHeading(text, subsection, context) {
+  const lines = String(text || '').split(/\r?\n/);
+  const ownHeading = new RegExp(`^${escapeRegex(subsection.code)}\\s+`, 'i');
+  const expectedCodes = new Set(Array.isArray(context?.subsections) ? context.subsections.map((x) => x.code) : []);
+  const kept = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const headingMatch = line.match(/^(\d+\.\d+)\s+/);
+    if (headingMatch) {
+      const code = headingMatch[1];
+      if (i > 0 && !ownHeading.test(line) && (!expectedCodes.size || expectedCodes.has(code))) {
+        break;
+      }
+    }
+    kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
+
+function passesSubsectionIntegrityChecks(text, subsection) {
+  const content = String(text || '').trim();
+  if (!content) return false;
+  const heading = `${subsection.code} ${subsection.title}`;
+  if (!content.startsWith(heading)) return false;
+  const withoutHeading = content.slice(heading.length).trim();
+  if (wordCount(withoutHeading) < 160) return false;
+  if (endsSuspiciously(withoutHeading)) return false;
+  const lines = content.split(/\r?\n/).slice(1);
+  if (lines.some((line) => /^\d+\.\d+\s+/.test(line.trim()))) return false;
+  return /[.!?)]\s*$/.test(withoutHeading);
+}
+
+function createSubsectionSignature(context, subsection, text) {
+  const base = `${context.currentChapterNumber}|${subsection.code}|${subsection.title}|${String(text || '').trim()}`;
+  return createHash('sha256').update(base).digest('hex').slice(0, 20);
+}
+
+function evaluateSavedProgressIntegrity(context, savedProgress, targetWords) {
+  const savedSubsections = Array.isArray(savedProgress?.subsections) ? savedProgress.subsections : [];
+  const counts = new Map();
+  for (const item of savedSubsections) {
+    const code = String(item?.code || '');
+    if (!code) continue;
+    counts.set(code, Number(counts.get(code) || 0) + 1);
+  }
+  const canonicalEntries = context.subsections.map((subsection) => savedSubsections.find((x) => x && x.code === subsection.code)).filter(Boolean);
+  const allExpectedPresentOnce = context.subsections.every((subsection) => Number(counts.get(subsection.code) || 0) === 1);
+  const noDuplicates = [...counts.values()].every((count) => count <= 1);
+  const allComplete = context.subsections.every((subsection) => isStoredSubsectionComplete(savedSubsections.find((x) => x && x.code === subsection.code), targetWords));
+  return { canonicalEntries, allExpectedPresentOnce, noDuplicates, allComplete };
 }
 
 function escapeRegex(value) {
