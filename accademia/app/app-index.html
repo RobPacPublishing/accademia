@@ -889,6 +889,7 @@ let thesis={
   abstract:'',abstractVersions:[],
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   approvedChapters:[],
+  chapterDraftRuns:{},
   contextPacket:null
 };
 
@@ -2449,24 +2450,52 @@ function resetRevStateForCurrentOutline(){
 let __chapterGenLock=false;
 const chapterDraftRunByChapter={};
 
-function getChapterDraftRunId(chapterIdx){
+function peekChapterDraftRunId(chapterIdx){
+  const key=String(Number(chapterIdx));
+  return chapterDraftRunByChapter[key]||'';
+}
+
+function ensureChapterDraftRunId(chapterIdx){
   const key=String(Number(chapterIdx));
   if(!chapterDraftRunByChapter[key]){
     chapterDraftRunByChapter[key]=`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
   }
+  thesis.chapterDraftRuns={...(thesis.chapterDraftRuns||{}),[key]:chapterDraftRunByChapter[key]};
   return chapterDraftRunByChapter[key];
+}
+
+function setChapterDraftRunId(chapterIdx,runId){
+  const key=String(Number(chapterIdx));
+  const normalized=String(runId||'').trim();
+  if(normalized){
+    chapterDraftRunByChapter[key]=normalized;
+    thesis.chapterDraftRuns={...(thesis.chapterDraftRuns||{}),[key]:normalized};
+  }
 }
 
 function clearChapterDraftRunId(chapterIdx){
   const key=String(Number(chapterIdx));
   delete chapterDraftRunByChapter[key];
+  if(thesis.chapterDraftRuns && typeof thesis.chapterDraftRuns==='object'){
+    delete thesis.chapterDraftRuns[key];
+  }
+}
+
+function syncChapterDraftRunCacheFromState(){
+  Object.keys(chapterDraftRunByChapter).forEach(key=>delete chapterDraftRunByChapter[key]);
+  const savedRuns=thesis?.chapterDraftRuns;
+  if(!savedRuns || typeof savedRuns!=='object') return;
+  Object.entries(savedRuns).forEach(([key,val])=>{
+    const runId=String(val||'').trim();
+    if(runId) chapterDraftRunByChapter[String(Number(key))]=runId;
+  });
 }
 
 function renderChapterResumeCta(idx){
   const nc=document.getElementById('nextChapters');
   if(!nc) return;
   const title=thesis.chapterTitles[idx]||'';
-  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">↻ Riprendi generazione capitolo ${idx+1} — ${escHtml(title)}</button>`;
+  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="resumeCurrentChapterGeneration()">↻ Riprendi generazione capitolo ${idx+1} — ${escHtml(title)}</button>`;
   nc.classList.add('visible');
 }
 
@@ -2688,6 +2717,7 @@ function focusFinalTools(){
 }
 
 function restoreProgressUI(savedForm=null){
+  syncChapterDraftRunCacheFromState();
   applyFormState(savedForm || {});
   renderSingleThesisNotice();
   setIndiceMode(indiceMode);
@@ -2726,7 +2756,8 @@ function restoreProgressUI(savedForm=null){
     if(total>0) updateChapterProgressBar(Math.min(thesis.currentChapterIdx,total-1), total, false);
     if(thesis.currentChapterIdx<total){
       const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
-      document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
+      const hasResumableRun=!!peekChapterDraftRunId(thesis.currentChapterIdx);
+      document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="${hasResumableRun?'resumeCurrentChapterGeneration()':'generateNextChapter()'}">${hasResumableRun?'↻ Riprendi generazione capitolo':'✦ Genera Capitolo'} ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
       if(!thesis.chapters[thesis.currentChapterIdx]) document.getElementById('nextChapters').classList.add('visible');
     }
     thesis.chapters.forEach((_,idx)=>renderRevCounter(idx));
@@ -3381,15 +3412,27 @@ function getChapterRole(idx,total,title,metod){
 }
 
 async function generateNextChapter(){
+  return await runChapterGeneration('new');
+}
+
+async function resumeCurrentChapterGeneration(){
+  return await runChapterGeneration('resume');
+}
+
+async function runChapterGeneration(mode='new'){
   if(__chapterGenLock) return;
   if(!ensureCompatibilityGuard()) return;
   if(!ensureSingleThesisCommit('chapter_generation')) return;
   const idx=thesis.currentChapterIdx;
   const total=thesis.chapterTitles.length;
   if(idx>=total) return;
+  const chapterMode=mode==='resume'?'resume':'new';
 
   __chapterGenLock=true;
-  await saveLastValidState(`prima_generazione_capitolo_${idx+1}`,{silent:true});
+  await saveLastValidState(
+    chapterMode==='resume' ? `prima_resume_capitolo_${idx+1}` : `prima_generazione_capitolo_${idx+1}`,
+    {silent:true}
+  );
   setPhaseButtonBusy('btnChapterAction',true,'<span class="spinner"></span>Generazione capitolo...');
 
   const cp=thesis.contextPacket;
@@ -3504,8 +3547,9 @@ ${getChapterApprovalRow(idx,total,false,false)}
         const partial=(progress.currentText||'').trim();
         if(partial) document.getElementById(`chapText-${idx}`).textContent=partial+'\n\n…';
       }
-    },{chapterIdx:idx});
+    },{chapterIdx:idx,chapterMode});
     if(result && result.resumable){
+      if(result?.runId) setChapterDraftRunId(idx,result.runId);
       thesis.chapters[idx]=null;
       const paused=document.getElementById(`chap-${idx}`);
       if(paused) paused.remove();
@@ -3517,6 +3561,7 @@ ${getChapterApprovalRow(idx,total,false,false)}
     }
     const text=(result.text||'').trim();
     if(!text) throw new Error('Nessun contenuto restituito dal backend');
+    if(result?.runId) setChapterDraftRunId(idx,result.runId);
     clearChapterDraftRunId(idx);
     thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale'}],currentVersion:0};
     streamText(`chapText-${idx}`,text,()=>{
@@ -3534,6 +3579,7 @@ ${getChapterApprovalRow(idx,total,false,false)}
   }catch(e){
     const resumableErr=e && e.resumable;
     if(resumableErr){
+      if(e?.runId) setChapterDraftRunId(idx,e.runId);
       thesis.chapters[idx]=null;
       const paused=document.getElementById(`chap-${idx}`);
       if(paused) paused.remove();
@@ -4455,8 +4501,11 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
 
   const baseInput=buildStructuredTaskInput(taskName,userPrompt);
   const chapterIdx=Number.isFinite(Number(options?.chapterIdx))?Number(options.chapterIdx):-1;
-  const chapterDraftRunId=chapterIdx>=0?getChapterDraftRunId(chapterIdx):`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
-  const shouldResetAtStart=chapterIdx<0;
+  const chapterMode=String(options?.chapterMode||'new').trim().toLowerCase()==='resume'?'resume':'new';
+  const chapterDraftRunId=chapterIdx<0
+    ? `run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`
+    : (chapterMode==='resume' ? peekChapterDraftRunId(chapterIdx) : ensureChapterDraftRunId(chapterIdx));
+  const shouldResetAtStart=false;
   let progressPackets=0;
   let stalledSteps=0;
   let lastProgressFingerprint='';
@@ -4467,6 +4516,7 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
       extra:{
         ...(baseInput.extra||{}),
         chapterDraftRunId,
+        chapterDraftMode:chapterMode,
         chapterDraftReset:step===0 && shouldResetAtStart
       }
     };
@@ -4482,7 +4532,7 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
       onProgress(d.progress);
     }
     if(d && (d.done || d.chapterComplete || d.status==='complete')){
-      if(d.text) return {text:d.text||'',sources:[]};
+      if(d.text) return {text:d.text||'',sources:[],runId:d.runId||chapterDraftRunId||''};
       if(step<219) continue;
     }
     const progressFp=d && d.progress
@@ -4511,7 +4561,8 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
         resumable:true,
         status:String(d.status||'resume_required'),
         text:'',
-        progress:d.progress||null
+        progress:d.progress||null,
+        runId:d.runId||chapterDraftRunId||''
       };
     }
     if(!d || (!d.progress && !d.done && !d.chapterComplete && step>0 && progressPackets===0)){
@@ -4519,7 +4570,7 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
     }
     await new Promise(resolve=>setTimeout(resolve,resumableStatus?260:220));
   }
-  return {resumable:true,status:'resume_required',text:'',progress:null};
+  return {resumable:true,status:'resume_required',text:'',progress:null,runId:chapterDraftRunId||''};
 }
 
 // ══════════════════════════════════════════════
