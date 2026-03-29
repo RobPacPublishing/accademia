@@ -623,7 +623,7 @@ function parseChapterContext(input) {
 
 function cleanChapterHeading(line, chapterNumber) {
   const cleaned = normalizeOutlineLine(line)
-    .replace(new RegExp(`^capitolo\s+${chapterNumber}\s*[—\-:.]?\s*`, 'i'), '')
+    .replace(new RegExp(`^capitolo\\s+${chapterNumber}\\s*[—:.-]?\\s*`, 'i'), '')
     .replace(/^\.\s*/, '')
     .trim();
   return cleaned ? `Capitolo ${chapterNumber} — ${cleaned}` : `Capitolo ${chapterNumber}`;
@@ -748,7 +748,7 @@ function cleanContinuationText(text, subsection) {
   return cleanModelText(text)
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
-    .replace(new RegExp(`^${escapeRegex(subsection.code)}\s+${escapeRegex(subsection.title)}\s*`, 'i'), '')
+    .replace(new RegExp(`^${escapeRegex(subsection.code)}\\s+${escapeRegex(subsection.title)}\\s*`, 'i'), '')
     .trim();
 }
 
@@ -764,7 +764,7 @@ function postProcessChapterSectionText(text, subsection) {
     .trim();
 
   const heading = `${subsection.code} ${subsection.title}`;
-  cleaned = cleaned.replace(new RegExp(`^${escapeRegex(heading)}\s*`, 'i'), '').trim();
+  cleaned = cleaned.replace(new RegExp(`^${escapeRegex(heading)}\\s*`, 'i'), '').trim();
   return `${heading}\n\n${cleaned}`.trim();
 }
 
@@ -777,7 +777,7 @@ function postProcessChapterText(text, context) {
     .trim();
 
   const chapterHeading = cleanChapterHeading(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`, context.currentChapterNumber);
-  cleaned = cleaned.replace(new RegExp(`^${escapeRegex(chapterHeading)}\s*`, 'i'), '').trim();
+  cleaned = cleaned.replace(new RegExp(`^${escapeRegex(chapterHeading)}\\s*`, 'i'), '').trim();
   return `${chapterHeading}\n\n${cleaned}`.trim();
 }
 
