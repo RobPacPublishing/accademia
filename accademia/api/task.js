@@ -552,7 +552,14 @@ async function generateChapterDraftStructured(input) {
       fallbackTimeoutMs: 24_000,
       openaiTimeoutMs: 26_000,
     });
-    return { text: postProcessChapterText(raw, context), done: true, chapterComplete: true, progress: null };
+    return {
+      text: postProcessChapterText(raw, context),
+      done: true,
+      chapterComplete: true,
+      status: 'complete',
+      resumeRequired: false,
+      progress: null,
+    };
   }
 
   const targets = deriveChapterTargets(input, context);
@@ -590,6 +597,8 @@ async function generateChapterDraftStructured(input) {
         text: chapterText,
         done: true,
         chapterComplete: true,
+        status: 'complete',
+        resumeRequired: false,
         progress: {
           chapterNumber: context.currentChapterNumber,
           completedSubsections: context.subsections.length,
@@ -650,11 +659,14 @@ async function generateChapterDraftStructured(input) {
     forcedByCap: result.forcedByCap,
   });
   const isComplete = sectionEvaluation.complete;
+  const subsectionStatus = isComplete
+    ? 'complete'
+    : (sectionEvaluation.resumeRequired ? 'resume_required' : 'in_progress');
   await saveChapterDraftProgress(
     progressKey,
     context,
     subsection,
-    { text: normalized, complete: isComplete, attempts, status: isComplete ? 'complete' : 'in_progress' },
+    { text: normalized, complete: isComplete, attempts, status: subsectionStatus },
     draftControl.runId,
   );
 
@@ -662,6 +674,8 @@ async function generateChapterDraftStructured(input) {
     text: '',
     done: false,
     chapterComplete: false,
+    status: subsectionStatus,
+    resumeRequired: !isComplete,
     progress: {
       chapterNumber: context.currentChapterNumber,
       completedSubsections: countCompletedSubsections(context, { ...effectiveSavedProgress, subsections: mergeSavedSubsections(effectiveSavedProgress?.subsections || [], { ...subsection, text: normalized, complete: isComplete, attempts }) }, targets.sectionWords),
@@ -673,6 +687,14 @@ async function generateChapterDraftStructured(input) {
         complete: isComplete,
       },
       currentText: normalized,
+      canResume: !isComplete,
+      completion: {
+        words: sectionEvaluation.words,
+        integrityOk: sectionEvaluation.integrityOk,
+        enoughWords: sectionEvaluation.enoughWords,
+        hitHardCap: sectionEvaluation.hitHardCap,
+        hitAttemptCap: sectionEvaluation.hitAttemptCap,
+      },
     },
   };
 }
@@ -1046,7 +1068,8 @@ function evaluateSubsectionReadiness(text, subsection, targets, meta = {}) {
   const hitAttemptCap = attempts >= SUBSECTION_MAX_ATTEMPTS;
   const completeByContent = integrityOk && enoughWords;
   const complete = completeByContent || (providerMarkedComplete && integrityOk && enoughWords);
-  return { complete, words, integrityOk, enoughWords, hitHardCap, hitAttemptCap, needsTailClosure: analysis.needsTailClosure, forcedByCap };
+  const resumeRequired = !complete && (integrityOk || words >= Math.max(SUBSECTION_MIN_WORDS_FLOOR, Number(targets?.sectionSufficientWords || SUBSECTION_MIN_WORDS_FLOOR) - 120));
+  return { complete, resumeRequired, words, integrityOk, enoughWords, hitHardCap, hitAttemptCap, needsTailClosure: analysis.needsTailClosure, forcedByCap };
 }
 
 function chapterNeedsCompletion(chapterText, targetWords, context) {
