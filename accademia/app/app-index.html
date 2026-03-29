@@ -2447,6 +2447,28 @@ function resetRevStateForCurrentOutline(){
 }
 
 let __chapterGenLock=false;
+const chapterDraftRunByChapter={};
+
+function getChapterDraftRunId(chapterIdx){
+  const key=String(Number(chapterIdx));
+  if(!chapterDraftRunByChapter[key]){
+    chapterDraftRunByChapter[key]=`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+  }
+  return chapterDraftRunByChapter[key];
+}
+
+function clearChapterDraftRunId(chapterIdx){
+  const key=String(Number(chapterIdx));
+  delete chapterDraftRunByChapter[key];
+}
+
+function renderChapterResumeCta(idx){
+  const nc=document.getElementById('nextChapters');
+  if(!nc) return;
+  const title=thesis.chapterTitles[idx]||'';
+  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">↻ Riprendi generazione capitolo ${idx+1} — ${escHtml(title)}</button>`;
+  nc.classList.add('visible');
+}
 
 function renderNextChapterLauncher(){
   const nc=document.getElementById('nextChapters');
@@ -3482,9 +3504,20 @@ ${getChapterApprovalRow(idx,total,false,false)}
         const partial=(progress.currentText||'').trim();
         if(partial) document.getElementById(`chapText-${idx}`).textContent=partial+'\n\n…';
       }
-    });
+    },{chapterIdx:idx});
+    if(result && result.resumable){
+      thesis.chapters[idx]=null;
+      const paused=document.getElementById(`chap-${idx}`);
+      if(paused) paused.remove();
+      renderChapterResumeCta(idx);
+      updateChapterProgressBar(Math.max(0,idx),total,false);
+      setChapterOperationStatus(`Capitolo ${idx+1} in pausa: progresso salvato. Puoi riprendere senza perdita dati.`,false,false);
+      showToast(`Capitolo ${idx+1} in pausa: usa "Riprendi generazione capitolo".`);
+      return;
+    }
     const text=(result.text||'').trim();
     if(!text) throw new Error('Nessun contenuto restituito dal backend');
+    clearChapterDraftRunId(idx);
     thesis.chapters[idx]={title,content:text,versions:[{content:text,timestamp:now(),label:'Originale'}],currentVersion:0};
     streamText(`chapText-${idx}`,text,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
@@ -3499,7 +3532,19 @@ ${getChapterApprovalRow(idx,total,false,false)}
       saveProgress();
     });
   }catch(e){
+    const resumableErr=e && e.resumable;
+    if(resumableErr){
+      thesis.chapters[idx]=null;
+      const paused=document.getElementById(`chap-${idx}`);
+      if(paused) paused.remove();
+      renderChapterResumeCta(idx);
+      updateChapterProgressBar(Math.max(0,idx),total,false);
+      setChapterOperationStatus(`Capitolo ${idx+1} in pausa: progresso salvato. Puoi riprendere senza perdita dati.`,false,false);
+      showToast(`Capitolo ${idx+1} in pausa: usa "Riprendi generazione capitolo".`);
+      return;
+    }
     thesis.chapters[idx]=null;
+    clearChapterDraftRunId(idx);
     const failed=document.getElementById(`chap-${idx}`);
     if(failed) failed.remove();
     const nc=document.getElementById('nextChapters');
@@ -4396,7 +4441,7 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // ══════════════════════════════════════════════
 // API TASK — unified chapter call
 // ══════════════════════════════════════════════
-async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProgress=null){
+async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProgress=null, options={}){
   if(taskName!=='chapter_draft'){
     const r=await fetch('/api/task',{
       method:'POST',
@@ -4409,17 +4454,20 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
   }
 
   const baseInput=buildStructuredTaskInput(taskName,userPrompt);
-  const chapterDraftRunId=`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+  const chapterIdx=Number.isFinite(Number(options?.chapterIdx))?Number(options.chapterIdx):-1;
+  const chapterDraftRunId=chapterIdx>=0?getChapterDraftRunId(chapterIdx):`run_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+  const shouldResetAtStart=chapterIdx<0;
   let progressPackets=0;
   let stalledSteps=0;
   let lastProgressFingerprint='';
+  let autoResumeAttempts=0;
   for(let step=0; step<220; step+=1){
     const stepInput={
       ...baseInput,
       extra:{
         ...(baseInput.extra||{}),
         chapterDraftRunId,
-        chapterDraftReset:step===0
+        chapterDraftReset:step===0 && shouldResetAtStart
       }
     };
     const r=await fetch('/api/task',{
@@ -4453,14 +4501,25 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', onProg
     }
     const resumableStatus=d && (d.resumeRequired || d.status==='resume_required' || d.status==='in_progress');
     if(stalledSteps>=16 && resumableStatus){
-      throw new Error('Generazione in pausa: riprendi dal progresso salvato (resume) per completare il capitolo.');
+      if(autoResumeAttempts<2){
+        autoResumeAttempts+=1;
+        stalledSteps=0;
+        await new Promise(resolve=>setTimeout(resolve,380));
+        continue;
+      }
+      return {
+        resumable:true,
+        status:String(d.status||'resume_required'),
+        text:'',
+        progress:d.progress||null
+      };
     }
     if(!d || (!d.progress && !d.done && !d.chapterComplete && step>0 && progressPackets===0)){
       throw new Error('Nessun avanzamento progressivo ricevuto dal backend.');
     }
     await new Promise(resolve=>setTimeout(resolve,resumableStatus?260:220));
   }
-  throw new Error('Generazione non ancora completa in questa sessione, ma progresso salvato e riprendibile.');
+  return {resumable:true,status:'resume_required',text:'',progress:null};
 }
 
 // ══════════════════════════════════════════════
