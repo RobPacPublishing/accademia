@@ -147,6 +147,7 @@
   .version-badge:hover{border-color:var(--gold);color:var(--gold);}
   .next-phase-area{display:none;margin-top:6px;}
   .next-phase-area.visible{display:block;}
+  .next-phase-area #btnChapterAction{position:relative;z-index:2;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
   .chapter-progress-wrap{margin-bottom:18px;}
   .chapter-progress-label{font-size:11px;color:var(--text3);margin-bottom:8px;}
   .chapter-progress-bar{display:flex;gap:5px;flex-wrap:wrap;}
@@ -2481,6 +2482,41 @@ function clearChapterDraftRunId(chapterIdx){
   }
 }
 
+function renderChapterActionButton(mode, chapterIdx, chapterTitle){
+  const nc=document.getElementById('nextChapters');
+  if(!nc) return;
+  const idx=Number(chapterIdx);
+  const isResume=String(mode||'').trim().toLowerCase()==='resume';
+  const btn=document.createElement('button');
+  btn.className='phase-btn';
+  btn.id='btnChapterAction';
+  btn.type='button';
+  btn.textContent=isResume
+    ? `↻ Riprendi generazione capitolo ${idx+1} — ${chapterTitle||''}`
+    : `✦ Genera Capitolo ${idx+1} — ${chapterTitle||''}`;
+  btn.dataset.originalLabel=isResume
+    ? `↻ Riprendi generazione capitolo ${idx+1} — ${chapterTitle||''}`
+    : `✦ Genera Capitolo ${idx+1} — ${chapterTitle||''}`;
+  btn.addEventListener('mousedown',(event)=>{
+    event.preventDefault();
+  });
+  btn.addEventListener('click',(event)=>{
+    event.preventDefault();
+    event.stopPropagation();
+    if(event.stopImmediatePropagation) event.stopImmediatePropagation();
+    const sel=window.getSelection?.();
+    if(sel && typeof sel.removeAllRanges==='function') sel.removeAllRanges();
+    console.debug(`[chapter-action] click mode=${isResume?'resume':'new'} idx=${idx+1} @ ${new Date().toISOString()}`);
+    if(isResume){
+      resumeCurrentChapterGeneration();
+      return;
+    }
+    generateNextChapter();
+  });
+  nc.innerHTML='';
+  nc.appendChild(btn);
+}
+
 function syncChapterDraftRunCacheFromState(){
   Object.keys(chapterDraftRunByChapter).forEach(key=>delete chapterDraftRunByChapter[key]);
   const savedRuns=thesis?.chapterDraftRuns;
@@ -2495,7 +2531,7 @@ function renderChapterResumeCta(idx){
   const nc=document.getElementById('nextChapters');
   if(!nc) return;
   const title=thesis.chapterTitles[idx]||'';
-  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="resumeCurrentChapterGeneration()">↻ Riprendi generazione capitolo ${idx+1} — ${escHtml(title)}</button>`;
+  renderChapterActionButton('resume',idx,title);
   nc.classList.add('visible');
 }
 
@@ -2508,7 +2544,7 @@ function renderNextChapterLauncher(){
     return;
   }
   const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
-  nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
+  renderChapterActionButton('new',thesis.currentChapterIdx,nextTitle);
   if(!thesis.chapters[thesis.currentChapterIdx]) nc.classList.add('visible');
 }
 
@@ -2757,7 +2793,7 @@ function restoreProgressUI(savedForm=null){
     if(thesis.currentChapterIdx<total){
       const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
       const hasResumableRun=!!peekChapterDraftRunId(thesis.currentChapterIdx);
-      document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="${hasResumableRun?'resumeCurrentChapterGeneration()':'generateNextChapter()'}">${hasResumableRun?'↻ Riprendi generazione capitolo':'✦ Genera Capitolo'} ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
+      renderChapterActionButton(hasResumableRun?'resume':'new',thesis.currentChapterIdx,nextTitle);
       if(!thesis.chapters[thesis.currentChapterIdx]) document.getElementById('nextChapters').classList.add('visible');
     }
     thesis.chapters.forEach((_,idx)=>renderRevCounter(idx));
@@ -3596,7 +3632,7 @@ ${getChapterApprovalRow(idx,total,false,false)}
     const nc=document.getElementById('nextChapters');
     if(nc){
       const nextTitle=thesis.chapterTitles[idx]||'';
-      nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${idx+1} — ${escHtml(nextTitle)}</button>`;
+      renderChapterActionButton('new',idx,nextTitle);
       nc.classList.add('visible');
     }
     updateChapterProgressBar(Math.max(0,idx),total,false);
