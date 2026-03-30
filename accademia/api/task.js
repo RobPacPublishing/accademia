@@ -11,7 +11,7 @@ const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_MODEL_PRIMARY || 'claude-s
 const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK || 'claude-haiku-4-5-20251001';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 const OTP_TTL_SECONDS = 10 * 60;
-const SESSION_TTL_SECONDS = 60 * 24 * 60 * 60;
+const SESSION_TTL_SECONDS = 180 * 24 * 60 * 60;
 const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
 const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       }
 
       case '__state_save': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner, 'syncKey o sessionToken mancanti');
         await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
         await recordEvent('state_save', { scope: owner.scope });
@@ -77,14 +77,14 @@ export default async function handler(req, res) {
       }
 
       case '__state_load': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner, 'syncKey o sessionToken mancanti');
         const record = await getJson(owner.stateKey);
         return sendJson(res, 200, { state: record?.state || null, savedAt: record?.savedAt || null });
       }
 
       case '__snapshot_create': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner, 'syncKey o sessionToken mancanti');
         const current = (await getJson(owner.snapshotsKey)) || [];
         const snapshot = {
@@ -102,14 +102,14 @@ export default async function handler(req, res) {
       }
 
       case '__snapshot_list': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner, 'syncKey o sessionToken mancanti');
         const snapshots = (await getJson(owner.snapshotsKey)) || [];
         return sendJson(res, 200, { snapshots });
       }
 
       case '__recovery_save': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner, 'syncKey o sessionToken mancanti');
         const record = input?.record || null;
         assert(record && record.payload, 'record mancante');
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
       }
 
       case '__recovery_load': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner, 'syncKey o sessionToken mancanti');
         const record = await getJson(owner.recoveryKey);
         return sendJson(res, 200, { record: record || null });
@@ -147,21 +147,33 @@ export default async function handler(req, res) {
           return sendJson(res, 400, { error: 'invalid_code', details: 'Codice non valido o scaduto' });
         }
         await delKey(accountOtpKey(email));
+        const profile = await ensureAccountProfile(email);
         const sessionToken = makeId('sess');
-        await putJson(accountSessionKey(sessionToken), { email, createdAt: new Date().toISOString() }, SESSION_TTL_SECONDS);
+        await putJson(accountSessionKey(sessionToken), {
+          email,
+          accountId: profile.accountId,
+          thesisId: profile.thesisId,
+          createdAt: new Date().toISOString(),
+        }, SESSION_TTL_SECONDS);
         await recordStat('account_verify_ok', { email: redactEmail(email) });
-        return sendJson(res, 200, { ok: true, sessionToken, email });
+        return sendJson(res, 200, {
+          ok: true,
+          sessionToken,
+          email,
+          accountId: profile.accountId,
+          thesisId: profile.thesisId,
+        });
       }
 
       case '__account_load': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner && owner.scope === 'account', 'sessionToken mancante o non valido');
         const record = await getJson(owner.stateKey);
         return sendJson(res, 200, { state: record?.state || null, savedAt: record?.savedAt || null });
       }
 
       case '__account_save': {
-        const owner = await resolveOwner(input);
+        const owner = await ensureOwnerStorageReady(await resolveOwner(input));
         assert(owner && owner.scope === 'account', 'sessionToken mancante o non valido');
         await putJson(owner.stateKey, { state: input?.payload || null, savedAt: new Date().toISOString() });
         await recordEvent('account_save', { scope: owner.scope, email: redactEmail(owner.email) });
@@ -290,15 +302,61 @@ async function resolveOwner(input) {
   const session = await getJson(accountSessionKey(sessionToken));
   if (!session?.email) return null;
   const email = normalizeEmail(session.email);
-  const id = hashEmail(email);
+  const profile = await ensureAccountProfile(email);
   return {
     scope: 'account',
     email,
     sessionToken,
-    stateKey: `accademia:account:${id}:state`,
-    snapshotsKey: `accademia:account:${id}:snapshots`,
-    recoveryKey: `accademia:account:${id}:recovery`,
+    accountId: profile.accountId,
+    thesisId: profile.thesisId,
+    profileKey: accountProfileKey(email),
+    stateKey: accountStateKey(email, profile.thesisId),
+    snapshotsKey: accountSnapshotsKey(email, profile.thesisId),
+    recoveryKey: accountRecoveryKey(email, profile.thesisId),
+    legacyStateKey: accountLegacyStateKey(email),
+    legacySnapshotsKey: accountLegacySnapshotsKey(email),
+    legacyRecoveryKey: accountLegacyRecoveryKey(email),
   };
+}
+
+async function ensureOwnerStorageReady(owner) {
+  if (!owner || owner.scope !== 'account') return owner;
+  await ensureAccountStorageMigrated(owner);
+  return owner;
+}
+
+async function ensureAccountStorageMigrated(owner) {
+  if (!owner || owner.scope !== 'account') return;
+  await migrateJsonIfMissing(owner.legacyStateKey, owner.stateKey);
+  await migrateJsonIfMissing(owner.legacySnapshotsKey, owner.snapshotsKey);
+  await migrateJsonIfMissing(owner.legacyRecoveryKey, owner.recoveryKey);
+}
+
+async function migrateJsonIfMissing(fromKey, toKey) {
+  if (!fromKey || !toKey || fromKey === toKey) return;
+  const existing = await getJson(toKey);
+  if (existing !== null) return;
+  const legacy = await getJson(fromKey);
+  if (legacy !== null) {
+    await putJson(toKey, legacy);
+  }
+}
+
+async function ensureAccountProfile(email) {
+  const normalized = normalizeEmail(email);
+  assert(normalized, 'Email account non valida');
+  const key = accountProfileKey(normalized);
+  const now = new Date().toISOString();
+  const accountId = hashEmail(normalized);
+  const stored = await getJson(key);
+  const profile = stored && typeof stored === 'object' ? { ...stored } : {};
+  if (!profile.accountId) profile.accountId = accountId;
+  if (!profile.email) profile.email = normalized;
+  if (!profile.thesisId) profile.thesisId = makeId('thesis');
+  if (!profile.createdAt) profile.createdAt = now;
+  profile.updatedAt = now;
+  await putJson(key, profile);
+  return profile;
 }
 
 function safeKey(value) {
@@ -307,6 +365,38 @@ function safeKey(value) {
 
 function accountOtpKey(email) {
   return `accademia:otp:${hashEmail(email)}`;
+}
+
+function accountNamespace(email) {
+  return `accademia:account:${hashEmail(normalizeEmail(email))}`;
+}
+
+function accountProfileKey(email) {
+  return `${accountNamespace(email)}:profile`;
+}
+
+function accountStateKey(email, thesisId) {
+  return `${accountNamespace(email)}:thesis:${safeKey(thesisId)}:state`;
+}
+
+function accountSnapshotsKey(email, thesisId) {
+  return `${accountNamespace(email)}:thesis:${safeKey(thesisId)}:snapshots`;
+}
+
+function accountRecoveryKey(email, thesisId) {
+  return `${accountNamespace(email)}:thesis:${safeKey(thesisId)}:recovery`;
+}
+
+function accountLegacyStateKey(email) {
+  return `${accountNamespace(email)}:state`;
+}
+
+function accountLegacySnapshotsKey(email) {
+  return `${accountNamespace(email)}:snapshots`;
+}
+
+function accountLegacyRecoveryKey(email) {
+  return `${accountNamespace(email)}:recovery`;
 }
 
 function accountSessionKey(sessionToken) {

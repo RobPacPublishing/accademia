@@ -777,7 +777,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('accountModal')">×</button>
     <h2>Account AccademIA</h2>
-    <p>Usa la tua email per ritrovare automaticamente i contenuti senza chiave Sync manuale. Se non accedi, l’app continua comunque a funzionare con la chiave Sync.</p>
+    <p>Usa la tua email per rendere l’account la sorgente principale della tua tesi su più dispositivi. La chiave Sync resta disponibile solo come fallback o recupero manuale.</p>
     <div class="form-group" style="margin-bottom:12px;">
       <label for="accountEmailInput">Email account</label>
       <input id="accountEmailInput" type="email" placeholder="nome@email.com" autocomplete="email">
@@ -806,7 +806,7 @@
   <div class="modal" style="max-width:640px;">
     <button class="modal-close" onclick="closeModal('syncModal')">Chiudi</button>
     <h2>Chiave Sync</h2>
-    <p class="sync-help">Usa questa chiave per ritrovare i contenuti su altri dispositivi. Puoi copiarla davvero negli appunti oppure sostituirla con una chiave già esistente.</p>
+    <p class="sync-help">La chiave Sync è opzionale: usala solo come fallback o recupero manuale. Puoi generarla adesso oppure inserire una chiave già esistente.</p>
     <div class="form-group">
       <label for="syncKeyInput">Chiave di sincronizzazione</label>
       <input id="syncKeyInput" class="sync-key-field" type="text" spellcheck="false" autocomplete="off">
@@ -989,6 +989,49 @@ function getAccountEmail(){
   try{return localStorage.getItem(ACCOUNT_EMAIL_STORAGE)||'';}catch(_){return '';}
 }
 
+function hasAccountSession(){
+  return !!getAccountSessionToken();
+}
+
+function hasMeaningfulSavedState(state){
+  const t=state?.thesis||{};
+  return !!(
+    String(t.argomento||'').trim() ||
+    String(t.indice||'').trim() ||
+    String(t.abstract||'').trim() ||
+    (Array.isArray(t.chapterTitles)&&t.chapterTitles.length) ||
+    (Array.isArray(t.chapters)&&t.chapters.some(ch=>String(ch?.content||'').trim()))
+  );
+}
+
+function choosePreferredSavedState(localSaved,syncSaved,accountSaved){
+  const unlocked=sessionStorage.getItem(ACCESS_SESSION_KEY)==='1';
+  if(unlocked && hasAccountSession()){
+    if(hasMeaningfulSavedState(accountSaved)) return {state:accountSaved, source:'account'};
+    if(hasMeaningfulSavedState(syncSaved)) return {state:syncSaved, source:'sync'};
+    if(hasMeaningfulSavedState(localSaved)) return {state:localSaved, source:'local'};
+    return {state:null, source:''};
+  }
+  const fallback=pickNewestSavedState(localSaved,syncSaved,accountSaved);
+  if(!fallback) return {state:null, source:''};
+  if(fallback===accountSaved) return {state:fallback, source:'account'};
+  if(fallback===syncSaved) return {state:fallback, source:'sync'};
+  return {state:fallback, source:'local'};
+}
+
+async function seedAccountFromState(state,source='local',opts={}){
+  const sessionToken=getAccountSessionToken();
+  if(!sessionToken || !hasMeaningfulSavedState(state)) return false;
+  try{
+    await apiTask('__account_save',{sessionToken,payload:state,source});
+    return true;
+  }catch(e){
+    console.warn('account seed failed',e);
+    if(!opts.silent) showToast('Allineamento account non riuscito', true);
+    return false;
+  }
+}
+
 function setAccountSession(sessionToken,email){
   try{
     localStorage.setItem(ACCOUNT_SESSION_STORAGE,sessionToken||'');
@@ -1056,23 +1099,18 @@ async function verifyAccountCode(){
     const localSaved=loadProgress();
     const syncSaved=(sessionStorage.getItem(ACCESS_SESSION_KEY)==='1') ? await loadRemoteProgress() : null;
     const accountSaved=await loadAccountProgress();
-    const merged=pickNewestSavedState(localSaved,syncSaved,accountSaved);
-    if(merged?.thesis){
-      window.__restoringState=true;
-      thesis=merged.thesis;
-      revState=merged.revState||revState;
-      currentStep=Number.isFinite(merged.currentStep)?merged.currentStep:0;
-      indiceMode=merged.indiceMode||'ai';
-      abstractMode=merged.abstractMode||'ai';
-      metodologia=(merged.metodologia==='empirica'?'teorica':(merged.metodologia||''));
-      chapterOverrideActive=!!merged.chapterOverrideActive;
-      restoreProgressUI(merged.form||{});
-      window.__restoringState=false;
+    const selected=choosePreferredSavedState(localSaved,syncSaved,accountSaved);
+    if(selected.state?.thesis){
+      if(selected.source!=='account'){
+        await seedAccountFromState(selected.state,selected.source,{silent:true});
+      }
+      applySavedState(selected.state,'');
+    }else{
+      saveProgress();
     }
-    saveProgress();
-    fillAccountUiStatus(`Account collegato: ${data.email||email}`);
+    fillAccountUiStatus(`Account collegato: ${data.email||email}. Questa tesi diventa il riferimento principale dell’account.`);
     closeModal('accountModal');
-    showToast('Account collegato ✓');
+    showToast('Account collegato ✓ Continuità multi-dispositivo attiva');
   }catch(e){
     fillAccountUiStatus(e?.message||'Verifica account non riuscita',true);
   }
@@ -1126,7 +1164,7 @@ async function loadRemoteProgress(){
 }
 
 async function saveRemoteProgress(force=false){
-  const syncKey=ensureSyncKey(true);
+  const syncKey=getSyncKey();
   if(!syncKey) return;
   const payload=buildProgressPayload();
   try{
@@ -1332,7 +1370,7 @@ async function createSnapshot(reason='manuale',opts={}){
   saveLocalSnapshotRecord(record);
   const tasks=[];
   const sessionToken=getAccountSessionToken();
-  const syncKey=ensureSyncKey(true);
+  const syncKey=getSyncKey();
   if(syncKey) tasks.push(apiTask('__snapshot_create',{syncKey,snapshotId,payload,label,reason}).catch(e=>console.warn('snapshot sync save failed',e)));
   if(sessionToken) tasks.push(apiTask('__snapshot_create',{sessionToken,snapshotId,payload,label,reason}).catch(e=>console.warn('snapshot account save failed',e)));
   if(tasks.length) await Promise.all(tasks);
@@ -1485,8 +1523,8 @@ function triggerAutoSnapshot(reason){
 function scheduleRemoteSave(){
   clearTimeout(syncSaveTimer);
   syncSaveTimer=setTimeout(()=>{
-    saveRemoteProgress(false);
-    saveAccountProgress(false);
+    if(getSyncKey()) saveRemoteProgress(false);
+    if(getAccountSessionToken()) saveAccountProgress(false);
   },700);
 }
 
@@ -1532,24 +1570,27 @@ async function copyPlainTextToClipboard(value){
 }
 
 function openSyncManager(){
-  const current=ensureSyncKey(true);
+  const current=getSyncKey();
   const input=document.getElementById('syncKeyInput');
   if(input) input.value=current;
-  setSyncStatus('Chiave pronta. Puoi copiarla oppure sostituirla con una chiave esistente.');
+  setSyncStatus(current
+    ? 'Chiave pronta. Puoi copiarla oppure sostituirla con una chiave esistente.'
+    : 'Nessuna chiave presente. Puoi generarne una ora come fallback oppure inserire una chiave già esistente.');
   openModal('syncModal');
 }
 
 function saveSyncKey(){
   const input=document.getElementById('syncKeyInput');
-  const next=(input?.value||'').trim();
+  let next=(input?.value||'').trim();
+  const wasEmpty=!next;
   if(!next){
-    setSyncStatus('Inserisci una chiave valida.', true);
-    return;
+    next=generateSyncKey();
+    if(input) input.value=next;
   }
   try{localStorage.setItem(SYNC_KEY_STORAGE,next);}catch(_){ }
   updateSyncButton();
-  setSyncStatus('Chiave sync salvata ✓');
-  showToast('Chiave sync salvata ✓');
+  setSyncStatus(wasEmpty?'Chiave sync generata e salvata ✓':'Chiave sync salvata ✓');
+  showToast(wasEmpty?'Chiave sync generata ✓':'Chiave sync salvata ✓');
   restoreProgressOnLoad(false);
 }
 
@@ -2105,6 +2146,7 @@ function applyAccessState(unlocked){
   if(snapshots) snapshots.style.display = unlocked ? 'inline-flex' : 'none';
   if(recovery) recovery.style.display = unlocked ? 'inline-flex' : 'none';
   updateBypassButton();
+  updateSyncButton();
   updateAccountButton();
   if(!unlocked){
     sessionStorage.removeItem(OWNER_FREE_RENEWAL_SESSION_KEY);
@@ -2151,7 +2193,6 @@ function acceptDisclaimer(){
   sessionStorage.setItem(ACCESS_SESSION_KEY,'1');
   sessionStorage.setItem('_td_accepted','1');
   sessionStorage.setItem(OWNER_FREE_RENEWAL_SESSION_KEY,'1');
-  ensureSyncKey();
   applyAccessState(true);
   restoreProgressOnLoad(false);
 }
@@ -2191,7 +2232,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   if(recovery) recovery.addEventListener('click',openRecoveryManager);
 
   const unlocked = sessionStorage.getItem(ACCESS_SESSION_KEY) === '1';
-  if(unlocked) ensureSyncKey(true);
   applyAccessState(unlocked);
   checkDisclaimer();
   await restoreProgressOnLoad(false);
@@ -2810,9 +2850,12 @@ async function restoreProgressOnLoad(showToastOnSuccess=true){
   const localSaved=loadProgress();
   const remoteSaved=(sessionStorage.getItem(ACCESS_SESSION_KEY)==='1') ? await loadRemoteProgress() : null;
   const accountSaved=(sessionStorage.getItem(ACCESS_SESSION_KEY)==='1') ? await loadAccountProgress() : null;
-  const saved=pickNewestSavedState(localSaved, remoteSaved, accountSaved);
-  if(saved && saved.thesis){
-    applySavedState(saved, showToastOnSuccess ? 'Sessione ripristinata ✓' : '');
+  const preferred=choosePreferredSavedState(localSaved, remoteSaved, accountSaved);
+  if(preferred.state && preferred.state.thesis){
+    if(preferred.source!=='account' && hasAccountSession()){
+      await seedAccountFromState(preferred.state,preferred.source,{silent:true});
+    }
+    applySavedState(preferred.state, showToastOnSuccess ? (preferred.source==='account' ? 'Tesi account ripristinata ✓' : 'Sessione ripristinata ✓') : '');
     return;
   }
   const localRecovery=loadLocalRecovery();
@@ -2820,6 +2863,9 @@ async function restoreProgressOnLoad(showToastOnSuccess=true){
   const accountRecovery=(sessionStorage.getItem(ACCESS_SESSION_KEY)==='1') ? await loadAccountRecovery() : null;
   const newestRecovery=pickNewestRecovery(localRecovery,syncRecovery,accountRecovery);
   if(newestRecovery?.payload?.thesis){
+    if(hasAccountSession() && newestRecovery!==accountRecovery){
+      await seedAccountFromState(newestRecovery.payload,'recovery',{silent:true});
+    }
     applySavedState(newestRecovery.payload, showToastOnSuccess ? 'Recuperata ultima versione valida ✓' : '');
   }
 }
@@ -4192,7 +4238,7 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
     },
     facultyCompatibility:getFacultyCompatibility(facolta),
     facultyGuidance:facultyPromptGuidance(facolta,corso,metodologia||thesis.metodologia||''),
-    syncKey: ensureSyncKey(true),
+    syncKey: getSyncKey(),
     sessionToken: getAccountSessionToken(),
     adminKey: getAdminDashKey(),
     thesisGuard,
