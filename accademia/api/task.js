@@ -176,6 +176,7 @@ export default async function handler(req, res) {
       case 'abstract_draft':
       case 'abstract_review':
       case 'chapter_draft':
+      case 'chapter_resume':
       case 'chapter_review':
       case 'tutor_revision':
       case 'revisione_relatore':
@@ -535,6 +536,7 @@ function normalizeGenerationTask(task) {
     case 'abstract_review':
       return 'abstract_draft';
     case 'chapter_review':
+    case 'chapter_resume':
     case 'revisione_capitolo':
       return 'chapter_review';
     case 'tutor_revision':

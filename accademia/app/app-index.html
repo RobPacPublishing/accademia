@@ -570,7 +570,7 @@
         <div id="indiceAIWrap">
           <div class="chapter-row">
             <div class="chapter-ai-badge">✦ AI decide la struttura ottimale</div>
-            <button class="toggle-override" id="toggleOverride" onclick="toggleChapterOverride()">Personalizza numero</button>
+            <button class="toggle-override" id="toggleOverride" onclick="toggleChapterOverride()">Personalizza numero capitoli</button>
             <div style="display:none" id="chapterOverride">
               <input type="number" id="numChapters" class="chapter-num-input" min="2" max="10" value="4">
             </div>
@@ -2224,6 +2224,16 @@ function syncPrimaryOutputButtons(){
   syncResidualUxLocks();
 }
 
+function isWorkflowBusy(){
+  const indiceBusy=!!document.getElementById('indiceOutput')?.classList.contains('typing');
+  const abstractBusy=!!document.getElementById('abstractOutput')?.classList.contains('typing');
+  const chapterBusy=!!(
+    __chapterGenLock ||
+    document.querySelector('.output-block[id^="chapOutput-"].typing')
+  );
+  return indiceBusy || abstractBusy || chapterBusy;
+}
+
 function syncChapterHeaderButtons(idx){
   const busy=getChapterGenerationState(idx)==='generating' || !!document.getElementById(`chapOutput-${idx}`)?.classList.contains('typing');
   [`chapDocBtn-${idx}`,`chapTxtBtn-${idx}`,`chapCopyBtn-${idx}`,`chapDeleteBtn-${idx}`].forEach(id=>setElementDisabled(id,busy));
@@ -3202,6 +3212,7 @@ function updateAbstractButtonState(){
 function syncResidualUxLocks(){
   const indiceApproved=isIndexApprovedState();
   const abstractApproved=isAbstractApprovedState();
+  const busyGlobal=isWorkflowBusy();
   const disableIndex=busyGlobal || indiceApproved;
   const disableAbstract=busyGlobal || abstractApproved;
   ['modeBtnAI','modeBtnManual','indiceManuale','toggleOverride','numChapters'].forEach(id=>{
@@ -3339,7 +3350,7 @@ function toggleChapterOverride(){
   chapterOverrideActive=!chapterOverrideActive;
   const btn=document.getElementById('toggleOverride');
   btn.classList.toggle('active',chapterOverrideActive);
-  btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero';
+  btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero capitoli';
   document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
 }
 function setStep(n){
@@ -3705,6 +3716,7 @@ async function startPhase1(){
     updateStep1ButtonState();
     showToast('Indice del relatore acquisito ✓');
     saveProgress();
+    setPhaseButtonBusy('btnStep1',false);
     return;
   }
 
@@ -3759,6 +3771,7 @@ Bibliografia`;
       document.getElementById('indiceChip').innerHTML='✓ Completato';
       document.getElementById('indiceApproval').style.display='flex';
       syncPrimaryOutputButtons();
+      setPhaseButtonBusy('btnStep1',false);
       saveProgress();
     });
   }catch(e){
@@ -3913,6 +3926,7 @@ async function generateAbstract(){
     document.getElementById('abstractApproval').style.display='flex';
     syncPrimaryOutputButtons();
     saveProgress();
+    setPhaseButtonBusy('btnAbstractAction',false);
     return;
   }
   document.getElementById('abstractOutput').classList.add('typing');
@@ -3943,6 +3957,7 @@ Inizia direttamente. Solo il testo dell’abstract.`;
       document.getElementById('abstractChip').innerHTML='✓ Completato';
       document.getElementById('abstractApproval').style.display='flex';
       syncPrimaryOutputButtons();
+      setPhaseButtonBusy('btnAbstractAction',false);
       saveProgress();
     });
   }catch(e){syncPrimaryOutputButtons();showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnAbstractAction',false);}
