@@ -2735,7 +2735,7 @@ function analyzeChapterCompleteness(text,idx){
   const minWords=chapterWordFloorForValidation(idx,subsections.length||1);
   const suspiciousEnding=chapterEndsSuspiciouslyLocal(clean);
   const aiClosure=chapterAiClosureDetected(clean);
-  const ok=!!clean && missing.length===0 && !suspiciousEnding && words>=minWords;
+  const ok=!!clean && missing.length===0 && !suspiciousEnding && !aiClosure && words>=minWords;
   return {ok,words,minWords,missingSubsections:missing,suspiciousEnding,aiClosure,subsectionCount:subsections.length};
 }
 
@@ -3827,7 +3827,9 @@ Vincoli obbligatori:
 - usa i sottocapitoli previsti dall'indice con numerazione corretta (${idx+1}.1, ${idx+1}.2, ecc.);
 - non usare markdown o asterischi;
 - non inserire note meta sul capitolo successivo;
-- evita conclusioni artificiali da AI;
+- non usare formule come "questo capitolo ha analizzato", "nel prossimo capitolo", "in conclusione questo capitolo" o chiuse scolastiche equivalenti;
+- evita aperture stereotipate, frasi di servizio e raccordi artificiosi da AI;
+- chiudi il capitolo con un finale sobrio, analitico e naturale, senza commentare la propria struttura;
 ${notesPromptLine()}
 - lunghezza obiettivo: circa ${lung.min}-${lung.max} parole.`;
 }
@@ -3851,30 +3853,32 @@ function ensureChapterRecord(idx,title){
 }
 
 function writeChapterVersion(idx,text,label){
+  const cleanText=sanitizeAcademicDraftText(text);
   const ch=ensureChapterRecord(idx,thesis.chapterTitles?.[idx]||'');
-  const normalizedNew=normalizeRevisionComparisonText(text);
+  const normalizedNew=normalizeRevisionComparisonText(cleanText);
   if(!Array.isArray(ch.versions)) ch.versions=[];
   const last=ch.versions[ch.versions.length-1];
   const normalizedLast=normalizeRevisionComparisonText(last?.content||'');
   if(!ch.versions.length || normalizedNew!==normalizedLast){
-    ch.versions.push({content:text,timestamp:now(),label:label||'Versione'});
+    ch.versions.push({content:cleanText,timestamp:now(),label:label||'Versione'});
     ch.currentVersion=ch.versions.length-1;
   }else{
     ch.currentVersion=Math.max(0,ch.versions.length-1);
     ch.versions[ch.currentVersion].timestamp=now();
   }
-  ch.content=text;
+  ch.content=cleanText;
   return ch;
 }
 
 async function stabilizeChapterContent(idx,title,text){
-  let candidate=String(text||'').trim();
+  let candidate=sanitizeAcademicDraftText(String(text||'').trim());
   let validation=analyzeChapterCompleteness(candidate,idx);
   let passes=0;
   while(candidate && !validation.ok && passes<2){
     const prompt=`Completa e stabilizza il Capitolo ${idx+1} "${title}" della tesi.
 Problemi da correggere: ${formatChapterValidationIssues(validation)}.
-Non ricominciare da capo: completa e rifinisci la bozza esistente finché tutte le sottosezioni previste risultano presenti, coerenti e concluse in modo naturale.`;
+Non ricominciare da capo: completa e rifinisci la bozza esistente finché tutte le sottosezioni previste risultano presenti, coerenti e concluse in modo naturale.
+Elimina eventuali chiuse artificiali del tipo "questo capitolo", "nel prossimo capitolo" o formule scolastiche equivalenti.`;
     const repaired=await callClaudeWithSearch(prompt,'chapter_resume',{
       currentChapterIndex:idx,
       currentChapterTitle:title,
@@ -3882,7 +3886,7 @@ Non ricominciare da capo: completa e rifinisci la bozza esistente finché tutte 
       chapterValidation:validation,
       requestedAction:'stabilize_chapter'
     });
-    const nextText=String(repaired?.text||'').trim();
+    const nextText=sanitizeAcademicDraftText(String(repaired?.text||'').trim());
     if(!nextText || normalizeRevisionComparisonText(nextText)===normalizeRevisionComparisonText(candidate)) break;
     candidate=nextText;
     validation=analyzeChapterCompleteness(candidate,idx);
@@ -3937,11 +3941,11 @@ async function runChapterGeneration(idx,opts={}){
       currentChapterTitle:title,
       existingChapterContent:useResume?existingRecord.content:''
     });
-    const rawText=String(result.text||'').trim();
+    const rawText=sanitizeAcademicDraftText(String(result.text||'').trim());
     if(!rawText) throw new Error('Nessun contenuto restituito dal backend');
 
     const stabilized=await stabilizeChapterContent(idx,title,rawText);
-    const finalText=String(stabilized.text||'').trim();
+    const finalText=sanitizeAcademicDraftText(String(stabilized.text||'').trim());
     if(!finalText) throw new Error('Il backend non ha restituito un capitolo utilizzabile');
 
     const versionLabel=existingRecord.versions?.length ? (useResume?'Ripresa completata':'Rigenerazione capitolo') : 'Originale';
@@ -4048,6 +4052,47 @@ function normalizeRevisionComparisonText(text){
     .trim()
     .toLowerCase();
 }
+function stripArtificialAcademicTail(text){
+  let s=String(text||'');
+  s=s.replace(/
+(?:In conclusione,?\s*)?(?:nel|nei) prossim[oi] capitol[oi][\s\S]*$/i,'');
+  s=s.replace(/
+(?:In conclusione,?\s*)?questo capitolo (?:ha analizzato|si è proposto(?: di)?|ha mostrato|ha evidenziato|ha esaminato|ha consentito di)[\s\S]*$/i,'');
+  s=s.replace(/
+(?:Per concludere|In sintesi|In conclusione),?\s+(?:si può affermare|si può osservare|emerge che|si evidenzia che)[^
+]{0,260}$/i,'');
+  return s.trim();
+}
+function sanitizeAcademicDraftText(text,{keepNotes=true}={}){
+  let s=String(text||'')
+    .replace(/
+/g,'
+')
+    .replace(/ /g,' ')
+    .replace(/```[\s\S]*?```/g,' ')
+    .replace(/^\s*(?:Ecco(?:\s+il)?(?:\s+capitolo|\s+testo)?(?:\s+revisionato)?[:.]\s*)/i,'')
+    .replace(/^\s*(?:Di seguito(?:\s+trovi)?(?:\s+il\s+testo)?[:.]\s*)/i,'')
+    .replace(/[ 	]+
+/g,'
+')
+    .replace(/
+{3,}/g,'
+
+')
+    .trim();
+  if(!keepNotes){
+    s=s.replace(/
+Note\s*
+[\s\S]*$/i,'').trim();
+  }
+  s=stripArtificialAcademicTail(s)
+    .replace(/
+{3,}/g,'
+
+')
+    .trim();
+  return s;
+}
 function hasSubstantialRevisionChange(beforeText,afterText){
   const before=normalizeRevisionComparisonText(beforeText);
   const after=normalizeRevisionComparisonText(afterText);
@@ -4100,6 +4145,7 @@ ISTRUZIONI:
 - Esegui web search per fonti aggiornate se le modifiche richiedono nuovi riferimenti
 - Riscrivi il capitolo COMPLETO incorporando le modifiche
 - Mantieni struttura: apertura contestuale + sviluppo + analisi critica + chiusura sobria del capitolo
+- Elimina formule da AI, chiuse scolastiche e frasi meta come "questo capitolo" o "nel prossimo capitolo"
 - Ogni sottosezione deve restare sostanziale, con almeno 3 paragrafi pieni
 - Coerenza con altri capitoli: ${thesis.chapterTitles.filter((_,i)=>i!==idx).join(' | ')}
 ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione finale Note, distinta dal corpo del capitolo, con apparato prudente e non inventato.' : ''}
@@ -4107,10 +4153,10 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
 - NON inventare fonti. Solo testo del capitolo revisionato.`;
   try{
     const result=await callClaudeWithSearch(prompt,'chapter_review',{currentChapterIndex:idx,currentChapterTitle:ch.title||`Capitolo ${idx+1}`});
-    const text=(result.text||'').trim();
+    const text=sanitizeAcademicDraftText((result.text||'').trim());
     if(!text) throw new Error('Nessun contenuto restituito dal provider');
     const stabilized=await stabilizeChapterContent(idx,ch.title||`Capitolo ${idx+1}`,text);
-    const finalText=String(stabilized.text||'').trim();
+    const finalText=sanitizeAcademicDraftText(String(stabilized.text||'').trim());
     if(!finalText) throw new Error('Nessun contenuto revisionato utilizzabile');
     consumeRevision(idx);
     ch.versions.push({content:finalText,timestamp:now(),label:`Rev: "${fb.substring(0,35)}"`});
@@ -4198,7 +4244,7 @@ ISTRUZIONI:
 - Se nei materiali ricevuti compaiono già autori, modelli, categorie teoriche o riferimenti scientifici pertinenti, rendili più visibili e meglio integrati nel corpo del ragionamento; se non compaiono, NON inventare fonti, autori, anni, dati o citazioni.
 - Se le osservazioni chiedono maggiore rigore o maggiore supporto teorico e i materiali non contengono riferimenti sufficienti, rendi il testo più prudente, più circoscritto e strutturalmente pronto a ricevere riferimenti reali, senza simulare erudizione.
 - Inserisci dove utile una breve problematizzazione o un limite teorico del concetto discusso, purché serva a rafforzare l’analisi e non a divagare.
-- Evita chiuse generiche, formule intercambiabili e aperture standardizzate: ogni sottosezione deve risultare necessaria e deve lasciare chiaro il suo valore nel percorso argomentativo della tesi.
+- Evita chiuse generiche, formule intercambiabili, aperture standardizzate e frasi meta come "questo capitolo" o "nel prossimo capitolo": ogni sottosezione deve risultare necessaria e deve lasciare chiaro il suo valore nel percorso argomentativo della tesi.
 - Prima di chiudere il testo, verifica silenziosamente: recepimento reale delle osservazioni, specificità rispetto alla tesi, contributo chiaro di ogni sottosezione alla domanda di ricerca, tono accademico non manualistico, presenza di passaggi interpretativi, assenza di fonti inventate.
 - Nessun elenco nel testo finale, nessun commento introduttivo o finale di servizio. Restituisci solo il capitolo revisionato.
 ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione finale Note, distinta dal corpo del capitolo, con apparato prudente e senza fonti inventate.' : ''}
@@ -4206,10 +4252,10 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
 - NON inventare fonti.`;
   try{
     const result=await callClaudeWithSearch(prompt,'tutor_revision',{currentChapterIndex:idx,currentChapterTitle:ch.title||`Capitolo ${idx+1}`});
-    const text=(result.text||'').trim();
+    const text=sanitizeAcademicDraftText((result.text||'').trim());
     if(!text) throw new Error('Nessun contenuto restituito dal provider');
     const stabilized=await stabilizeChapterContent(idx,ch.title||`Capitolo ${idx+1}`,text);
-    const finalText=String(stabilized.text||'').trim();
+    const finalText=sanitizeAcademicDraftText(String(stabilized.text||'').trim());
     if(!finalText) throw new Error('Nessun contenuto revisionato utilizzabile');
     consumeRevision(idx);
     ch.versions.push({content:finalText,timestamp:now(),label:`Relatore: "${notes.substring(0,35)}"`});

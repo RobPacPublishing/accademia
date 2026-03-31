@@ -817,6 +817,7 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     `- Inizia esattamente con l'intestazione: ${subsection.code} ${subsection.title}`,
     '- Produci solo la sottosezione richiesta.',
     '- Nessun markdown, nessun elenco puntato, nessuna conclusione sul capitolo successivo.',
+    '- Non usare formule meta come "questo capitolo", "nel prossimo capitolo" o chiuse scolastiche equivalenti.',
     '- Usa paragrafi continui, tono accademico, lessico naturale.',
     wantsFootnoteApparatus(obj) ? '- Non inserire ancora la sezione finale Note dentro questa sottosezione.' : '',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
@@ -859,7 +860,7 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Non ricominciare da capo.',
     '- Continua esattamente dal punto in cui il testo si è fermato.',
     '- Aggiungi solo il testo mancante per completare la sottosezione in modo pieno e naturale.',
-    '- Non inserire formule come "nel prossimo capitolo" o riepiloghi scolastici.',
+    '- Non inserire formule come "nel prossimo capitolo", "questo capitolo" o riepiloghi scolastici.',
     wantsFootnoteApparatus(obj) ? '- Non inserire ancora la sezione finale Note in questa continuazione.' : '',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Se non è ancora completa, non usare il marcatore.',
@@ -991,8 +992,9 @@ function buildSystemPrompt(task, input) {
   const base = [
     'Scrivi in italiano accademico, chiaro, formale e coerente.',
     'Non inventare fonti, dati empirici, citazioni puntuali o risultati non verificabili.',
-    'Evita tono giornalistico, slogan, elenchi inutili e formule artificiali di raccordo.',
+    'Evita tono giornalistico, slogan, elenchi inutili, auto-commenti sul testo e formule artificiali di raccordo.',
     'Mantieni continuità logica, rigore terminologico e pertinenza disciplinare.',
+    'Non usare chiuse standardizzate come "questo capitolo", "nel prossimo capitolo" o riepiloghi scolastici intercambiabili.',
   ];
   if (task === 'outline_draft') {
     base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema e la metodologia.');
@@ -1113,8 +1115,26 @@ function isProviderOverload(err) {
   return /overload|overloaded|529|503|temporarily unavailable|rate limit/i.test(msg);
 }
 
+function stripArtificialAcademicTail(text) {
+  return String(text || '')
+    .replace(/\n(?:In conclusione,?\s*)?(?:nel|nei) prossim[oi] capitol[oi][\s\S]*$/i, '')
+    .replace(/\n(?:In conclusione,?\s*)?questo capitolo (?:ha analizzato|si è proposto(?: di)?|ha mostrato|ha evidenziato|ha esaminato|ha consentito di)[\s\S]*$/i, '')
+    .replace(/\n(?:Per concludere|In sintesi|In conclusione),?\s+(?:si può affermare|si può osservare|emerge che|si evidenzia che)[^\n]{0,260}$/i, '')
+    .trim();
+}
+
 function cleanModelText(text) {
-  return String(text || '').replace(/\r\n/g, '\n').trim();
+  return stripArtificialAcademicTail(
+    String(text || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\u00a0/g, ' ')
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/^\s*(?:Ecco(?:\s+il)?(?:\s+capitolo|\s+testo)?(?:\s+revisionato)?[:.]\s*)/i, '')
+      .replace(/^\s*(?:Di seguito(?:\s+trovi)?(?:\s+il\s+testo)?[:.]\s*)/i, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
 }
 
 function normalizeError(err) {
