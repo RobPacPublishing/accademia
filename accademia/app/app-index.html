@@ -210,9 +210,9 @@
   .toast{position:fixed;bottom:26px;right:26px;background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--gold);border-radius:var(--radius-sm);padding:12px 18px;font-size:13px;color:var(--text2);z-index:9000;transform:translateY(70px);opacity:0;transition:all .3s;max-width:360px;box-shadow:0 18px 42px rgba(0,0,0,.35);}
   .toast.show{transform:translateY(0);opacity:1;}
   .toast.error{border-left-color:var(--red);}
-  .go-bottom-btn{position:fixed;right:26px;bottom:96px;z-index:8900;display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:48px;padding:0 14px;border-radius:999px;border:1px solid rgba(201,168,76,.32);background:rgba(20,20,20,.92);color:var(--gold);font-size:18px;cursor:pointer;box-shadow:0 14px 36px rgba(0,0,0,.32);opacity:0;pointer-events:none;transform:translateY(18px);transition:all .25s;}
+  .go-bottom-btn{position:fixed;right:26px;bottom:96px;z-index:8900;display:inline-flex;align-items:center;justify-content:center;min-width:190px;height:52px;padding:0 18px;border-radius:999px;border:1px solid rgba(201,168,76,.42);background:rgba(20,20,20,.96);color:var(--gold);font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 14px 36px rgba(0,0,0,.32);opacity:0;pointer-events:none;transform:translateY(18px);transition:all .25s;}
   .go-bottom-btn.show{opacity:1;pointer-events:auto;transform:translateY(0);}
-  .go-bottom-btn:hover{background:rgba(201,168,76,.12);}
+  .go-bottom-btn:hover{background:rgba(201,168,76,.16);}
   .chapter-body-wrap{display:block;}
   .chapter-collapse-summary{display:none;padding:0 26px 18px;color:var(--text3);font-size:12px;line-height:1.6;}
   .chapter-collapse-summary strong{color:var(--text2);font-weight:600;}
@@ -223,7 +223,7 @@
   .output-block.chapter-collapsed .output-block-header{border-bottom:none;}
   ::-webkit-scrollbar{width:12px;height:12px;}::-webkit-scrollbar-track{background:rgba(255,255,255,.04);}::-webkit-scrollbar-thumb{background:rgba(201,168,76,.38);border-radius:999px;border:2px solid rgba(5,5,5,.92);}::-webkit-scrollbar-thumb:hover{background:rgba(201,168,76,.62);}
   html{scrollbar-color:rgba(201,168,76,.55) rgba(255,255,255,.04);scrollbar-width:auto;}
-  @media(max-width:640px){header{padding:14px 18px;}.container{padding:28px 18px 60px;}.form-grid{grid-template-columns:1fr;}.form-card{padding:22px;}.step-connector{width:18px;}.step-label{display:none;}.go-bottom-btn{right:18px;bottom:84px;}}
+  @media(max-width:640px){header{padding:14px 18px;}.container{padding:28px 18px 60px;}.form-grid{grid-template-columns:1fr;}.form-card{padding:22px;}.step-connector{width:18px;}.step-label{display:none;}.go-bottom-btn{right:18px;bottom:84px;min-width:170px;font-size:13px;padding:0 16px;}}
 
   /* ── DISCLAIMER MODALE OBBLIGATORIO ── */
   .disclaimer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);backdrop-filter:blur(16px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
@@ -427,7 +427,7 @@
   <!-- GUIDA COLLASSABILE -->
   <div class="guide-bar">
     <div class="guide-bar-header" onclick="toggleGuide()">
-      <div class="guide-bar-title"><span>📖</span> Come funziona AccademIA — Guida rapida</div>
+      <div class="guide-bar-title"><span>📖</span> Come funziona&nbsp;AccademIA — Guida rapida</div>
       <span class="guide-toggle" id="guideToggle">▼</span>
     </div>
     <div class="guide-body" id="guideBody">
@@ -770,7 +770,7 @@
 <div class="modal-overlay" id="guideModal">
   <div class="modal modal-wide">
     <button class="modal-close" onclick="closeModal('guideModal')">✕</button>
-    <h2>📖 Come funziona AccademIA</h2>
+    <h2>📖 Come funziona&nbsp;AccademIA</h2>
     <div class="guide-steps" style="margin-top:4px">
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Compila tipo di laurea, facoltà, corso, approccio metodologico e poi argomento. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
@@ -821,7 +821,7 @@
   </div>
 </div>
 
-<button class="go-bottom-btn" id="goBottomBtn" type="button" onclick="scrollToPageEnd()" aria-label="Vai a fine pagina">↓</button>
+<button class="go-bottom-btn" id="goBottomBtn" type="button" onclick="scrollToPageEnd()" aria-label="Vai a fine pagina">↓ Vai a fine pagina</button>
 <div class="toast" id="toast"></div>
 
 
@@ -2838,6 +2838,7 @@ async function deleteIndice(){
   document.getElementById('chaptersArea').innerHTML='';
   document.getElementById('downloadBar').style.display='none';
   setStep(0);
+  updateStep1ButtonState();
   saveProgress();
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Indice eliminato. La licenza resta comunque vincolata a questa tesi." : "Indice eliminato. Puoi rigenerarlo da zero.");
 }
@@ -3053,10 +3054,23 @@ function focusFinalTools(){
   }
 }
 
+function updateStep1ButtonState(){
+  const btn=document.getElementById('btnStep1');
+  if(!btn) return;
+  const approved=!!thesis.indice && currentStep>=2;
+  btn.disabled=approved;
+  if(approved){
+    btn.innerHTML='✓ Indice approvato';
+    return;
+  }
+  btn.textContent=indiceMode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
+}
+
 function restoreProgressUI(savedForm=null){
   applyFormState(savedForm || {});
   renderSingleThesisNotice();
   setIndiceMode(indiceMode);
+  updateStep1ButtonState();
   setAbstractMode(abstractMode);
   const metodBtn=document.querySelector(`.metod-chip[onclick*="'${metodologia}'"]`) || document.querySelector(`.metod-chip[onclick*='${metodologia}']`);
   if(metodBtn) setMetod(metodBtn, metodologia);
@@ -3139,7 +3153,7 @@ function setIndiceMode(mode){
   document.getElementById('modeBtnManual').classList.toggle('active',mode==='manual');
   document.getElementById('indiceManualWrap').style.display=mode==='manual'?'block':'none';
   document.getElementById('indiceAIWrap').style.display=mode==='ai'?'block':'none';
-  document.getElementById('btnStep1').textContent=mode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
+  updateStep1ButtonState();
 }
 function setAbstractMode(mode){
   abstractMode=mode;
@@ -3520,6 +3534,7 @@ async function startPhase1(){
     setStep(2);
     document.getElementById('nextAbstract').classList.add('visible');
     document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
+    updateStep1ButtonState();
     showToast('Indice del relatore acquisito ✓');
     saveProgress();
     return;
@@ -3574,7 +3589,7 @@ Bibliografia`;
       document.getElementById('indiceApproval').style.display='flex';
       saveProgress();
     });
-  }catch(e){showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnStep1',false);}
+  }catch(e){showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnStep1',false);updateStep1ButtonState();}
 }
 
 function approveIndice(){
@@ -3585,6 +3600,7 @@ function approveIndice(){
   document.getElementById('indiceApproval').style.display='none';
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
+  updateStep1ButtonState();
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
   saveProgress();
   triggerAutoSnapshot('indice');
