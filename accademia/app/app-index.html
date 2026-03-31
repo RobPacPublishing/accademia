@@ -3750,8 +3750,10 @@ Bibliografia`;
   syncPrimaryOutputButtons();
   try{
     const t=await callClaude(prompt,'outline_draft');
-    thesis.indice=t;thesis.indiceApproved=false;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
-    streamText('indiceText',t,()=>{
+    const cleanIndex=String(t||'').trim();
+    if(!cleanIndex) throw new Error('Indice vuoto. Nessuna modifica applicata: riprova.');
+    thesis.indice=cleanIndex;thesis.indiceApproved=false;thesis.indiceVersions=[{content:cleanIndex,timestamp:now(),label:'Versione originale'}];
+    streamText('indiceText',cleanIndex,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Completato';
@@ -3759,7 +3761,10 @@ Bibliografia`;
       syncPrimaryOutputButtons();
       saveProgress();
     });
-  }catch(e){syncPrimaryOutputButtons();showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnStep1',false);updateStep1ButtonState();}
+  }catch(e){
+    resetIndiceUiAfterFailure(/timeout/i.test(String(e&&e.message||''))?'Generazione indice interrotta per timeout. Riprova.':'Generazione indice interrotta. Riprova.');
+    showToast('Errore: '+e.message,true);
+  }
 }
 
 let pendingApprovalAction=null;
@@ -3850,11 +3855,13 @@ ${cp.isMagistrale?'Mantieni capitolo metodologia e gap nella letteratura.':''}
 Riscrivi indice completo. Stesso formato. Solo l’indice.`;
   try{
     const t=await callClaude(prompt,'outline_review');
-    thesis.indice=t;thesis.indiceApproved=false;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
-    if(window.addRevisionHistoryEntry && t && t!==beforeIndice){
-      window.addRevisionHistoryEntry({kind:'reviseIndice',kindLabel:'Revisione indice',title:'Indice',request:fb,before:beforeIndice,after:t});
+    const cleanIndex=String(t||'').trim();
+    if(!cleanIndex) throw new Error('Indice revisionato vuoto. Nessuna modifica applicata: riprova.');
+    thesis.indice=cleanIndex;thesis.indiceApproved=false;thesis.indiceVersions.push({content:cleanIndex,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
+    if(window.addRevisionHistoryEntry && cleanIndex && cleanIndex!==beforeIndice){
+      window.addRevisionHistoryEntry({kind:'reviseIndice',kindLabel:'Revisione indice',title:'Indice',request:fb,before:beforeIndice,after:cleanIndex});
     }
-    streamText('indiceText',t,()=>{
+    streamText('indiceText',cleanIndex,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Revisionato';
@@ -3864,7 +3871,14 @@ Riscrivi indice completo. Stesso formato. Solo l’indice.`;
       document.getElementById('indiceRevInput').value='';
       saveProgress();
     });
-  }catch(e){showToast('Errore: '+e.message,true);}
+  }catch(e){
+    document.getElementById('indiceOutput').classList.remove('typing');
+    document.getElementById('indiceChip').className='status-chip error';
+    document.getElementById('indiceChip').innerHTML='✕ Revisione interrotta';
+    document.getElementById('indiceApproval').style.display=String(thesis.indice||'').trim()?'flex':'none';
+    syncPrimaryOutputButtons();
+    showToast('Errore: '+e.message,true);
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -5134,14 +5148,39 @@ function buildTaskErrorMessage(payload,status){
   return details || `HTTP ${status}`;
 }
 
+function getTaskTimeoutMs(taskName='outline_draft'){
+  const task=String(taskName||'').trim();
+  if(task==='outline_draft' || task==='outline_review') return 75000;
+  if(task==='abstract_draft' || task==='abstract_review') return 90000;
+  if(task==='chapter_draft' || task==='chapter_resume' || task==='chapter_review' || task==='revisione_capitolo') return 240000;
+  if(task==='tutor_revision' || task==='revisione_relatore') return 210000;
+  return 120000;
+}
+
+async function postTask(taskName, userPrompt, extra={}){
+  const controller=new AbortController();
+  const timeoutMs=getTaskTimeoutMs(taskName);
+  const timer=setTimeout(()=>controller.abort(), timeoutMs);
+  try{
+    const r=await fetch('/api/task',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      signal:controller.signal,
+      body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt,extra)})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
+    return d;
+  }catch(err){
+    if(err && err.name==='AbortError') throw new Error('Timeout provider. Nessuna modifica applicata: riprova.');
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function callClaude(userPrompt, taskName='outline_draft'){
-  const r=await fetch('/api/task',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt)})
-  });
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
+  const d=await postTask(taskName,userPrompt);
   return d.text||'';
 }
 
@@ -5149,13 +5188,7 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // API TASK — unified chapter call
 // ══════════════════════════════════════════════
 async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra={}){
-  const r=await fetch('/api/task',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({task:taskName,input:buildStructuredTaskInput(taskName,userPrompt,extra)})
-  });
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok){throw new Error(buildTaskErrorMessage(d,r.status));}
+  const d=await postTask(taskName,userPrompt,extra);
   return {text:d.text||'',sources:[]};
 }
 
@@ -5165,6 +5198,19 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra=
 function tipoLaureaLabel(t){return t==='magistrale_2'?'Magistrale (2 anni post-triennale)':t==='magistrale_5'?'Magistrale a ciclo unico (5 anni)':t==='triennale'?'Triennale (3 anni)':'';}
 function extractChapterTitles(indice){const l=indice.split('\n'),t=[];for(const ln of l){const m=ln.match(/^(\d+)\.\s+(.+)/);if(m)t.push(m[2].trim());}return t.length>0?t:['Capitolo 1','Capitolo 2','Capitolo 3'];}
 function streamText(elId,text,onDone){const el=document.getElementById(elId);el.textContent='';let i=0;const step=Math.max(1,Math.floor(text.length/280));const iv=setInterval(()=>{i=Math.min(i+step,text.length);el.textContent=text.substring(0,i);if(i>=text.length){clearInterval(iv);if(onDone)onDone();}},8);}
+function resetIndiceUiAfterFailure(message='Generazione indice interrotta. Riprova.') {
+  const output=document.getElementById('indiceOutput');
+  const chip=document.getElementById('indiceChip');
+  const approval=document.getElementById('indiceApproval');
+  const textEl=document.getElementById('indiceText');
+  if(output) output.classList.remove('typing');
+  if(chip){chip.className='status-chip error';chip.innerHTML='✕ Interrotta';}
+  if(approval) approval.style.display='none';
+  if(textEl && !String(textEl.textContent||'').trim()) textEl.textContent=message;
+  syncPrimaryOutputButtons();
+  setPhaseButtonBusy('btnStep1',false);
+  updateStep1ButtonState();
+}
 function updateWordCount(){const t=[thesis.indice,thesis.abstract,...(thesis.chapters||[]).map(c=>((c&&typeof c==='object')?c.content:'')||'')].join(' ').split(/\s+/).filter(Boolean).length;document.getElementById('wordCount').textContent=t.toLocaleString('it-IT');}
 function now(){return new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});}
 function escHtml(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
