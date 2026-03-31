@@ -538,6 +538,13 @@
         </label>
       </div>
       <div class="form-group full">
+        <label>Apparato note</label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(201,168,76,.2);background:rgba(201,168,76,.05);font-size:12px;line-height:1.6;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;">
+          <input type="checkbox" id="includeFootnotes" checked onchange="handleIncludeFootnotesChange()" style="margin-top:3px;accent-color:var(--gold)">
+          <span>Includi un apparato finale <strong style="color:var(--gold);font-weight:600">Note</strong> nei capitoli, con richiami teorici e precisazioni accademiche senza inventare fonti, pagine o citazioni inesistenti.</span>
+        </label>
+      </div>
+      <div class="form-group full">
         <label>Argomento della tesi</label>
         <textarea id="argomento" placeholder="Es: L’impatto dell’intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
         <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
@@ -914,7 +921,8 @@ let thesis={
   abstract:'',abstractVersions:[],
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   approvedChapters:[],
-  contextPacket:null
+  contextPacket:null,
+  includeFootnotes:true
 };
 
 
@@ -1799,7 +1807,7 @@ function syncMethodologyUi(){
 
 function lockProjectFieldsIfNeeded(){
   const locked = !isMasterOwnerLocal() && thesisGuard.stage === 'locked';
-  ['argomento','facolta','corso','tipoLaurea','numChapters','compatibilityAck'].forEach(id=>{
+  ['argomento','facolta','corso','tipoLaurea','numChapters','compatibilityAck','includeFootnotes'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.disabled = !!locked;
   });
@@ -2599,7 +2607,8 @@ function captureFormState(){
     indiceManuale:document.getElementById('indiceManuale')?.value||'',
     abstractManuale:document.getElementById('abstractManuale')?.value||'',
     numChapters:document.getElementById('numChapters')?.value||'4',
-    compatibilityAck:!!document.getElementById('compatibilityAck')?.checked
+    compatibilityAck:!!document.getElementById('compatibilityAck')?.checked,
+    includeFootnotes:document.getElementById('includeFootnotes')?.checked!==false
   };
 }
 
@@ -2613,6 +2622,8 @@ function applyFormState(form){
   if(document.getElementById('abstractManuale')) document.getElementById('abstractManuale').value=form.abstractManuale||'';
   if(document.getElementById('numChapters')) document.getElementById('numChapters').value=form.numChapters||'4';
   if(document.getElementById('compatibilityAck')) document.getElementById('compatibilityAck').checked=!!form.compatibilityAck;
+  if(document.getElementById('includeFootnotes')) document.getElementById('includeFootnotes').checked=form.includeFootnotes!==false;
+  thesis.includeFootnotes=form.includeFootnotes!==false;
   renderTitleSuggestions();
   renderCompatibilityNotice();
 }
@@ -3769,6 +3780,23 @@ function getChapterRole(idx,total,title,metod){
   return {role,body};
 }
 
+function notesApparatusEnabled(){
+  const el=document.getElementById('includeFootnotes');
+  if(el) return el.checked!==false;
+  return thesis.includeFootnotes!==false;
+}
+
+function notesPromptLine(){
+  return notesApparatusEnabled()
+    ? '- chiudi il capitolo con una sezione finale autonoma intitolata Note, con 3-6 note pertinenti e prudenti, senza inventare fonti, pagine o citazioni puntuali;'
+    : '';
+}
+
+function handleIncludeFootnotesChange(){
+  thesis.includeFootnotes=document.getElementById('includeFootnotes')?.checked!==false;
+  saveProgress();
+}
+
 function buildChapterGenerationPrompt(idx,total,title){
   const cp=thesis.contextPacket;
   const lung={'triennale':{min:2800,max:3800},'magistrale_2':{min:4200,max:5600},'magistrale_5':{min:3600,max:4800}}[thesis.tipo]||{min:2800,max:3800};
@@ -3800,6 +3828,7 @@ Vincoli obbligatori:
 - non usare markdown o asterischi;
 - non inserire note meta sul capitolo successivo;
 - evita conclusioni artificiali da AI;
+${notesPromptLine()}
 - lunghezza obiettivo: circa ${lung.min}-${lung.max} parole.`;
 }
 
@@ -4073,6 +4102,7 @@ ISTRUZIONI:
 - Mantieni struttura: apertura contestuale + sviluppo + analisi critica + chiusura sobria del capitolo
 - Ogni sottosezione deve restare sostanziale, con almeno 3 paragrafi pieni
 - Coerenza con altri capitoli: ${thesis.chapterTitles.filter((_,i)=>i!==idx).join(' | ')}
+${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione finale Note, distinta dal corpo del capitolo, con apparato prudente e non inventato.' : ''}
 - Lunghezza: ${lung.min}-${lung.max} parole
 - NON inventare fonti. Solo testo del capitolo revisionato.`;
   try{
@@ -4171,6 +4201,7 @@ ISTRUZIONI:
 - Evita chiuse generiche, formule intercambiabili e aperture standardizzate: ogni sottosezione deve risultare necessaria e deve lasciare chiaro il suo valore nel percorso argomentativo della tesi.
 - Prima di chiudere il testo, verifica silenziosamente: recepimento reale delle osservazioni, specificità rispetto alla tesi, contributo chiaro di ogni sottosezione alla domanda di ricerca, tono accademico non manualistico, presenza di passaggi interpretativi, assenza di fonti inventate.
 - Nessun elenco nel testo finale, nessun commento introduttivo o finale di servizio. Restituisci solo il capitolo revisionato.
+${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione finale Note, distinta dal corpo del capitolo, con apparato prudente e senza fonti inventate.' : ''}
 - Lunghezza orientativa: ${lung.min}-${lung.max} parole.
 - NON inventare fonti.`;
   try{
@@ -4528,7 +4559,8 @@ function buildStructuredTaskInput(taskName,userPrompt,extra={}){
       noInventedSources:true,
       noArtificialTransitions:true,
       preserveAcademicTone:true,
-      preferSobriety:true
+      preferSobriety:true,
+      includeFootnotes: notesApparatusEnabled()
     },
     facultyCompatibility:getFacultyCompatibility(facolta),
     facultyGuidance:facultyPromptGuidance(facolta,corso,metodologia||thesis.metodologia||''),

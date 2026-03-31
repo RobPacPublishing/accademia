@@ -176,7 +176,6 @@ export default async function handler(req, res) {
       case 'abstract_draft':
       case 'abstract_review':
       case 'chapter_draft':
-      case 'chapter_resume':
       case 'chapter_review':
       case 'tutor_revision':
       case 'revisione_relatore':
@@ -535,8 +534,6 @@ function normalizeGenerationTask(task) {
     case 'abstract_draft':
     case 'abstract_review':
       return 'abstract_draft';
-    case 'chapter_resume':
-      return 'chapter_resume';
     case 'chapter_review':
     case 'revisione_capitolo':
       return 'chapter_review';
@@ -551,9 +548,6 @@ function normalizeGenerationTask(task) {
 async function generateText(task, input) {
   if (task === 'chapter_draft') {
     return await generateChapterDraftStructured(input);
-  }
-  if (task === 'chapter_resume') {
-    return await generateChapterResumeStructured(input);
   }
 
   const prompt = buildProviderPrompt(task, input);
@@ -615,7 +609,8 @@ async function generateChapterDraftStructured(input) {
       fallbackTimeoutMs: 24_000,
       openaiTimeoutMs: 26_000,
     });
-    return postProcessChapterText(raw, context);
+    const chapterText = postProcessChapterText(raw, context);
+    return await appendChapterNotesIfNeeded(input, context, chapterText, system);
   }
 
   const targets = deriveChapterTargets(input, context);
@@ -667,151 +662,8 @@ async function generateChapterDraftStructured(input) {
     finalAttempts += 1;
   }
 
+  chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
   return chapterText;
-}
-
-async function generateChapterResumeStructured(input) {
-  const existingChapterText = extractExistingChapterText(input);
-  if (!existingChapterText) {
-    return await generateChapterDraftStructured(input);
-  }
-
-  const context = parseChapterContext(input);
-  const system = buildSystemPrompt('chapter_draft', input);
-
-  if (!context.subsections.length) {
-    const obj = input && typeof input === 'object' ? input : {};
-    const prompt = [
-      'TASK: chapter_resume_whole',
-      `CAPITOLO: ${context.chapterHeading}`,
-      'Completa e rifinisci il capitolo già iniziato senza ricominciare da capo.',
-      '- Mantieni tono accademico, continuità logica e struttura coerente con l’indice.',
-      '- Non inserire markdown, elenchi o formule artificiali di chiusura.',
-      obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 900)}` : '',
-      `TESTO GIÀ GENERATO:\n${clip(existingChapterText, 5000)}`,
-    ].filter(Boolean).join('\n\n');
-
-    const raw = await generateWithProviders({
-      prompt,
-      system,
-      maxTokens: 2200,
-      primaryTimeoutMs: 34_000,
-      fallbackTimeoutMs: 24_000,
-      openaiTimeoutMs: 26_000,
-    });
-    return postProcessChapterText(raw, context);
-  }
-
-  const targets = deriveChapterTargets(input, context);
-  const existingSections = splitExistingSectionBlocks(existingChapterText, context);
-  const parts = [];
-  let regenerateFromHere = false;
-
-  for (let i = 0; i < context.subsections.length; i += 1) {
-    const subsection = context.subsections[i];
-    const existingSection = !regenerateFromHere ? existingSections.get(subsection.code) : '';
-
-    if (existingSection) {
-      let text = postProcessChapterSectionText(existingSection, subsection);
-      let attempts = 0;
-      while (attempts < 4 && needsMoreSectionText(text, targets.sectionWords)) {
-        const continued = await continueOneSubsection({
-          input,
-          context,
-          subsection,
-          system,
-          existingText: text,
-          targetWords: targets.sectionWords,
-        });
-        text = continued.text;
-        attempts += 1;
-      }
-      parts.push(postProcessChapterSectionText(text, subsection));
-      continue;
-    }
-
-    regenerateFromHere = true;
-    let result = await generateOneSubsection({
-      input,
-      context,
-      subsection,
-      index: i,
-      total: context.subsections.length,
-      system,
-      targetWords: targets.sectionWords,
-      previousSectionText: parts[i - 1] || '',
-    });
-
-    let attempts = 0;
-    while (attempts < 4 && (!result.complete || needsMoreSectionText(result.text, targets.sectionWords))) {
-      result = await continueOneSubsection({
-        input,
-        context,
-        subsection,
-        system,
-        existingText: result.text,
-        targetWords: targets.sectionWords,
-      });
-      attempts += 1;
-    }
-
-    parts.push(postProcessChapterSectionText(result.text, subsection));
-  }
-
-  let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-  let finalAttempts = 0;
-  while (finalAttempts < 3 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
-    const lastSubsection = context.subsections[context.subsections.length - 1];
-    const continued = await continueOneSubsection({
-      input,
-      context,
-      subsection: lastSubsection,
-      system,
-      existingText: parts[parts.length - 1],
-      targetWords: targets.sectionWords,
-    });
-    parts[parts.length - 1] = postProcessChapterSectionText(continued.text, lastSubsection);
-    chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-    finalAttempts += 1;
-  }
-
-  return chapterText;
-}
-
-function extractExistingChapterText(input) {
-  const obj = input && typeof input === 'object' ? input : {};
-  const fromExtra = obj?.extra?.existingChapterContent;
-  const direct = obj?.existingChapterContent;
-  return String(fromExtra || direct || '').trim();
-}
-
-function splitExistingSectionBlocks(existingChapterText, context) {
-  const text = postProcessChapterText(existingChapterText, context);
-  const hits = [];
-  for (const subsection of context.subsections) {
-    const start = findSubsectionStartIndex(text, subsection);
-    if (start >= 0) hits.push({ code: subsection.code, start });
-  }
-  hits.sort((a, b) => a.start - b.start);
-  const map = new Map();
-  for (let i = 0; i < hits.length; i += 1) {
-    const current = hits[i];
-    const end = i < hits.length - 1 ? hits[i + 1].start : text.length;
-    const chunk = text.slice(current.start, end).trim();
-    if (chunk) map.set(current.code, chunk);
-  }
-  return map;
-}
-
-function findSubsectionStartIndex(text, subsection) {
-  const exact = new RegExp(`(^|\n)${escapeRegex(subsection.code)}\s+${escapeRegex(subsection.title)}`, 'im');
-  const exactMatch = exact.exec(text);
-  if (exactMatch) return exactMatch.index + (exactMatch[1] ? exactMatch[1].length : 0);
-
-  const codeOnly = new RegExp(`(^|\n)${escapeRegex(subsection.code)}\s+`, 'im');
-  const codeMatch = codeOnly.exec(text);
-  if (codeMatch) return codeMatch.index + (codeMatch[1] ? codeMatch[1].length : 0);
-  return -1;
 }
 
 function deriveChapterTargets(input, context) {
@@ -841,8 +693,10 @@ function parseChapterContext(input) {
   let inside = false;
 
   for (const line of normalizedLines) {
-    const chapterMatch = line.match(/^(?:capitolo\s+)?(\d+)\s*[—\-:.]?\s*(.*)$/i);
-    if (chapterMatch && /capitolo/i.test(line)) {
+    const chapterNamedMatch = line.match(/^(?:capitolo\s+)(\d+)\s*[—\-:.]?\s*(.*)$/i);
+    const chapterPlainMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    const chapterMatch = chapterNamedMatch || chapterPlainMatch;
+    if (chapterMatch) {
       const n = Number(chapterMatch[1]);
       if (n === currentChapterNumber) {
         inside = true;
@@ -865,6 +719,7 @@ function parseChapterContext(input) {
 function cleanChapterHeading(line, chapterNumber) {
   const cleaned = normalizeOutlineLine(line)
     .replace(new RegExp(`^capitolo\\s+${chapterNumber}\\s*[—:.-]?\\s*`, 'i'), '')
+    .replace(new RegExp(`^${chapterNumber}\\.\\s*`, 'i'), '')
     .replace(/^\.\s*/, '')
     .trim();
   return cleaned ? `Capitolo ${chapterNumber} — ${cleaned}` : `Capitolo ${chapterNumber}`;
@@ -877,6 +732,72 @@ function normalizeOutlineLine(line) {
     .replace(/\*\*/g, '')
     .replace(/__+/g, '')
     .trim();
+}
+
+function wantsFootnoteApparatus(input) {
+  const obj = input && typeof input === 'object' ? input : {};
+  return obj?.constraints?.includeFootnotes !== false;
+}
+
+async function appendChapterNotesIfNeeded(input, context, chapterText, system) {
+  if (!wantsFootnoteApparatus(input) || !String(chapterText || '').trim()) return chapterText;
+  if (/\nNote\s*\n/i.test(String(chapterText))) return chapterText;
+  try {
+    const notes = await generateChapterNotes(input, context, chapterText, system);
+    return notes ? `${chapterText.trim()}\n\n${notes}`.trim() : chapterText;
+  } catch (_) {
+    return chapterText;
+  }
+}
+
+async function generateChapterNotes(input, context, chapterText, system) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const prompt = [
+    'TASK: chapter_notes',
+    `CAPITOLO: ${context.chapterHeading}`,
+    'Genera solo una sezione finale intitolata Note.',
+    'REGOLE OBBLIGATORIE:',
+    '- Scrivi da 3 a 6 note numerate.',
+    '- Ogni nota deve essere utile, accademica, prudente e pertinente al capitolo.',
+    '- Non inventare fonti, autori, anni, pagine, citazioni dirette o dati empirici.',
+    '- Se richiami autori o tradizioni teoriche, fallo solo in modo generale e non puntuale.',
+    '- Non ripetere il testo del capitolo: usa le note per precisazioni concettuali, cautele metodologiche o chiarimenti terminologici.',
+    '- Restituisci solo la sezione finale Note.',
+    obj.theme ? `ARGOMENTO DELLA TESI:
+${clip(String(obj.theme), 500)}` : '',
+    obj.faculty || obj.degreeCourse || obj.degreeType
+      ? `CONTESTO ACCADEMICO:
+Facoltà: ${clip(String(obj.faculty || ''), 120)}
+Corso: ${clip(String(obj.degreeCourse || ''), 160)}
+Tipo laurea: ${clip(String(obj.degreeType || ''), 60)}
+Metodologia: ${clip(String(obj.methodology || ''), 60)}`
+      : '',
+    `TESTO DEL CAPITOLO:
+${clip(String(chapterText), 5500)}`,
+  ].filter(Boolean).join('\n\n');
+
+  const raw = await generateWithProviders({
+    prompt,
+    system,
+    maxTokens: 700,
+    primaryTimeoutMs: 22_000,
+    fallbackTimeoutMs: 18_000,
+    openaiTimeoutMs: 20_000,
+  });
+  return postProcessChapterNotes(raw);
+}
+
+function postProcessChapterNotes(text) {
+  let cleaned = cleanModelText(text)
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*/g, '')
+    .replace(/^(?:APPARATO\s+)?NOTE\s*:?/i, 'Note')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!cleaned) return '';
+  if (!/^Note\b/i.test(cleaned)) cleaned = `Note\n\n${cleaned}`;
+  return cleaned;
 }
 
 function buildChapterSubsectionPrompt(input, context, subsection, index, total, targetWords, previousSectionText) {
@@ -897,6 +818,7 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     '- Produci solo la sottosezione richiesta.',
     '- Nessun markdown, nessun elenco puntato, nessuna conclusione sul capitolo successivo.',
     '- Usa paragrafi continui, tono accademico, lessico naturale.',
+    wantsFootnoteApparatus(obj) ? '- Non inserire ancora la sezione finale Note dentro questa sottosezione.' : '',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Non usare il marcatore se la sottosezione non è completa.',
     obj.theme ? `ARGOMENTO DELLA TESI:\n${clip(String(obj.theme), 700)}` : '',
@@ -938,6 +860,7 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Continua esattamente dal punto in cui il testo si è fermato.',
     '- Aggiungi solo il testo mancante per completare la sottosezione in modo pieno e naturale.',
     '- Non inserire formule come "nel prossimo capitolo" o riepiloghi scolastici.',
+    wantsFootnoteApparatus(obj) ? '- Non inserire ancora la sezione finale Note in questa continuazione.' : '',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Se non è ancora completa, non usare il marcatore.',
     obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 700)}` : '',
@@ -1060,6 +983,7 @@ function buildProviderPrompt(task, input) {
   }
   if (obj.facultyGuidance) sections.push(`GUIDA FACOLTÀ\n${clip(String(obj.facultyGuidance), 3000)}`);
   if (obj.constraints) sections.push(`VINCOLI\n${clip(JSON.stringify(obj.constraints, null, 2), 1500)}`);
+  if (wantsFootnoteApparatus(obj) && /^chapter_|tutor_revision$/.test(String(task || ''))) sections.push('APPARATO NOTE\nChiudi il capitolo con una sezione finale autonoma intitolata Note, distinta dal corpo del testo.');
   return sections.join('\n\n');
 }
 
@@ -1075,6 +999,9 @@ function buildSystemPrompt(task, input) {
   } else {
     base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna e visibilità dei cambiamenti richiesti.');
     base.push('Se l’input contiene osservazioni del relatore, applicale davvero in modo riconoscibile e non cosmetico.');
+  }
+  if (wantsFootnoteApparatus(input) && task !== 'outline_draft' && task !== 'abstract_draft') {
+    base.push('Se stai scrivendo o riscrivendo un capitolo, chiudilo con una sezione finale autonoma intitolata Note, sobria e senza fonti inventate.');
   }
   if (input && typeof input === 'object' && input.facultyGuidance) {
     base.push(`Tieni conto anche di questa guida di facoltà: ${clip(String(input.facultyGuidance), 1600)}`);
