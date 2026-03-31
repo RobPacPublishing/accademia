@@ -136,6 +136,10 @@
   .btn-approve:hover{background:rgba(94,184,122,.18);}
   .btn-redo{padding:9px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
   .btn-redo:hover{border-color:var(--gold);color:var(--gold);}
+  .btn-delete-lite{padding:8px 12px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+  .btn-delete-lite:hover:not(:disabled){border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.05);}
+  .btn-delete-lite:disabled{opacity:.45;cursor:not-allowed;border-color:var(--border);color:var(--text3);background:transparent;}
+
   .revision-inline{padding:16px 26px;border-top:1px solid var(--border);background:rgba(201,168,76,.025);display:none;flex-direction:column;gap:10px;}
   .revision-inline.open{display:flex;}
   .revision-inline-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
@@ -580,10 +584,10 @@
       <div class="output-block-header">
         <div class="output-block-title">📋 Indice <span class="status-chip generating" id="indiceChip"><span class="spinner"></span>Generazione...</span></div>
         <div class="header-actions">
-          <button class="btn-delete-lite" onclick="downloadIndiceDoc()">⬇ DOC</button>
-          <button class="btn-delete-lite" onclick="downloadIndiceTxt()">📝 TXT</button>
-          <button class="btn-delete-lite" onclick="copyIndice()">📋 Copia</button>
-          <button class="btn-delete-lite" onclick="deleteIndice()">🗑 Elimina indice</button>
+          <button class="btn-delete-lite" id="indiceDocBtn" onclick="downloadIndiceDoc()">⬇ DOC</button>
+          <button class="btn-delete-lite" id="indiceTxtBtn" onclick="downloadIndiceTxt()">📝 TXT</button>
+          <button class="btn-delete-lite" id="indiceCopyBtn" onclick="copyIndice()">📋 Copia</button>
+          <button class="btn-delete-lite" id="indiceDeleteBtn" onclick="deleteIndice()">🗑 Elimina indice</button>
         </div>
       </div>
       <div class="output-block-body"><div class="content-text" id="indiceText"></div></div>
@@ -621,10 +625,10 @@
       <div class="output-block-header">
         <div class="output-block-title">📄 Abstract <span class="status-chip generating" id="abstractChip"><span class="spinner"></span>Generazione...</span></div>
         <div class="header-actions">
-          <button class="btn-delete-lite" onclick="downloadAbstractDoc()">⬇ DOC</button>
-          <button class="btn-delete-lite" onclick="downloadAbstractTxt()">📝 TXT</button>
-          <button class="btn-delete-lite" onclick="copyAbstract()">📋 Copia</button>
-          <button class="btn-delete-lite" onclick="deleteAbstract()">🗑 Elimina abstract</button>
+          <button class="btn-delete-lite" id="abstractDocBtn" onclick="downloadAbstractDoc()">⬇ DOC</button>
+          <button class="btn-delete-lite" id="abstractTxtBtn" onclick="downloadAbstractTxt()">📝 TXT</button>
+          <button class="btn-delete-lite" id="abstractCopyBtn" onclick="copyAbstract()">📋 Copia</button>
+          <button class="btn-delete-lite" id="abstractDeleteBtn" onclick="deleteAbstract()">🗑 Elimina abstract</button>
         </div>
       </div>
       <div class="output-block-body"><div class="content-text" id="abstractText"></div></div>
@@ -2189,6 +2193,25 @@ function recordEntitlement(kind,source,extra={}){
   renderWorkflowHud();
 }
 
+function setElementDisabled(id,disabled){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.disabled=!!disabled;
+  el.setAttribute('aria-disabled', String(!!disabled));
+}
+
+function syncPrimaryOutputButtons(){
+  const indiceBusy=!!document.getElementById('indiceOutput')?.classList.contains('typing');
+  ['indiceDocBtn','indiceTxtBtn','indiceCopyBtn','indiceDeleteBtn'].forEach(id=>setElementDisabled(id,indiceBusy));
+  const abstractBusy=!!document.getElementById('abstractOutput')?.classList.contains('typing');
+  ['abstractDocBtn','abstractTxtBtn','abstractCopyBtn','abstractDeleteBtn'].forEach(id=>setElementDisabled(id,abstractBusy));
+}
+
+function syncChapterHeaderButtons(idx){
+  const busy=getChapterGenerationState(idx)==='generating' || !!document.getElementById(`chapOutput-${idx}`)?.classList.contains('typing');
+  [`chapDocBtn-${idx}`,`chapTxtBtn-${idx}`,`chapCopyBtn-${idx}`,`chapDeleteBtn-${idx}`].forEach(id=>setElementDisabled(id,busy));
+}
+
 function syncChapterActionButtons(idx){
   const revBtn=document.getElementById(`chapRevBtn-${idx}`);
   const tutorBtn=document.getElementById(`chapTutorBtn-${idx}`);
@@ -2198,6 +2221,7 @@ function syncChapterActionButtons(idx){
   const bypass=hasPersonalRevisionBypass();
   const ready=isChapterReadyForRevision(idx);
   const state=getChapterGenerationState(idx);
+  syncChapterHeaderButtons(idx);
 
   if(revBtn){
     if(!ready){
@@ -2248,6 +2272,7 @@ function syncChapterActionButtons(idx){
 function refreshRevisionUi(){
   updateBypassButton();
   renderGlobalCounter();
+  syncPrimaryOutputButtons();
   (thesis.chapters||[]).forEach((_,idx)=>{
     renderRevCounter(idx);
     syncChapterActionButtons(idx);
@@ -2874,6 +2899,7 @@ async function deleteAbstract(){
   document.getElementById('nextChapters').innerHTML='';
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
+  syncPrimaryOutputButtons();
   saveProgress();
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Abstract eliminato. Il profilo tesi resta vincolato alla licenza corrente." : "Abstract eliminato. Puoi rigenerarlo o passare direttamente ai capitoli.");
 }
@@ -2956,10 +2982,10 @@ function renderSavedChapterBlock(idx,total){
         <div class="header-actions">
           <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
           <button class="chapter-collapse-toggle" id="chapCollapseBtn-${idx}" onclick="toggleChapterCollapsed(${idx})" style="display:${(thesis.approvedChapters||[])[idx]?'inline-flex':'none'}">▾ Apri</button>
-          <button class="btn-delete-lite" onclick="downloadChapterDoc(${idx})">⬇ DOC</button>
-          <button class="btn-delete-lite" onclick="downloadChapterTxt(${idx})">📝 TXT</button>
-          <button class="btn-delete-lite" onclick="copyChapter(${idx})">📋 Copia</button>
-          <button class="btn-delete-lite" onclick="deleteChapter(${idx})">🗑 Elimina</button>
+          <button class="btn-delete-lite" id="chapDocBtn-${idx}" onclick="downloadChapterDoc(${idx})">⬇ DOC</button>
+          <button class="btn-delete-lite" id="chapTxtBtn-${idx}" onclick="downloadChapterTxt(${idx})">📝 TXT</button>
+          <button class="btn-delete-lite" id="chapCopyBtn-${idx}" onclick="copyChapter(${idx})">📋 Copia</button>
+          <button class="btn-delete-lite" id="chapDeleteBtn-${idx}" onclick="deleteChapter(${idx})">🗑 Elimina</button>
         </div>
       </div>
       <div class="chapter-collapse-summary" id="chapSummary-${idx}"></div>
@@ -3006,6 +3032,7 @@ ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
   syncChapterPanelState(idx);
   applyChapterCollapsedState(idx);
   updateGoBottomButton();
+  syncPrimaryOutputButtons();
 }
 
 
@@ -3590,6 +3617,7 @@ Bibliografia`;
   document.getElementById('indiceText').textContent='';
   document.getElementById('indiceApproval').style.display='none';
   setStep(1);
+  syncPrimaryOutputButtons();
   try{
     const t=await callClaude(prompt,'outline_draft');
     thesis.indice=t;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
@@ -3598,9 +3626,10 @@ Bibliografia`;
       document.getElementById('indiceChip').className='status-chip done';
       document.getElementById('indiceChip').innerHTML='✓ Completato';
       document.getElementById('indiceApproval').style.display='flex';
+      syncPrimaryOutputButtons();
       saveProgress();
     });
-  }catch(e){showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnStep1',false);updateStep1ButtonState();}
+  }catch(e){syncPrimaryOutputButtons();showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnStep1',false);updateStep1ButtonState();}
 }
 
 function approveIndice(){
@@ -3628,6 +3657,7 @@ async function reviseIndice(){
   document.getElementById('indiceChip').className='status-chip generating';
   document.getElementById('indiceChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('indiceApproval').style.display='none';
+  syncPrimaryOutputButtons();
   const prompt=`Revisiona l’indice di tesi ${cp.tipoLabel} in ${thesis.facolta} — ${thesis.corso}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
 INDICE ATTUALE:\n${thesis.indice}
@@ -3647,6 +3677,7 @@ Riscrivi indice completo. Stesso formato. Solo l’indice.`;
       document.getElementById('indiceChip').innerHTML='✓ Revisionato';
       document.getElementById('indiceApproval').style.display='flex';
       document.getElementById('indiceRevision').classList.remove('open');
+      syncPrimaryOutputButtons();
       document.getElementById('indiceRevInput').value='';
       saveProgress();
     });
@@ -3666,10 +3697,12 @@ async function generateAbstract(){
   document.getElementById('abstractBlock').style.display='block';
   document.getElementById('abstractText').textContent='';
   document.getElementById('abstractApproval').style.display='none';
+  syncPrimaryOutputButtons();
   if(abstractMode==='manual'){
     if(!manualAbstract){
       showToast("Incolla l’abstract già disponibile",true);
       document.getElementById('nextAbstract').classList.add('visible');
+      syncPrimaryOutputButtons();
       setPhaseButtonBusy('btnAbstractAction',false);
       return;
     }
@@ -3680,6 +3713,7 @@ async function generateAbstract(){
     document.getElementById('abstractChip').innerHTML='✓ Inserito';
     document.getElementById('abstractText').textContent=manualAbstract;
     document.getElementById('abstractApproval').style.display='flex';
+    syncPrimaryOutputButtons();
     saveProgress();
     return;
   }
@@ -3710,9 +3744,10 @@ Inizia direttamente. Solo il testo dell’abstract.`;
       document.getElementById('abstractChip').className='status-chip done';
       document.getElementById('abstractChip').innerHTML='✓ Completato';
       document.getElementById('abstractApproval').style.display='flex';
+      syncPrimaryOutputButtons();
       saveProgress();
     });
-  }catch(e){showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnAbstractAction',false);}
+  }catch(e){syncPrimaryOutputButtons();showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnAbstractAction',false);}
 }
 
 function approveAbstract(){
@@ -3736,6 +3771,7 @@ async function reviseAbstract(){
   document.getElementById('abstractChip').className='status-chip generating';
   document.getElementById('abstractChip').innerHTML='<span class="spinner"></span>Revisione...';
   document.getElementById('abstractApproval').style.display='none';
+  syncPrimaryOutputButtons();
   const prompt=`Revisiona abstract tesi ${cp.tipoLabel} in ${thesis.facolta}.
 Argomento: "${thesis.argomento}" | Metodologia: ${thesis.metodologia}
 ABSTRACT ATTUALE:\n${thesis.abstract}
@@ -3753,6 +3789,7 @@ Riscrivi completo. Stesso formato e lunghezza. Solo il testo.`;
       document.getElementById('abstractChip').innerHTML='✓ Revisionato';
       document.getElementById('abstractApproval').style.display='flex';
       document.getElementById('abstractRevision').classList.remove('open');
+      syncPrimaryOutputButtons();
       document.getElementById('abstractRevInput').value='';
       saveProgress();
     });
