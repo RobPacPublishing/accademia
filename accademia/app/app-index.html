@@ -799,7 +799,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('accountModal')">×</button>
     <h2>Account AccademIA</h2>
-    <p>Usa la tua email per rendere l’account la sorgente principale della tua tesi su più dispositivi. La chiave Sync resta disponibile solo come fallback o recupero manuale.</p>
+    <p>Usa la tua email per rendere l’account la sorgente principale della tua tesi. La chiave Sync resta solo come fallback o recupero manuale.</p>
     <div class="form-group" style="margin-bottom:12px;">
       <label for="accountEmailInput">Email account</label>
       <input id="accountEmailInput" type="email" placeholder="nome@email.com" autocomplete="email">
@@ -841,7 +841,7 @@
   <div class="modal" style="max-width:640px;">
     <button class="modal-close" onclick="closeModal('syncModal')">Chiudi</button>
     <h2>Chiave Sync</h2>
-    <p class="sync-help">La chiave Sync è opzionale: usala solo come fallback o recupero manuale. Puoi generarla adesso oppure inserire una chiave già esistente.</p>
+    <p class="sync-help" id="syncHelpText">La chiave Sync è opzionale: usala solo come fallback o recupero manuale. Puoi generarla adesso oppure inserire una chiave già esistente.</p>
     <div class="form-group">
       <label for="syncKeyInput">Chiave di sincronizzazione</label>
       <input id="syncKeyInput" class="sync-key-field" type="text" spellcheck="false" autocomplete="off">
@@ -1089,7 +1089,7 @@ function updateAccountButton(){
   const unlocked=sessionStorage.getItem(ACCESS_SESSION_KEY)==='1';
   btn.style.display=unlocked?'inline-flex':'none';
   const email=getAccountEmail();
-  btn.textContent=email?`👤 ${email.length>18?email.slice(0,18)+'…':email}`:'👤 Account';
+  btn.textContent=email?`👤 Account attivo`:'👤 Account';
 }
 
 function fillAccountUiStatus(message,isError=false){
@@ -1105,7 +1105,7 @@ function openAccountManager(){
   const codeInput=document.getElementById('accountOtpInput');
   if(emailInput) emailInput.value=email||'';
   if(codeInput) codeInput.value='';
-  fillAccountUiStatus(email?`Account collegato: ${email}`:'Nessun account collegato. Invia un codice via email per accedere.');
+  fillAccountUiStatus(email?`Account collegato: ${email}. Continuità principale attiva.`:'Nessun account collegato. Invia un codice via email per accedere.');
   openModal('accountModal');
 }
 
@@ -1609,7 +1609,14 @@ async function copyPlainTextToClipboard(value){
 function openSyncManager(){
   const current=getSyncKey();
   const input=document.getElementById('syncKeyInput');
+  const help=document.getElementById('syncHelpText');
+  const accountLinked=!!getAccountEmail();
   if(input) input.value=current;
+  if(help){
+    help.textContent=accountLinked
+      ? 'Account collegato: la chiave Sync è solo opzionale e serve come fallback o recupero manuale.'
+      : 'La chiave Sync è opzionale: usala solo come fallback o recupero manuale. Puoi generarla adesso oppure inserire una chiave già esistente.';
+  }
   setSyncStatus(current
     ? 'Chiave pronta. Puoi copiarla oppure sostituirla con una chiave esistente.'
     : 'Nessuna chiave presente. Puoi generarne una ora come fallback oppure inserire una chiave già esistente.');
@@ -2177,8 +2184,12 @@ function renderWorkflowHud(){
   const syncKey=getSyncKey();
   const remaining=Math.max(0,(revState.totalBudget||0)-(revState.totalUsed||0));
   stepEl.innerHTML=`<strong>${getCurrentStepLabel()}</strong><br><span style="color:var(--text3)">Step ${Math.min(5,(Number(currentStep)||0)+1)} / 5</span>`;
-  accountEl.innerHTML=accountEmail?`<strong>${escHtml(accountEmail)}</strong><br><span style="color:var(--green)">collegato</span>`:'<strong>Non collegato</strong><br><span style="color:var(--text3)">login consigliato</span>';
-  syncEl.innerHTML=syncKey?`<strong>Attiva</strong><br><span style="color:var(--text3)">${escHtml(String(syncKey).slice(0,8))}…</span>`:'<strong>Non attiva</strong><br><span style="color:var(--text3)">chiave assente</span>';
+  accountEl.innerHTML=accountEmail?`<strong>Primario</strong><br><span style="color:var(--green)">${escHtml(accountEmail)}</span>`:'<strong>Non collegato</strong><br><span style="color:var(--text3)">login consigliato</span>';
+  syncEl.innerHTML=syncKey
+    ? `<strong>${accountEmail?'Fallback':'Attiva'}</strong><br><span style="color:var(--text3)">${escHtml(String(syncKey).slice(0,8))}…</span>`
+    : (accountEmail
+      ? '<strong>Non necessaria</strong><br><span style="color:var(--text3)">account già primario</span>'
+      : '<strong>Non attiva</strong><br><span style="color:var(--text3)">chiave assente</span>');
   revEl.innerHTML=`<strong>${remaining} / ${revState.totalBudget||0}</strong><br><span style="color:var(--text3)">budget residuo</span>`;
   pillsEl.innerHTML=getWorkflowPills().map(p=>`<span class="workflow-pill ${p.cls}">${escHtml(p.label)}</span>`).join('');
 }
