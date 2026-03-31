@@ -1842,12 +1842,10 @@ function syncMethodologyUi(){
 
 function lockProjectFieldsIfNeeded(){
   const locked = !isMasterOwnerLocal() && thesisGuard.stage === 'locked';
-  ['argomento','facolta','corso','tipoLaurea','numChapters','compatibilityAck','includeFootnotes'].forEach(id=>{
+  ['argomento','facolta','corso','tipoLaurea','compatibilityAck','includeFootnotes'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.disabled = !!locked;
   });
-  const overrideBtn = document.getElementById('toggleOverride');
-  if(overrideBtn) overrideBtn.disabled = !!locked;
   document.querySelectorAll('.metod-chip').forEach(chip=>{
     chip.style.pointerEvents = locked ? 'none' : '';
     chip.style.opacity = locked ? '0.65' : '';
@@ -3367,7 +3365,6 @@ function setAbstractMode(mode){
 }
 function toggleChapterOverride(){
   if(isIndexApprovedState() && !window.__restoringState){showToast('Indice già approvato. Eliminalo per modificare il numero dei capitoli.',true);return;}
-  if(!window.__restoringState && !isMasterOwnerLocal() && thesisGuard.stage==='locked'){ restoreLockedProfileUi(true); return; }
   chapterOverrideActive=!chapterOverrideActive;
   const btn=document.getElementById('toggleOverride');
   btn.classList.toggle('active',chapterOverrideActive);
