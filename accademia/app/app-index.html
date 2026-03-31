@@ -923,8 +923,8 @@
 let chapterOverrideActive=false, indiceMode='ai', abstractMode='ai', metodologia='';
 let thesis={
   argomento:'',facolta:'',corso:'',tipo:'',metodologia:'',
-  indice:'',indiceVersions:[],
-  abstract:'',abstractVersions:[],
+  indice:'',indiceVersions:[],indiceApproved:false,
+  abstract:'',abstractVersions:[],abstractApproved:false,
   chapters:[],chapterTitles:[],currentChapterIdx:0,
   approvedChapters:[],
   contextPacket:null,
@@ -1511,6 +1511,8 @@ function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   window.__restoringState=true;
   thesis=deepClone(saved.thesis);
   if(thesis && thesis.metodologia==='empirica') thesis.metodologia='teorica';
+  if(thesis && typeof thesis.indiceApproved!=='boolean') thesis.indiceApproved=!!(String(thesis.indice||'').trim() && (currentStep>=2) && (String(thesis.abstract||'').trim() || (Array.isArray(thesis.chapters)&&thesis.chapters.some(ch=>String(ch?.content||'').trim()))));
+  if(thesis && typeof thesis.abstractApproved!=='boolean') thesis.abstractApproved=!!(String(thesis.abstract||'').trim() && (currentStep>=3) && ((Array.isArray(thesis.chapters)&&thesis.chapters.some(ch=>String(ch?.content||'').trim())) || (Array.isArray(thesis.approvedChapters)&&thesis.approvedChapters.some(Boolean))));
   revState=normalizeRevState(deepClone(saved.revState));
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   indiceMode=saved.indiceMode||'ai';
@@ -2868,8 +2870,10 @@ async function performDeleteIndice(){
   await saveLastValidState('prima_eliminazione_indice',{silent:true});
   thesis.indice='';
   thesis.indiceVersions=[];
+  thesis.indiceApproved=false;
   thesis.abstract='';
   thesis.abstractVersions=[];
+  thesis.abstractApproved=false;
   thesis.chapters=[];
   thesis.chapterTitles=[];
   thesis.currentChapterIdx=0;
@@ -2904,6 +2908,7 @@ async function performDeleteAbstract(){
   await saveLastValidState('prima_eliminazione_abstract',{silent:true});
   thesis.abstract='';
   thesis.abstractVersions=[];
+  thesis.abstractApproved=false;
   thesis.chapters=[];
   thesis.currentChapterIdx=0;
   thesis.approvedChapters=[];
@@ -3117,10 +3122,22 @@ function focusFinalTools(){
   }
 }
 
+function isIndexApprovedState(){
+  const hasIndex=!!String(thesis.indice||'').trim();
+  const progressedBeyondIndex=!!String(thesis.abstract||'').trim() || (Array.isArray(thesis.chapters)&&thesis.chapters.some(ch=>String(ch?.content||'').trim()));
+  return hasIndex && currentStep>=2 && (!!thesis.indiceApproved || progressedBeyondIndex);
+}
+
+function isAbstractApprovedState(){
+  const hasAbstract=!!String(thesis.abstract||'').trim();
+  const progressedBeyondAbstract=(Array.isArray(thesis.chapters)&&thesis.chapters.some(ch=>String(ch?.content||'').trim())) || (Array.isArray(thesis.approvedChapters)&&thesis.approvedChapters.some(Boolean));
+  return hasAbstract && currentStep>=3 && (!!thesis.abstractApproved || progressedBeyondAbstract);
+}
+
 function updateStep1ButtonState(){
   const btn=document.getElementById('btnStep1');
   if(!btn) return;
-  const approved=!!thesis.indice && currentStep>=2;
+  const approved=isIndexApprovedState();
   btn.disabled=approved;
   if(approved){
     btn.innerHTML='✓ Indice approvato';
@@ -3134,7 +3151,7 @@ function updateStep1ButtonState(){
 function updateAbstractButtonState(){
   const actionBtn=document.getElementById('btnAbstractAction');
   const skipBtn=document.getElementById('btnSkipAbstract');
-  const approved=!!thesis.abstract && currentStep>=3;
+  const approved=isAbstractApprovedState();
   if(actionBtn){
     actionBtn.disabled=approved;
     actionBtn.innerHTML=approved?'✓ Abstract approvato':(abstractMode==='manual'?'✦ Usa questo abstract':'✦ Genera Abstract');
@@ -3147,8 +3164,8 @@ function updateAbstractButtonState(){
 }
 
 function syncResidualUxLocks(){
-  const indiceApproved=!!thesis.indice && currentStep>=2;
-  const abstractApproved=!!thesis.abstract && currentStep>=3;
+  const indiceApproved=isIndexApprovedState();
+  const abstractApproved=isAbstractApprovedState();
   const disableIndex=busyGlobal || indiceApproved;
   const disableAbstract=busyGlobal || abstractApproved;
   ['modeBtnAI','modeBtnManual','indiceManuale','toggleOverride','numChapters'].forEach(id=>{
@@ -3634,6 +3651,7 @@ async function startPhase1(){
 
   if(indiceMode==='manual'){
     thesis.indice=document.getElementById('indiceManuale').value.trim();
+    thesis.indiceApproved=true;
     thesis.indiceVersions=[{content:thesis.indice,timestamp:now(),label:'Indice del relatore'}];
     thesis.chapterTitles=extractChapterTitles(thesis.indice);
     initRevState(thesis.chapterTitles.length);
@@ -3694,7 +3712,7 @@ Bibliografia`;
   syncPrimaryOutputButtons();
   try{
     const t=await callClaude(prompt,'outline_draft');
-    thesis.indice=t;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
+    thesis.indice=t;thesis.indiceApproved=false;thesis.indiceVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
     streamText('indiceText',t,()=>{
       document.getElementById('indiceOutput').classList.remove('typing');
       document.getElementById('indiceChip').className='status-chip done';
@@ -3794,7 +3812,7 @@ ${cp.isMagistrale?'Mantieni capitolo metodologia e gap nella letteratura.':''}
 Riscrivi indice completo. Stesso formato. Solo l’indice.`;
   try{
     const t=await callClaude(prompt,'outline_review');
-    thesis.indice=t;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
+    thesis.indice=t;thesis.indiceApproved=false;thesis.indiceVersions.push({content:t,timestamp:now(),label:`Mod: "${fb.substring(0,35)}"`});
     if(window.addRevisionHistoryEntry && t && t!==beforeIndice){
       window.addRevisionHistoryEntry({kind:'reviseIndice',kindLabel:'Revisione indice',title:'Indice',request:fb,before:beforeIndice,after:t});
     }
@@ -3834,6 +3852,7 @@ async function generateAbstract(){
       return;
     }
     thesis.abstract=manualAbstract;
+    thesis.abstractApproved=false;
     thesis.abstractVersions=[{content:manualAbstract,timestamp:now(),label:'Abstract inserito manualmente'}];
     document.getElementById('abstractOutput').classList.remove('typing');
     document.getElementById('abstractChip').className='status-chip done';
@@ -3865,7 +3884,7 @@ REQUISITI:
 Inizia direttamente. Solo il testo dell’abstract.`;
   try{
     const t=await callClaude(prompt,'abstract_draft');
-    thesis.abstract=t;thesis.abstractVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
+    thesis.abstract=t;thesis.abstractApproved=false;thesis.abstractVersions=[{content:t,timestamp:now(),label:'Versione originale'}];
     streamText('abstractText',t,()=>{
       document.getElementById('abstractOutput').classList.remove('typing');
       document.getElementById('abstractChip').className='status-chip done';
@@ -3878,6 +3897,7 @@ Inizia direttamente. Solo il testo dell’abstract.`;
 }
 
 function approveAbstract(){
+  thesis.abstractApproved=true;
   document.getElementById('abstractApproval').style.display='none';
   thesis.currentChapterIdx=0;
   renderNextChapterLauncher();
