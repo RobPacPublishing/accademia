@@ -60,6 +60,8 @@
   .mode-btn{flex:1;padding:10px 14px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;text-align:center;}
   .mode-btn.active{background:var(--gold-dim);border-color:rgba(201,168,76,.4);color:var(--gold);}
   .mode-btn:hover:not(.active){color:var(--text2);}
+  .mode-btn:disabled{cursor:not-allowed;opacity:.42;color:var(--text3)!important;border-color:var(--border)!important;background:rgba(255,255,255,.02)!important;box-shadow:none;filter:saturate(.2);}
+  .mode-btn.active:disabled{color:rgba(201,168,76,.58)!important;background:rgba(201,168,76,.06)!important;border-color:rgba(201,168,76,.16)!important;}
   .chapter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .chapter-ai-badge{display:inline-flex;align-items:center;gap:5px;background:var(--gold-dim2);border:1px solid rgba(201,168,76,.2);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--gold);white-space:nowrap;}
   .toggle-override{background:none;border:1px solid var(--border2);border-radius:20px;color:var(--text3);font-size:11px;font-family:'DM Sans',sans-serif;padding:4px 12px;cursor:pointer;transition:all .2s;white-space:nowrap;}
@@ -545,7 +547,7 @@
         <label>Apparato note</label>
         <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(201,168,76,.2);background:rgba(201,168,76,.05);font-size:12px;line-height:1.6;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;">
           <input type="checkbox" id="includeFootnotes" checked onchange="handleIncludeFootnotesChange()" style="margin-top:3px;accent-color:var(--gold)">
-          <span>Includi un apparato finale <strong style="color:var(--gold);font-weight:600">Note</strong> nei capitoli, con richiami teorici e precisazioni accademiche senza inventare fonti, pagine o citazioni inesistenti.</span>
+          <span>Attiva una breve sezione finale di <strong style="color:var(--gold);font-weight:600">note esplicative</strong> nei capitoli, utile a rendere il testo più ordinato e rifinito in chiave accademica.</span>
         </label>
       </div>
       <div class="form-group full">
