@@ -614,7 +614,7 @@
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="phase-btn" id="btnAbstractAction" onclick="generateAbstract()">✦ Genera Abstract</button>
-        <button class="btn-redo" onclick="skipAbstractAndGoToChapters()">↷ Vai direttamente ai Capitoli</button>
+        <button class="btn-redo" id="btnSkipAbstract" onclick="skipAbstractAndGoToChapters()">↷ Vai direttamente ai Capitoli</button>
       </div>
       <div style="margin-top:10px;font-size:12px;color:var(--text3)">Puoi usare un abstract già esistente oppure passare direttamente ai capitoli anche senza generarlo qui.</div>
     </div>
@@ -2899,6 +2899,7 @@ async function deleteAbstract(){
   document.getElementById('nextChapters').innerHTML='';
   document.getElementById('nextAbstract').classList.add('visible');
   setStep(2);
+  updateAbstractButtonState();
   syncPrimaryOutputButtons();
   saveProgress();
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Abstract eliminato. Il profilo tesi resta vincolato alla licenza corrente." : "Abstract eliminato. Puoi rigenerarlo o passare direttamente ai capitoli.");
@@ -3104,6 +3105,20 @@ function updateStep1ButtonState(){
   btn.textContent=indiceMode==='manual'?'✦ Usa questo indice':'✦ Genera Indice';
 }
 
+function updateAbstractButtonState(){
+  const actionBtn=document.getElementById('btnAbstractAction');
+  const skipBtn=document.getElementById('btnSkipAbstract');
+  const approved=!!thesis.abstract && currentStep>=3;
+  if(actionBtn){
+    actionBtn.disabled=approved;
+    actionBtn.innerHTML=approved?'✓ Abstract approvato':(abstractMode==='manual'?'✦ Usa questo abstract':'✦ Genera Abstract');
+  }
+  if(skipBtn){
+    skipBtn.disabled=approved;
+    skipBtn.innerHTML=approved?'✓ Capitoli attivati':'↷ Vai direttamente ai Capitoli';
+  }
+}
+
 function restoreProgressUI(savedForm=null){
   applyFormState(savedForm || {});
   renderSingleThesisNotice();
@@ -3198,11 +3213,10 @@ function setAbstractMode(mode){
   const aiBtn=document.getElementById('abstractModeBtnAI');
   const manualBtn=document.getElementById('abstractModeBtnManual');
   const manualWrap=document.getElementById('abstractManualWrap');
-  const actionBtn=document.getElementById('btnAbstractAction');
   if(aiBtn) aiBtn.classList.toggle('active',mode==='ai');
   if(manualBtn) manualBtn.classList.toggle('active',mode==='manual');
   if(manualWrap) manualWrap.style.display=mode==='manual'?'block':'none';
-  if(actionBtn) actionBtn.textContent=mode==='manual'?'✦ Usa questo abstract':'✦ Genera Abstract';
+  updateAbstractButtonState();
   if(!window.__restoringState) saveProgress();
 }
 function toggleChapterOverride(){
@@ -3789,6 +3803,7 @@ function approveAbstract(){
   renderNextChapterLauncher();
   const nc=document.getElementById('nextChapters');
   nc.classList.add('visible');setStep(3);
+  updateAbstractButtonState();
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
   saveProgress();
   triggerAutoSnapshot('abstract');
