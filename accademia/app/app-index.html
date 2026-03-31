@@ -1044,10 +1044,21 @@ function hasMeaningfulSavedState(state){
 function choosePreferredSavedState(localSaved,syncSaved,accountSaved){
   const unlocked=sessionStorage.getItem(ACCESS_SESSION_KEY)==='1';
   if(unlocked && hasAccountSession()){
-    if(hasMeaningfulSavedState(accountSaved)) return {state:accountSaved, source:'account'};
-    if(hasMeaningfulSavedState(syncSaved)) return {state:syncSaved, source:'sync'};
-    if(hasMeaningfulSavedState(localSaved)) return {state:localSaved, source:'local'};
-    return {state:null, source:''};
+    const candidates=[
+      hasMeaningfulSavedState(localSaved)?{state:localSaved, source:'local'}:null,
+      hasMeaningfulSavedState(syncSaved)?{state:syncSaved, source:'sync'}:null,
+      hasMeaningfulSavedState(accountSaved)?{state:accountSaved, source:'account'}:null
+    ].filter(Boolean);
+    if(!candidates.length) return {state:null, source:''};
+    candidates.sort((a,b)=>{
+      const at=new Date(a?.state?.savedAt||0).getTime()||0;
+      const bt=new Date(b?.state?.savedAt||0).getTime()||0;
+      if(bt!==at) return bt-at;
+      if(a.source==='account') return -1;
+      if(b.source==='account') return 1;
+      return 0;
+    });
+    return candidates[0];
   }
   const fallback=pickNewestSavedState(localSaved,syncSaved,accountSaved);
   if(!fallback) return {state:null, source:''};
@@ -1568,6 +1579,14 @@ function scheduleRemoteSave(){
     if(getSyncKey()) saveRemoteProgress(false);
     if(getAccountSessionToken()) saveAccountProgress(false);
   },700);
+}
+
+async function flushProgressNow(force=false){
+  clearTimeout(syncSaveTimer);
+  const tasks=[];
+  if(getSyncKey()) tasks.push(saveRemoteProgress(force));
+  if(getAccountSessionToken()) tasks.push(saveAccountProgress(force));
+  if(tasks.length) await Promise.allSettled(tasks);
 }
 
 function pickNewestSavedState(...states){
@@ -2909,6 +2928,7 @@ async function performDeleteIndice(){
   normalizeWorkflowConsistency();
   updateStep1ButtonState();
   saveProgress();
+  await flushProgressNow(true);
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Indice eliminato. La licenza resta comunque vincolata a questa tesi." : "Indice eliminato. Puoi rigenerarlo da zero.");
 }
 
@@ -2939,6 +2959,7 @@ async function performDeleteAbstract(){
   updateAbstractButtonState();
   syncPrimaryOutputButtons();
   saveProgress();
+  await flushProgressNow(true);
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Abstract eliminato. Il profilo tesi resta vincolato alla licenza corrente." : "Abstract eliminato. Puoi rigenerarlo o passare direttamente ai capitoli.");
 }
 
@@ -3352,6 +3373,7 @@ function toggleChapterOverride(){
   btn.classList.toggle('active',chapterOverrideActive);
   btn.textContent=chapterOverrideActive?'Usa AI':'Personalizza numero capitoli';
   document.getElementById('chapterOverride').style.display=chapterOverrideActive?'flex':'none';
+  if(!window.__restoringState) saveProgress();
 }
 function setStep(n){
   currentStep=n;
@@ -3960,7 +3982,10 @@ Inizia direttamente. Solo il testo dell’abstract.`;
       setPhaseButtonBusy('btnAbstractAction',false);
       saveProgress();
     });
-  }catch(e){syncPrimaryOutputButtons();showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnAbstractAction',false);}
+  }catch(e){
+    resetAbstractUiAfterFailure(/timeout/i.test(String(e&&e.message||''))?'Generazione abstract interrotta per timeout. Riprova.':'Generazione abstract interrotta. Riprova.');
+    showToast('Errore: '+e.message,true);
+  }
 }
 
 function approveAbstract(){
@@ -5212,7 +5237,26 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra=
 // ══════════════════════════════════════════════
 function tipoLaureaLabel(t){return t==='magistrale_2'?'Magistrale (2 anni post-triennale)':t==='magistrale_5'?'Magistrale a ciclo unico (5 anni)':t==='triennale'?'Triennale (3 anni)':'';}
 function extractChapterTitles(indice){const l=indice.split('\n'),t=[];for(const ln of l){const m=ln.match(/^(\d+)\.\s+(.+)/);if(m)t.push(m[2].trim());}return t.length>0?t:['Capitolo 1','Capitolo 2','Capitolo 3'];}
-function streamText(elId,text,onDone){const el=document.getElementById(elId);el.textContent='';let i=0;const step=Math.max(1,Math.floor(text.length/280));const iv=setInterval(()=>{i=Math.min(i+step,text.length);el.textContent=text.substring(0,i);if(i>=text.length){clearInterval(iv);if(onDone)onDone();}},8);}
+function streamText(elId,text,onDone){
+  const el=document.getElementById(elId);
+  if(!el){if(onDone) onDone();return;}
+  const safeText=String(text||'');
+  if(el._streamTimer){clearInterval(el._streamTimer);el._streamTimer=null;}
+  el.textContent='';
+  if(!safeText){if(onDone) onDone();return;}
+  let i=0;
+  const step=Math.max(1,Math.floor(safeText.length/280));
+  const iv=setInterval(()=>{
+    i=Math.min(i+step,safeText.length);
+    el.textContent=safeText.substring(0,i);
+    if(i>=safeText.length){
+      clearInterval(iv);
+      el._streamTimer=null;
+      if(onDone) onDone();
+    }
+  },8);
+  el._streamTimer=iv;
+}
 function resetIndiceUiAfterFailure(message='Generazione indice interrotta. Riprova.') {
   const output=document.getElementById('indiceOutput');
   const chip=document.getElementById('indiceChip');
@@ -5225,6 +5269,21 @@ function resetIndiceUiAfterFailure(message='Generazione indice interrotta. Ripro
   syncPrimaryOutputButtons();
   setPhaseButtonBusy('btnStep1',false);
   updateStep1ButtonState();
+}
+function resetAbstractUiAfterFailure(message='Generazione abstract interrotta. Riprova.'){
+  const output=document.getElementById('abstractOutput');
+  const chip=document.getElementById('abstractChip');
+  const approval=document.getElementById('abstractApproval');
+  const textEl=document.getElementById('abstractText');
+  if(output) output.classList.remove('typing');
+  if(chip){chip.className='status-chip error';chip.innerHTML='✕ Interrotto';}
+  if(approval) approval.style.display='none';
+  if(textEl && !String(textEl.textContent||'').trim()) textEl.textContent=message;
+  const next=document.getElementById('nextAbstract');
+  if(next && thesis.indiceApproved===true) next.classList.add('visible');
+  syncPrimaryOutputButtons();
+  setPhaseButtonBusy('btnAbstractAction',false);
+  updateAbstractButtonState();
 }
 function updateWordCount(){const t=[thesis.indice,thesis.abstract,...(thesis.chapters||[]).map(c=>((c&&typeof c==='object')?c.content:'')||'')].join(' ').split(/\s+/).filter(Boolean).length;document.getElementById('wordCount').textContent=t.toLocaleString('it-IT');}
 function now(){return new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});}
