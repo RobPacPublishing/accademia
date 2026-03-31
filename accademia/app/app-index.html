@@ -207,11 +207,23 @@
   .version-item.current{border-color:rgba(201,168,76,.4);background:var(--gold-dim2);}
   .version-item-label{font-size:13px;color:var(--text2);}
   .version-item-time{font-size:11px;color:var(--text3);}
-  .toast{position:fixed;bottom:26px;right:26px;background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--gold);border-radius:var(--radius-sm);padding:12px 18px;font-size:13px;color:var(--text2);z-index:9000;transform:translateY(70px);opacity:0;transition:all .3s;max-width:300px;}
+  .toast{position:fixed;bottom:26px;right:26px;background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--gold);border-radius:var(--radius-sm);padding:12px 18px;font-size:13px;color:var(--text2);z-index:9000;transform:translateY(70px);opacity:0;transition:all .3s;max-width:360px;box-shadow:0 18px 42px rgba(0,0,0,.35);}
   .toast.show{transform:translateY(0);opacity:1;}
   .toast.error{border-left-color:var(--red);}
-  ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
-  @media(max-width:640px){header{padding:14px 18px;}.container{padding:28px 18px 60px;}.form-grid{grid-template-columns:1fr;}.form-card{padding:22px;}.step-connector{width:18px;}.step-label{display:none;}}
+  .go-bottom-btn{position:fixed;right:26px;bottom:96px;z-index:8900;display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:48px;padding:0 14px;border-radius:999px;border:1px solid rgba(201,168,76,.32);background:rgba(20,20,20,.92);color:var(--gold);font-size:18px;cursor:pointer;box-shadow:0 14px 36px rgba(0,0,0,.32);opacity:0;pointer-events:none;transform:translateY(18px);transition:all .25s;}
+  .go-bottom-btn.show{opacity:1;pointer-events:auto;transform:translateY(0);}
+  .go-bottom-btn:hover{background:rgba(201,168,76,.12);}
+  .chapter-body-wrap{display:block;}
+  .chapter-collapse-summary{display:none;padding:0 26px 18px;color:var(--text3);font-size:12px;line-height:1.6;}
+  .chapter-collapse-summary strong{color:var(--text2);font-weight:600;}
+  .chapter-collapse-toggle{padding:9px 14px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+  .chapter-collapse-toggle:hover{border-color:var(--gold);color:var(--gold);}
+  .output-block.chapter-collapsed .chapter-body-wrap{display:none;}
+  .output-block.chapter-collapsed .chapter-collapse-summary{display:block;}
+  .output-block.chapter-collapsed .output-block-header{border-bottom:none;}
+  ::-webkit-scrollbar{width:12px;height:12px;}::-webkit-scrollbar-track{background:rgba(255,255,255,.04);}::-webkit-scrollbar-thumb{background:rgba(201,168,76,.38);border-radius:999px;border:2px solid rgba(5,5,5,.92);}::-webkit-scrollbar-thumb:hover{background:rgba(201,168,76,.62);}
+  html{scrollbar-color:rgba(201,168,76,.55) rgba(255,255,255,.04);scrollbar-width:auto;}
+  @media(max-width:640px){header{padding:14px 18px;}.container{padding:28px 18px 60px;}.form-grid{grid-template-columns:1fr;}.form-card{padding:22px;}.step-connector{width:18px;}.step-label{display:none;}.go-bottom-btn{right:18px;bottom:84px;}}
 
   /* ── DISCLAIMER MODALE OBBLIGATORIO ── */
   .disclaimer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);backdrop-filter:blur(16px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
@@ -797,6 +809,19 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="compatibilityModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('compatibilityModal')">×</button>
+    <h2>Test compatibilità</h2>
+    <p>Verifica subito se la tua facoltà rientra nel perimetro corretto di AccademIA prima di generare indice, abstract o capitoli.</p>
+    <div id="compatibilityModalBody" style="background:var(--bg4);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.7;color:var(--text2);">Seleziona una facoltà per leggere il responso di compatibilità.</div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-modal-save" type="button" onclick="closeModal('compatibilityModal')">Chiudi e prosegui</button>
+    </div>
+  </div>
+</div>
+
+<button class="go-bottom-btn" id="goBottomBtn" type="button" onclick="scrollToPageEnd()" aria-label="Vai a fine pagina">↓</button>
 <div class="toast" id="toast"></div>
 
 
@@ -1484,6 +1509,8 @@ function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   restoreProgressUI(saved.form||{});
   ensureThesisGuardFromSavedState();
   renderWorkflowHud();
+  refreshCompatibilityModalContent();
+  updateGoBottomButton();
   window.__restoringState=false;
   try{localStorage.setItem(STORAGE_KEY, JSON.stringify(deepClone(saved)));}catch(_){ }
   if(toastMessage) showToast(toastMessage);
@@ -1904,6 +1931,116 @@ function ensureThesisGuardFromSavedState(){
 const MAX_REV_PER_CHAPTER = 3;
 const PERSONAL_REV_BYPASS_KEY = '_td_personal_rev_bypass_v1';
 const PERSONAL_REV_BYPASS_CODE = 'robpac-tutor-dev-2026';
+const CHAPTER_UI_STATE_KEY = '_td_chapter_ui_state_v1';
+const COMPAT_MODAL_SESSION_KEY = '_td_compat_modal_seen_v1';
+let chapterUiState = loadChapterUiState();
+
+function loadChapterUiState(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(CHAPTER_UI_STATE_KEY)||'{}');
+    return parsed&&typeof parsed==='object'?parsed:{};
+  }catch(_){
+    return {};
+  }
+}
+
+function saveChapterUiState(){
+  try{localStorage.setItem(CHAPTER_UI_STATE_KEY,JSON.stringify(chapterUiState||{}));}catch(_){}
+}
+
+function getChapterUiEntry(idx){
+  const key=String(idx);
+  if(!chapterUiState[key] || typeof chapterUiState[key] !== 'object') chapterUiState[key]={};
+  return chapterUiState[key];
+}
+
+function isChapterCollapsed(idx){
+  const entry=getChapterUiEntry(idx);
+  if(typeof entry.collapsed === 'boolean') return entry.collapsed;
+  return !!((thesis.approvedChapters||[])[idx]);
+}
+
+function setChapterCollapsed(idx,collapsed){
+  const entry=getChapterUiEntry(idx);
+  entry.collapsed=!!collapsed;
+  saveChapterUiState();
+  applyChapterCollapsedState(idx);
+}
+
+function getChapterCompactSummary(idx){
+  const ch=(thesis.chapters||[])[idx]||{};
+  const words=String(ch.content||'').trim().split(/\s+/).filter(Boolean).length;
+  const version=((ch.currentVersion||0)+1);
+  const state=getChapterGenerationState(idx);
+  const status=state==='complete'?'approvato e stabile':(state==='partial'?'parziale':'in lavorazione');
+  return `<strong>${escHtml(thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`)}</strong><br>${words.toLocaleString('it-IT')} parole · v${version} · ${status}`;
+}
+
+function applyChapterCollapsedState(idx){
+  const output=document.getElementById(`chapOutput-${idx}`);
+  if(!output) return;
+  const approved=!!((thesis.approvedChapters||[])[idx]);
+  const collapsed=approved && isChapterCollapsed(idx);
+  output.classList.toggle('chapter-collapsed',collapsed);
+  const btn=document.getElementById(`chapCollapseBtn-${idx}`);
+  if(btn){
+    btn.style.display=approved?'inline-flex':'none';
+    btn.textContent=collapsed?'▾ Apri':'▴ Riduci';
+  }
+  const summary=document.getElementById(`chapSummary-${idx}`);
+  if(summary) summary.innerHTML=getChapterCompactSummary(idx);
+}
+
+function toggleChapterCollapsed(idx){
+  setChapterCollapsed(idx,!isChapterCollapsed(idx));
+}
+
+function scrollToPageEnd(){
+  window.scrollTo({top:document.documentElement.scrollHeight,behavior:'smooth'});
+}
+
+function updateGoBottomButton(){
+  const btn=document.getElementById('goBottomBtn');
+  if(!btn) return;
+  const bottomGap=document.documentElement.scrollHeight-(window.scrollY+window.innerHeight);
+  const show=window.scrollY>220 && bottomGap>220;
+  btn.classList.toggle('show',show);
+}
+
+function refreshCompatibilityModalContent(){
+  const box=document.getElementById('compatibilityModalBody');
+  if(!box) return;
+  const facolta=(document.getElementById('facolta')?.value||'').trim();
+  if(!facolta){
+    box.innerHTML='Seleziona una facoltà per leggere il responso di compatibilità di AccademIA.';
+    return;
+  }
+  const kind=getFacultyCompatibility(facolta);
+  if(kind==='veryGood'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} rientra tra le aree presidiate meglio da AccademIA.`;
+    return;
+  }
+  if(kind==='good'){
+    box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è coperta bene, soprattutto per tesi teoriche, comparative o di review.${escHtml(facultyNoticeTail(facolta))}`;
+    return;
+  }
+  if(kind==='partial'){
+    const partial=getPartialFacultyGuidance(facolta);
+    box.innerHTML=partial
+      ? `<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo entro un perimetro limitato. Focus: ${escHtml(partial.focus)}. Ammesso: ${escHtml(partial.allow)}. Non ammesso: ${escHtml(partial.avoid)}.`
+      : `<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} è utilizzabile solo per tesi teoriche, comparative, di review o caso studio non sperimentale.`;
+    return;
+  }
+  box.innerHTML=`<strong>Compatibilità ${compatibilityBadge(kind)}</strong><br>${escHtml(facolta)} non rientra tra le facoltà presidiate in modo affidabile da questa versione.`;
+}
+
+function maybeOpenCompatibilityModal(force=false){
+  if(sessionStorage.getItem(ACCESS_SESSION_KEY)!=='1') return;
+  if(!force && sessionStorage.getItem(COMPAT_MODAL_SESSION_KEY)==='1') return;
+  refreshCompatibilityModalContent();
+  openModal('compatibilityModal');
+  sessionStorage.setItem(COMPAT_MODAL_SESSION_KEY,'1');
+}
 
 function hasPersonalRevisionBypass(){
   return sessionStorage.getItem(ACCESS_SESSION_KEY) === '1' && localStorage.getItem(PERSONAL_REV_BYPASS_KEY) === '1';
@@ -2218,13 +2355,14 @@ function acceptDisclaimer(){
   sessionStorage.setItem('_td_accepted','1');
   sessionStorage.setItem(OWNER_FREE_RENEWAL_SESSION_KEY,'1');
   applyAccessState(true);
-  restoreProgressOnLoad(false);
+  restoreProgressOnLoad(false).finally(()=>{setTimeout(()=>maybeOpenCompatibilityModal(true),220);});
 }
 
 function logoutAccess(){
   sessionStorage.removeItem(ACCESS_SESSION_KEY);
   sessionStorage.removeItem('_td_accepted');
   sessionStorage.removeItem(OWNER_FREE_RENEWAL_SESSION_KEY);
+  sessionStorage.removeItem(COMPAT_MODAL_SESSION_KEY);
   applyAccessState(false);
 }
 
@@ -2254,6 +2392,8 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   if(account) account.addEventListener('click',openAccountManager);
   if(snapshots) snapshots.addEventListener('click',openSnapshotManager);
   if(recovery) recovery.addEventListener('click',openRecoveryManager);
+  const facoltaEl=document.getElementById('facolta');
+  if(facoltaEl) facoltaEl.addEventListener('change',()=>{renderCompatibilityNotice();refreshCompatibilityModalContent();});
 
   const unlocked = sessionStorage.getItem(ACCESS_SESSION_KEY) === '1';
   applyAccessState(unlocked);
@@ -2262,6 +2402,10 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   ensureThesisGuardFromSavedState();
   renderSingleThesisNotice();
   renderWorkflowHud();
+  updateGoBottomButton();
+  window.addEventListener('scroll',updateGoBottomButton,{passive:true});
+  window.addEventListener('resize',updateGoBottomButton);
+  if(unlocked) maybeOpenCompatibilityModal(false);
   pingVisit();
 });
 
@@ -2768,6 +2912,7 @@ function updateChapterSavedBlockStatus(idx){
   }
   const row=document.getElementById(`chapApproval-${idx}`);
   if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,!!(thesis.approvedChapters||[])[idx],true);
+  applyChapterCollapsedState(idx);
 }
 
 function renderSavedChapterBlock(idx,total){
@@ -2798,12 +2943,15 @@ function renderSavedChapterBlock(idx,total){
         </div>
         <div class="header-actions">
           <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
+          <button class="chapter-collapse-toggle" id="chapCollapseBtn-${idx}" onclick="toggleChapterCollapsed(${idx})" style="display:${(thesis.approvedChapters||[])[idx]?'inline-flex':'none'}">▾ Apri</button>
           <button class="btn-delete-lite" onclick="downloadChapterDoc(${idx})">⬇ DOC</button>
           <button class="btn-delete-lite" onclick="downloadChapterTxt(${idx})">📝 TXT</button>
           <button class="btn-delete-lite" onclick="copyChapter(${idx})">📋 Copia</button>
           <button class="btn-delete-lite" onclick="deleteChapter(${idx})">🗑 Elimina</button>
         </div>
       </div>
+      <div class="chapter-collapse-summary" id="chapSummary-${idx}"></div>
+      <div class="chapter-body-wrap" id="chapBodyWrap-${idx}">
       <div class="output-block-body"><div class="content-text" id="chapText-${idx}">${safeContent}</div></div>
       <div class="sources-bar" id="chapSources-${idx}"><span class="sources-label">🔍 Query ricercate</span></div>
       <div class="sources-warning" id="chapSourcesWarn-${idx}" style="display:none">⚠️ Verifica le citazioni prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale.</div>
@@ -2837,12 +2985,15 @@ function renderSavedChapterBlock(idx,total){
         </div>
       </div>
 ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
+      </div>
     </div>`;
   area.appendChild(block);
   updateChapterSavedBlockStatus(idx);
   renderRevCounter(idx);
   syncChapterActionButtons(idx);
   syncChapterPanelState(idx);
+  applyChapterCollapsedState(idx);
+  updateGoBottomButton();
 }
 
 
@@ -3087,6 +3238,7 @@ function facultyNoticeTail(facolta){
 }
 
 function renderCompatibilityNotice(){
+  refreshCompatibilityModalContent();
   const facolta=(document.getElementById('facolta')?.value||'').trim();
   const box=document.getElementById('compatibilityNotice');
   const ackWrap=document.getElementById('compatibilityAckWrap');
@@ -3724,6 +3876,7 @@ async function runChapterGeneration(idx,opts={}){
   updateChapterSavedBlockStatus(idx);
   syncChapterActionButtons(idx);
   const block=document.getElementById(`chap-${idx}`);
+  setChapterCollapsed(idx,false);
   if(block) block.scrollIntoView({behavior:'smooth',block:'start'});
   const output=document.getElementById(`chapOutput-${idx}`);
   const textEl=document.getElementById(`chapText-${idx}`);
@@ -3817,6 +3970,7 @@ function approveChapter(idx){
     nc.classList.remove('visible');
     nc.innerHTML='';
   }
+  setChapterCollapsed(idx,true);
   saveProgress();
   triggerAutoSnapshot('chapter');
 }
@@ -3833,6 +3987,7 @@ function approveLastChapter(){
   updateWordCount();
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
   syncChapterActionButtons(idx);
+  setChapterCollapsed(idx,true);
   showToast('🎓 Tesi completata!');
   saveProgress();
   triggerAutoSnapshot('final');
@@ -3877,6 +4032,7 @@ async function reviseChapter(idx){
   }
   const fb=document.getElementById(`chapRevInput-${idx}`).value.trim();
   if(!fb){showToast('Descrivi le modifiche',true);return;}
+  setChapterCollapsed(idx,false);
   const ch=thesis.chapters[idx];const cp=thesis.contextPacket;
   const btn=document.getElementById(`chapRevBtn-${idx}`);if(btn) btn.disabled=true;
   document.getElementById(`chapOutput-${idx}`).classList.add('typing');
@@ -4120,6 +4276,7 @@ function toggleRevision(key){
   if(key==='indice'){document.getElementById('indiceRevision').classList.toggle('open');return;}
   if(key==='abstract'){document.getElementById('abstractRevision').classList.toggle('open');return;}
   const idx=parseInt(key.split('-')[1]);
+  setChapterCollapsed(idx,false);
   const el=document.getElementById(`chapRevision-${idx}`);
   const tutor=document.getElementById(`chapTutor-${idx}`);
   if(tutor) tutor.classList.remove('open');
@@ -4130,6 +4287,7 @@ function toggleRevision(key){
   }
 }
 function toggleTutorRevision(idx){
+  setChapterCollapsed(idx,false);
   const el=document.getElementById(`chapTutor-${idx}`);
   const rev=document.getElementById(`chapRevision-${idx}`);
   if(rev) rev.classList.remove('open');
