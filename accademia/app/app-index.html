@@ -4054,42 +4054,26 @@ function normalizeRevisionComparisonText(text){
 }
 function stripArtificialAcademicTail(text){
   let s=String(text||'');
-  s=s.replace(/
-(?:In conclusione,?\s*)?(?:nel|nei) prossim[oi] capitol[oi][\s\S]*$/i,'');
-  s=s.replace(/
-(?:In conclusione,?\s*)?questo capitolo (?:ha analizzato|si è proposto(?: di)?|ha mostrato|ha evidenziato|ha esaminato|ha consentito di)[\s\S]*$/i,'');
-  s=s.replace(/
-(?:Per concludere|In sintesi|In conclusione),?\s+(?:si può affermare|si può osservare|emerge che|si evidenzia che)[^
-]{0,260}$/i,'');
+  s=s.replace(/\n(?:In conclusione,?\s*)?(?:nel|nei) prossim[oi] capitol[oi][\s\S]*$/i,'');
+  s=s.replace(/\n(?:In conclusione,?\s*)?questo capitolo (?:ha analizzato|si è proposto(?: di)?|ha mostrato|ha evidenziato|ha esaminato|ha consentito di)[\s\S]*$/i,'');
+  s=s.replace(/\n(?:Per concludere|In sintesi|In conclusione),?\s+(?:si può affermare|si può osservare|emerge che|si evidenzia che)[^\n]{0,260}$/i,'');
   return s.trim();
 }
 function sanitizeAcademicDraftText(text,{keepNotes=true}={}){
   let s=String(text||'')
-    .replace(/
-/g,'
-')
-    .replace(/ /g,' ')
+    .replace(/\r\n/g,'\n')
+    .replace(/\u00A0/g,' ')
     .replace(/```[\s\S]*?```/g,' ')
     .replace(/^\s*(?:Ecco(?:\s+il)?(?:\s+capitolo|\s+testo)?(?:\s+revisionato)?[:.]\s*)/i,'')
     .replace(/^\s*(?:Di seguito(?:\s+trovi)?(?:\s+il\s+testo)?[:.]\s*)/i,'')
-    .replace(/[ 	]+
-/g,'
-')
-    .replace(/
-{3,}/g,'
-
-')
+    .replace(/[ \t]+\n/g,'\n')
+    .replace(/\n{3,}/g,'\n\n')
     .trim();
   if(!keepNotes){
-    s=s.replace(/
-Note\s*
-[\s\S]*$/i,'').trim();
+    s=s.replace(/\nNote\s*\n[\s\S]*$/i,'').trim();
   }
   s=stripArtificialAcademicTail(s)
-    .replace(/
-{3,}/g,'
-
-')
+    .replace(/\n{3,}/g,'\n\n')
     .trim();
   return s;
 }
