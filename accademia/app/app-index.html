@@ -600,7 +600,7 @@
       <div class="approval-row" id="indiceApproval" style="display:none">
         <span class="hint">La struttura è corretta?</span>
         <button class="btn-redo" onclick="toggleRevision('indice')">✎ Modifica</button>
-        <button class="btn-approve" onclick="approveIndice()">✓ Approva e continua</button>
+        <button class="btn-approve" onclick="requestApproveIndice()">✓ Approva e continua</button>
       </div>
     </div>
     <div class="next-phase-area" id="nextAbstract">
@@ -641,7 +641,7 @@
       <div class="approval-row" id="abstractApproval" style="display:none">
         <span class="hint">Abstract corretto?</span>
         <button class="btn-redo" onclick="toggleRevision('abstract')">✎ Modifica</button>
-        <button class="btn-approve" onclick="approveAbstract()">✓ Approva e continua</button>
+        <button class="btn-approve" onclick="requestApproveAbstract()">✓ Approva e continua</button>
       </div>
     </div>
     <div class="next-phase-area" id="nextChapters"></div>
@@ -3064,7 +3064,7 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
     : (idx<total-1 ? `✓ Approva Capitolo ${idx+1} e vai al Cap. ${idx+2}` : '✓ Approva ultimo capitolo e concludi');
   const primaryAction=approved
     ? (idx<total-1 ? `goToNextChapterFromApproved(${idx})` : 'focusFinalTools()')
-    : (idx<total-1 ? `approveChapter(${idx})` : 'approveLastChapter()');
+    : (idx<total-1 ? `requestApproveChapter(${idx})` : 'requestApproveLastChapter()');
   return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
         <span class="hint">${hint}</span>
         <div class="actions">
@@ -3630,6 +3630,39 @@ Bibliografia`;
       saveProgress();
     });
   }catch(e){syncPrimaryOutputButtons();showToast('Errore: '+e.message,true);setPhaseButtonBusy('btnStep1',false);updateStep1ButtonState();}
+}
+
+let pendingApprovalAction=null;
+
+function openApprovalConfirm(message, action){
+  pendingApprovalAction=typeof action==='function'?action:null;
+  const el=document.getElementById('approvalConfirmText');
+  if(el) el.textContent=message||'Verifica attentamente il contenuto prima di approvarlo.';
+  openModal('approvalConfirmModal');
+}
+
+function confirmApprovalAction(){
+  const action=pendingApprovalAction;
+  pendingApprovalAction=null;
+  closeModal('approvalConfirmModal');
+  if(typeof action==='function') action();
+}
+
+function requestApproveIndice(){
+  openApprovalConfirm('Stai per approvare l’indice. Dopo l’approvazione non potrai più rigenerarlo direttamente dal pulsante principale. Conferma solo se struttura e capitoli ti convincono davvero.', ()=>approveIndice());
+}
+
+function requestApproveAbstract(){
+  openApprovalConfirm('Stai per approvare l’abstract. Controlla bene struttura, tono e parole chiave prima di proseguire ai capitoli.', ()=>approveAbstract());
+}
+
+function requestApproveChapter(idx){
+  openApprovalConfirm(`Stai per approvare il Capitolo ${idx+1}. Verifica completezza, pulizia del testo, eventuali note e coerenza con il resto della tesi prima di confermare.`, ()=>approveChapter(idx));
+}
+
+function requestApproveLastChapter(){
+  const idx=Number(thesis.currentChapterIdx||0);
+  openApprovalConfirm('Stai per approvare l’ultimo capitolo e chiudere la fase di generazione capitoli. Conferma solo se il testo è davvero pronto.', ()=>approveLastChapter());
 }
 
 function approveIndice(){
@@ -5012,6 +5045,19 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
   .single-thesis-notice.locked{border-color:rgba(201,168,76,.35);background:rgba(201,168,76,.06);}
   .single-thesis-notice.master{border-color:rgba(94,184,122,.35);background:rgba(94,184,122,.08);}
 </style>
+
+<div class="modal-overlay" id="approvalConfirmModal">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="closeModal('approvalConfirmModal')">×</button>
+    <h2>Conferma approvazione</h2>
+    <p id="approvalConfirmText">Verifica attentamente il contenuto prima di approvarlo.</p>
+    <div class="guide-note" style="margin-top:0;margin-bottom:16px;"><strong>Attenzione:</strong> approvare troppo presto può farti consumare revisioni inutilmente nelle fasi successive.</div>
+    <div class="modal-actions" style="margin-top:0;">
+      <button class="btn-modal-save" type="button" onclick="confirmApprovalAction()">Conferma approvazione</button>
+      <button class="btn-modal-cancel" type="button" onclick="closeModal('approvalConfirmModal')">Annulla</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="revisionHistoryModal">
   <div class="modal-box" style="max-width:860px;">
     <button class="modal-close" onclick="closeModal('revisionHistoryModal')">✕</button>
