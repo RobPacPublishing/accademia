@@ -2857,8 +2857,11 @@ function skipAbstractAndGoToChapters(){
   showToast('Abstract saltato. Puoi proseguire con i capitoli.');
 }
 
-async function deleteIndice(){
-  if(!confirm("Eliminare l’indice e tutti gli output successivi?")) return;
+function deleteIndice(){
+  openDeleteConfirm("Stai per eliminare l’indice e tutti gli output successivi collegati a questa fase.", ()=>performDeleteIndice());
+}
+
+async function performDeleteIndice(){
   await saveLastValidState('prima_eliminazione_indice',{silent:true});
   thesis.indice='';
   thesis.indiceVersions=[];
@@ -2890,8 +2893,11 @@ async function deleteIndice(){
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Indice eliminato. La licenza resta comunque vincolata a questa tesi." : "Indice eliminato. Puoi rigenerarlo da zero.");
 }
 
-async function deleteAbstract(){
-  if(!confirm("Eliminare l’abstract e i capitoli già generati da questa fase in avanti?")) return;
+function deleteAbstract(){
+  openDeleteConfirm("Stai per eliminare l’abstract e tutti i capitoli generati da questa fase in avanti.", ()=>performDeleteAbstract());
+}
+
+async function performDeleteAbstract(){
   await saveLastValidState('prima_eliminazione_abstract',{silent:true});
   thesis.abstract='';
   thesis.abstractVersions=[];
@@ -2916,8 +2922,11 @@ async function deleteAbstract(){
   showToast(!isMasterOwnerLocal() && thesisGuard.stage==='locked' ? "Abstract eliminato. Il profilo tesi resta vincolato alla licenza corrente." : "Abstract eliminato. Puoi rigenerarlo o passare direttamente ai capitoli.");
 }
 
-async function deleteChapter(idx){
-  if(!confirm(`Eliminare il Capitolo ${idx+1} e tutti i capitoli successivi?`)) return;
+function deleteChapter(idx){
+  openDeleteConfirm(`Stai per eliminare il Capitolo ${idx+1} e tutti i capitoli successivi.`, ()=>performDeleteChapter(idx));
+}
+
+async function performDeleteChapter(idx){
   await saveLastValidState(`prima_eliminazione_capitolo_${idx+1}`,{silent:true});
   thesis.chapters = thesis.chapters.slice(0, idx);
   thesis.approvedChapters = (thesis.approvedChapters||[]).slice(0, idx);
@@ -3658,6 +3667,26 @@ Bibliografia`;
 }
 
 let pendingApprovalAction=null;
+let pendingDeleteAction=null;
+
+function openDeleteConfirm(message, action){
+  pendingDeleteAction=typeof action==='function'?action:null;
+  const el=document.getElementById('deleteConfirmText');
+  if(el) el.textContent=message||'Stai per eliminare un contenuto del progetto.';
+  openModal('deleteConfirmModal');
+}
+
+function closeDeleteConfirm(){
+  pendingDeleteAction=null;
+  closeModal('deleteConfirmModal');
+}
+
+function confirmDeleteAction(){
+  const action=pendingDeleteAction;
+  pendingDeleteAction=null;
+  closeModal('deleteConfirmModal');
+  if(typeof action==='function') action();
+}
 
 function openApprovalConfirm(message, action){
   pendingApprovalAction=typeof action==='function'?action:null;
@@ -5071,6 +5100,20 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
   .single-thesis-notice.locked{border-color:rgba(201,168,76,.35);background:rgba(201,168,76,.06);}
   .single-thesis-notice.master{border-color:rgba(94,184,122,.35);background:rgba(94,184,122,.08);}
 </style>
+
+
+<div class="modal-overlay" id="deleteConfirmModal">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="closeDeleteConfirm()">×</button>
+    <h2>Conferma eliminazione</h2>
+    <p id="deleteConfirmText">Stai per eliminare un contenuto del progetto.</p>
+    <div class="guide-note" style="margin-top:0;margin-bottom:16px;"><strong>Attenzione:</strong> l’eliminazione rimuove anche gli output successivi collegati a quella fase.</div>
+    <div class="modal-actions" style="margin-top:0;">
+      <button class="btn-modal-save" type="button" onclick="confirmDeleteAction()">Conferma eliminazione</button>
+      <button class="btn-modal-cancel" type="button" onclick="closeDeleteConfirm()">Annulla</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="approvalConfirmModal">
   <div class="modal modal-wide">
