@@ -3854,6 +3854,7 @@ function requestApproveLastChapter(){
 }
 
 function approveIndice(){
+  thesis.indiceApproved=true;
   thesis.chapterTitles=extractChapterTitles(thesis.indice);
   thesisGuard = sanitizeThesisGuard(thesisGuard);
   if(!isMasterOwnerLocal() && thesisGuard.stage==='none') touchThesisGuard('preview', buildThesisProfile('thesis'), 'outline_approved');
@@ -3865,6 +3866,7 @@ function approveIndice(){
   document.getElementById('nextAbstract').scrollIntoView({behavior:'smooth',block:'nearest'});
   saveProgress();
   triggerAutoSnapshot('indice');
+  showToast('Indice approvato ✓');
 }
 
 async function reviseIndice(){
@@ -3997,6 +3999,7 @@ function approveAbstract(){
   nc.scrollIntoView({behavior:'smooth',block:'nearest'});
   saveProgress();
   triggerAutoSnapshot('abstract');
+  showToast('Abstract approvato ✓');
 }
 
 async function reviseAbstract(){
