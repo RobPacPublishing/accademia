@@ -2737,6 +2737,7 @@ function resetRevStateForCurrentOutline(){
 }
 
 let __chapterGenLock=false;
+const CHAPTER_HARD_STOP_MS=245000;
 
 function normalizeOutlineLineForChapter(line){
   return String(line||'')
@@ -4213,6 +4214,8 @@ async function runChapterGeneration(idx,opts={}){
   saveProgress();
   const noOutputWatchdogMs=95_000;
   let noOutputWatchdog=null;
+  let chapterHardStop=null;
+  let generationSettled=false;
   const startNoOutputWatchdog=()=>{
     if(noOutputWatchdog) clearTimeout(noOutputWatchdog);
     noOutputWatchdog=setTimeout(()=>{
@@ -4222,6 +4225,45 @@ async function runChapterGeneration(idx,opts={}){
     },noOutputWatchdogMs);
   };
   startNoOutputWatchdog();
+  const settleChapterGeneration=(reasonText='')=>{
+    if(generationSettled) return false;
+    generationSettled=true;
+    const ch=ensureChapterRecord(idx,title);
+    const hasContent=!!String(ch.content||'').trim();
+    if(ch.generationState==='generating'){
+      ch.generationState=hasContent?'partial':'error';
+    }
+    if(reasonText && !ch.lastGenerationError) ch.lastGenerationError=reasonText;
+    const out=document.getElementById(`chapOutput-${idx}`);
+    if(out) out.classList.remove('typing');
+    const txt=document.getElementById(`chapText-${idx}`);
+    if(txt && !hasContent) txt.textContent='Generazione interrotta prima del completamento. Puoi riprovare senza avanzare di capitolo.';
+    updateChapterSavedBlockStatus(idx);
+    renderNextChapterLauncher();
+    updateChapterProgressBar(Math.max(0,idx),total,false);
+    saveProgress();
+    return true;
+  };
+  chapterHardStop=setTimeout(()=>{
+    const fallback=ensureChapterRecord(idx,title);
+    const hasUsefulText=!!String(fallback.content||'').trim();
+    const message=`Hard stop backend superato (${Math.round(CHAPTER_HARD_STOP_MS/1000)}s).`;
+    fallback.lastGenerationError=message;
+    settleChapterGeneration(message);
+    setChapterOperationStatus(
+      hasUsefulText
+        ? `Capitolo ${idx+1} chiuso in stato parziale per hard stop: bozza utile preservata.`
+        : `Capitolo ${idx+1} chiuso in errore per hard stop: nessun output valido ricevuto.`,
+      true,
+      false
+    );
+    showToast(
+      hasUsefulText
+        ? `Hard stop cap.${idx+1}: bozza parziale preservata.`
+        : `Hard stop cap.${idx+1}: nessun output, riprova.`,
+      true
+    );
+  },CHAPTER_HARD_STOP_MS);
 
   try{
     const prompt=buildChapterGenerationPrompt(idx,total,title);
@@ -4231,6 +4273,7 @@ async function runChapterGeneration(idx,opts={}){
       existingChapterContent:useResume?existingContentSnapshot:'',
       generationMode:useResume?'resume':'fresh'
     });
+    if(generationSettled) return;
     const rawText=sanitizeAcademicDraftText(String(result.text||'').trim());
     if(!rawText) throw new Error('Nessun contenuto restituito dal backend');
 
@@ -4269,6 +4312,7 @@ async function runChapterGeneration(idx,opts={}){
       showToast(`Capitolo ${idx+1} non ancora completo: usa “Riprendi e completa”.`, true);
     }
   }catch(e){
+    if(generationSettled) return;
     const ch=ensureChapterRecord(idx,title);
     const isTimeout=/timeout/i.test(String(e?.message||''));
     const hasFallbackContent=!!existingContentSnapshot.trim();
@@ -4295,6 +4339,7 @@ async function runChapterGeneration(idx,opts={}){
       showToast('Errore cap.'+(idx+1)+': '+e.message,true);
     }
   } finally {
+    if(chapterHardStop){clearTimeout(chapterHardStop);chapterHardStop=null;}
     if(noOutputWatchdog){clearTimeout(noOutputWatchdog);noOutputWatchdog=null;}
     __chapterGenLock=false;
     setPhaseButtonBusy('btnChapterAction',false);
@@ -5210,6 +5255,7 @@ function openAdminStats(){
 function buildTaskErrorMessage(payload,status){
   const code=(payload&&payload.code)||'';
   const details=(payload&& (payload.details||payload.error||payload.message)) || '';
+  if(code==='chapter_already_running' || status===409) return 'Generazione capitolo già in corso per questa tesi/capitolo. Attendi la chiusura corrente.';
   if(code==='provider_timeout' || status===504 || /timeout/i.test(details)) return 'Timeout provider. Nessuna modifica applicata: riprova.';
   return details || `HTTP ${status}`;
 }

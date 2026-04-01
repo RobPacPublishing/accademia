@@ -16,6 +16,7 @@ const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
 const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
 const CHAPTER_DRAFT_TOTAL_TIMEOUT_MS = 230_000;
+const CHAPTER_DRAFT_LOCK_TTL_SECONDS = 5 * 60;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -183,7 +184,21 @@ export default async function handler(req, res) {
       case 'revisione_relatore':
       case 'revisione_capitolo': {
         const canonicalTask = normalizeGenerationTask(task);
-        const text = await generateText(canonicalTask, input);
+        const chapterLock = canonicalTask === 'chapter_draft'
+          ? await acquireChapterLock(input, CHAPTER_DRAFT_LOCK_TTL_SECONDS)
+          : null;
+        if (canonicalTask === 'chapter_draft' && !chapterLock?.ok) {
+          return sendJson(res, 409, {
+            error: 'chapter_already_running',
+            details: 'È già in corso una generazione per questo capitolo. Attendi la chiusura prima di riprovare.',
+          });
+        }
+        let text;
+        try {
+          text = await generateText(canonicalTask, input);
+        } finally {
+          if (chapterLock?.ok) await releaseChapterLock(chapterLock.key);
+        }
         const partial = !!(text && typeof text === 'object' && text.partial);
         const payloadText = partial ? String(text?.text || '') : text;
         await recordStat(partial ? 'provider_partial' : 'provider_success', { task: canonicalTask, requestedTask: task });
@@ -423,6 +438,14 @@ async function delKey(key) {
   await redisCommand(['DEL', key]);
 }
 
+async function setIfNotExists(key, value, exSeconds) {
+  const cmd = ['SET', key, JSON.stringify(value), 'NX'];
+  if (Number.isFinite(exSeconds) && exSeconds > 0) {
+    cmd.push('EX', String(exSeconds));
+  }
+  return await redisCommand(cmd);
+}
+
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -556,6 +579,32 @@ function normalizeGenerationTask(task) {
   }
 }
 
+async function acquireChapterLock(input, ttlSeconds) {
+  const scope = resolveChapterLockScope(input);
+  if (!scope) return { ok: true, key: '' };
+  const key = `accademia:chapter:lock:${scope}`;
+  const acquired = await setIfNotExists(key, { startedAt: new Date().toISOString() }, ttlSeconds);
+  return { ok: String(acquired || '').toUpperCase() === 'OK', key };
+}
+
+async function releaseChapterLock(key) {
+  if (!key) return;
+  await delKey(key);
+}
+
+function resolveChapterLockScope(input) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const chapterIndex = Number.isFinite(Number(obj.currentChapterIndex)) ? Number(obj.currentChapterIndex) : -1;
+  if (chapterIndex < 0) return '';
+  const sessionToken = safeKey(String(obj.sessionToken || '').trim());
+  if (sessionToken) return `sess:${sessionToken}:ch:${chapterIndex}`;
+  const syncKey = safeKey(String(obj.syncKey || '').trim());
+  if (syncKey) return `sync:${syncKey}:ch:${chapterIndex}`;
+  const thesisKey = safeKey(String(obj.thesisId || obj.thesisTitle || '').trim());
+  if (thesisKey) return `th:${thesisKey}:ch:${chapterIndex}`;
+  return '';
+}
+
 async function generateText(task, input) {
   if (task === 'chapter_draft') {
     return await generateChapterDraftStructured(input);
@@ -610,8 +659,9 @@ async function generateChapterDraftStructured(input) {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
   const startedAt = Date.now();
+  const remainingMs = () => Math.max(0, CHAPTER_DRAFT_TOTAL_TIMEOUT_MS - (Date.now() - startedAt));
   const ensureTimeBudget = (parts = []) => {
-    if (Date.now() - startedAt <= CHAPTER_DRAFT_TOTAL_TIMEOUT_MS) return;
+    if (remainingMs() > 0) return;
     if (parts.length) {
       const partialText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
       return {
@@ -627,14 +677,15 @@ async function generateChapterDraftStructured(input) {
 
   if (!context.subsections.length) {
     ensureTimeBudget();
+    const callBudget = Math.max(8_000, Math.min(remainingMs() - 1_000, 52_000));
     const prompt = buildProviderPrompt('chapter_draft', input);
     const raw = await generateWithProviders({
       prompt,
       system,
       maxTokens: 2200,
-      primaryTimeoutMs: 50_000,
-      fallbackTimeoutMs: 38_000,
-      openaiTimeoutMs: 40_000,
+      primaryTimeoutMs: callBudget,
+      fallbackTimeoutMs: Math.max(8_000, Math.min(callBudget - 1_000, 38_000)),
+      openaiTimeoutMs: Math.max(8_000, Math.min(callBudget - 1_000, 40_000)),
     });
     const chapterText = postProcessChapterText(raw, context);
     return await appendChapterNotesIfNeeded(input, context, chapterText, system);
