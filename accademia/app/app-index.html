@@ -2270,7 +2270,7 @@ function syncChapterActionButtons(idx){
   if(revBtn){
     if(!ready){
       revBtn.disabled=true;
-      revBtn.textContent='Completa prima';
+      revBtn.textContent='Completa capitolo per revisionare';
       revBtn.onclick=null;
     }else{
       revBtn.disabled=false;
@@ -2281,7 +2281,7 @@ function syncChapterActionButtons(idx){
   if(tutorBtn){
     if(!ready){
       tutorBtn.disabled=true;
-      tutorBtn.textContent='Completa prima';
+      tutorBtn.textContent='Completa capitolo per relatore';
       tutorBtn.onclick=null;
     }else{
       tutorBtn.disabled=false;
@@ -4179,6 +4179,7 @@ async function runChapterGeneration(idx,opts={}){
   const forceFresh=!!opts.forceFresh;
   const title=thesis.chapterTitles[idx];
   const existingRecord=ensureChapterRecord(idx,title);
+  const existingContentSnapshot=String(existingRecord.content||'');
   const hasExistingContent=!!String(existingRecord.content||'').trim();
   const useResume=!forceFresh && hasExistingContent;
   const taskName=useResume?'chapter_resume':'chapter_draft';
@@ -4191,7 +4192,10 @@ async function runChapterGeneration(idx,opts={}){
   existingRecord.generationState='generating';
   existingRecord.lastGenerationError='';
   existingRecord.updatedAt=new Date().toISOString();
-  if(forceFresh && !hasExistingContent) existingRecord.content='';
+  if(forceFresh){
+    existingRecord.content='';
+    existingRecord.partialValidation=null;
+  }
 
   updateChapterProgressBar(idx,total,false);
   ensureGlobalCounter();
@@ -4213,7 +4217,8 @@ async function runChapterGeneration(idx,opts={}){
     const result=await callClaudeWithSearch(prompt,taskName,{
       currentChapterIndex:idx,
       currentChapterTitle:title,
-      existingChapterContent:useResume?existingRecord.content:''
+      existingChapterContent:useResume?existingContentSnapshot:'',
+      generationMode:useResume?'resume':'fresh'
     });
     const rawText=sanitizeAcademicDraftText(String(result.text||'').trim());
     if(!rawText) throw new Error('Nessun contenuto restituito dal backend');
@@ -4252,9 +4257,14 @@ async function runChapterGeneration(idx,opts={}){
     }
   }catch(e){
     const ch=ensureChapterRecord(idx,title);
-    ch.generationState='error';
+    const isTimeout=/timeout/i.test(String(e?.message||''));
+    const hasFallbackContent=!!existingContentSnapshot.trim();
+    ch.generationState=(useResume && hasFallbackContent && isTimeout)?'partial':'error';
     ch.lastGenerationError=String(e?.message||'Errore generazione');
-    ch.partialValidation=null;
+    ch.partialValidation=(useResume && hasFallbackContent && ch.partialValidation)?ch.partialValidation:null;
+    if(useResume && hasFallbackContent){
+      ch.content=existingContentSnapshot;
+    }
     if(!document.getElementById(`chap-${idx}`)) renderSavedChapterBlock(idx,total);
     const out=document.getElementById(`chapOutput-${idx}`);
     if(out) out.classList.remove('typing');
@@ -4264,8 +4274,13 @@ async function runChapterGeneration(idx,opts={}){
     renderNextChapterLauncher();
     saveProgress();
     updateChapterProgressBar(Math.max(0,idx),total,false);
-    setChapterOperationStatus(`Errore nel Capitolo ${idx+1}: ${e.message}`,true,false);
-    showToast('Errore cap.'+(idx+1)+': '+e.message,true);
+    if(ch.generationState==='partial'){
+      setChapterOperationStatus(`Ripresa del Capitolo ${idx+1} interrotta (${e.message}). Bozza precedente mantenuta: puoi riprendere dal punto corrente.`,true,false);
+      showToast(`Ripresa interrotta cap.${idx+1}: bozza mantenuta, riprendi quando vuoi.`,true);
+    }else{
+      setChapterOperationStatus(`Errore nel Capitolo ${idx+1}: ${e.message}`,true,false);
+      showToast('Errore cap.'+(idx+1)+': '+e.message,true);
+    }
   } finally {
     __chapterGenLock=false;
     setPhaseButtonBusy('btnChapterAction',false);
@@ -5189,7 +5204,7 @@ function getTaskTimeoutMs(taskName='outline_draft'){
   const task=String(taskName||'').trim();
   if(task==='outline_draft' || task==='outline_review') return 75000;
   if(task==='abstract_draft' || task==='abstract_review') return 90000;
-  if(task==='chapter_draft' || task==='chapter_resume' || task==='chapter_review' || task==='revisione_capitolo') return 240000;
+  if(task==='chapter_draft' || task==='chapter_resume' || task==='chapter_review' || task==='revisione_capitolo') return 420000;
   if(task==='tutor_revision' || task==='revisione_relatore') return 210000;
   return 120000;
 }

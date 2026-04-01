@@ -536,9 +536,10 @@ function normalizeGenerationTask(task) {
     case 'abstract_review':
       return 'abstract_draft';
     case 'chapter_review':
-    case 'chapter_resume':
     case 'revisione_capitolo':
       return 'chapter_review';
+    case 'chapter_resume':
+      return 'chapter_draft';
     case 'tutor_revision':
     case 'revisione_relatore':
       return 'tutor_revision';
@@ -607,9 +608,9 @@ async function generateChapterDraftStructured(input) {
       prompt,
       system,
       maxTokens: 2200,
-      primaryTimeoutMs: 34_000,
-      fallbackTimeoutMs: 24_000,
-      openaiTimeoutMs: 26_000,
+      primaryTimeoutMs: 50_000,
+      fallbackTimeoutMs: 38_000,
+      openaiTimeoutMs: 40_000,
     });
     const chapterText = postProcessChapterText(raw, context);
     return await appendChapterNotesIfNeeded(input, context, chapterText, system);
@@ -840,9 +841,9 @@ async function generateOneSubsection({ input, context, subsection, index, total,
     prompt,
     system,
     maxTokens: Math.min(1500, Math.max(850, Math.round(targetWords * 1.1))),
-    primaryTimeoutMs: 30_000,
-    fallbackTimeoutMs: 22_000,
-    openaiTimeoutMs: 24_000,
+    primaryTimeoutMs: 42_000,
+    fallbackTimeoutMs: 30_000,
+    openaiTimeoutMs: 34_000,
   });
   return {
     text: stripCompletionMarker(raw),
@@ -874,9 +875,9 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     prompt,
     system,
     maxTokens: 800,
-    primaryTimeoutMs: 22_000,
-    fallbackTimeoutMs: 18_000,
-    openaiTimeoutMs: 20_000,
+    primaryTimeoutMs: 34_000,
+    fallbackTimeoutMs: 24_000,
+    openaiTimeoutMs: 28_000,
   });
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
