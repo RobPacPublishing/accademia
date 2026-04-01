@@ -693,6 +693,18 @@ async function generateChapterDraftStructured(input) {
 
   const targets = deriveChapterTargets(input, context);
   const parts = [];
+  const buildTimeoutPartial = (fallbackText = '') => {
+    const merged = [
+      ...parts,
+      String(fallbackText || '').trim(),
+    ].filter(Boolean);
+    if (!merged.length) return null;
+    return {
+      partial: true,
+      text: postProcessChapterText(`${context.chapterHeading}\n\n${merged.join('\n\n')}`, context),
+      reason: 'chapter_timeout_partial',
+    };
+  };
 
   for (let i = 0; i < context.subsections.length; i += 1) {
     const timeoutPartial = ensureTimeBudget(parts);
@@ -705,26 +717,28 @@ async function generateChapterDraftStructured(input) {
       index: i,
       total: context.subsections.length,
       system,
-      targetWords: targets.sectionWords,
+      targetWords: targets.firstPassSectionWords,
       previousSectionText: parts[i - 1] || '',
     });
+    let currentSectionText = postProcessChapterSectionText(result.text, subsection);
 
     let attempts = 0;
-    while (attempts < 4 && (!result.complete || needsMoreSectionText(result.text, targets.sectionWords))) {
+    while (attempts < 6 && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
       const timeoutPartialLoop = ensureTimeBudget(parts);
-      if (timeoutPartialLoop) return timeoutPartialLoop;
+      if (timeoutPartialLoop) return buildTimeoutPartial(currentSectionText) || timeoutPartialLoop;
       result = await continueOneSubsection({
         input,
         context,
         subsection,
         system,
-        existingText: result.text,
+        existingText: currentSectionText,
         targetWords: targets.sectionWords,
       });
+      currentSectionText = postProcessChapterSectionText(result.text, subsection);
       attempts += 1;
     }
 
-    parts.push(postProcessChapterSectionText(result.text, subsection));
+    parts.push(currentSectionText);
   }
 
   let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
@@ -759,8 +773,9 @@ function deriveChapterTargets(input, context) {
     ? explicit
     : Math.max(3000, context.subsections.length * (degree.includes('magistr') ? 1000 : 820));
   chapterWords = Math.min(chapterWords, 6200);
-  const sectionWords = Math.max(720, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
-  return { chapterWords, sectionWords };
+  const sectionWords = Math.max(560, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
+  const firstPassSectionWords = Math.max(360, Math.min(520, Math.round(sectionWords * 0.62)));
+  return { chapterWords, sectionWords, firstPassSectionWords };
 }
 
 function parseChapterContext(input) {
@@ -922,10 +937,10 @@ async function generateOneSubsection({ input, context, subsection, index, total,
   const raw = await generateWithProviders({
     prompt,
     system,
-    maxTokens: Math.min(1500, Math.max(850, Math.round(targetWords * 1.1))),
-    primaryTimeoutMs: 42_000,
-    fallbackTimeoutMs: 30_000,
-    openaiTimeoutMs: 34_000,
+    maxTokens: Math.min(1000, Math.max(520, Math.round(targetWords * 0.95))),
+    primaryTimeoutMs: 28_000,
+    fallbackTimeoutMs: 20_000,
+    openaiTimeoutMs: 22_000,
   });
   return {
     text: stripCompletionMarker(raw),
@@ -956,10 +971,10 @@ async function continueOneSubsection({ input, context, subsection, system, exist
   const addition = await generateWithProviders({
     prompt,
     system,
-    maxTokens: 800,
-    primaryTimeoutMs: 34_000,
-    fallbackTimeoutMs: 24_000,
-    openaiTimeoutMs: 28_000,
+    maxTokens: 620,
+    primaryTimeoutMs: 24_000,
+    fallbackTimeoutMs: 18_000,
+    openaiTimeoutMs: 20_000,
   });
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
@@ -1014,7 +1029,7 @@ function postProcessChapterText(text, context) {
 
 function needsMoreSectionText(sectionText, targetWords) {
   const words = wordCount(sectionText);
-  return words < Math.max(520, targetWords - 120) || endsSuspiciously(sectionText);
+  return words < Math.max(320, targetWords - 180) || endsSuspiciously(sectionText);
 }
 
 function chapterNeedsCompletion(chapterText, targetWords, context) {
