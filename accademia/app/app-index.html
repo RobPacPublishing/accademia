@@ -4211,6 +4211,17 @@ async function runChapterGeneration(idx,opts={}){
   if(textEl) textEl.textContent=useResume?'Ripresa e completamento in corso...':'Elaborazione in corso...';
   setChapterOperationStatus(`${useResume?'Ripresa':'Generazione'} del Capitolo ${idx+1} in corso...`,false,true);
   saveProgress();
+  const noOutputWatchdogMs=95_000;
+  let noOutputWatchdog=null;
+  const startNoOutputWatchdog=()=>{
+    if(noOutputWatchdog) clearTimeout(noOutputWatchdog);
+    noOutputWatchdog=setTimeout(()=>{
+      const latest=ensureChapterRecord(idx,title);
+      if(latest.generationState!=='generating') return;
+      setChapterOperationStatus(`Capitolo ${idx+1}: nessun output testuale ancora disponibile. Il backend risponde a blocco unico: attendo ancora per pochi minuti, poi interrompo con stato coerente.`,true,true);
+    },noOutputWatchdogMs);
+  };
+  startNoOutputWatchdog();
 
   try{
     const prompt=buildChapterGenerationPrompt(idx,total,title);
@@ -4232,7 +4243,8 @@ async function runChapterGeneration(idx,opts={}){
     const ch=ensureChapterRecord(idx,title);
     ch.partialValidation=stabilized.validation;
     ch.lastGenerationError='';
-    ch.generationState=stabilized.validation.ok?'complete':'partial';
+    const backendPartial=!!result.partial;
+    ch.generationState=(stabilized.validation.ok && !backendPartial)?'complete':'partial';
 
     streamText(`chapText-${idx}`,finalText,()=>{
       document.getElementById(`chapOutput-${idx}`)?.classList.remove('typing');
@@ -4243,14 +4255,15 @@ async function runChapterGeneration(idx,opts={}){
       syncChapterActionButtons(idx);
       renderNextChapterLauncher();
       saveProgress();
-      if(stabilized.validation.ok){
+      if(stabilized.validation.ok && !backendPartial){
         setChapterOperationStatus(`Capitolo ${idx+1} generato correttamente.`,false,false);
       }else{
-        setChapterOperationStatus(`Capitolo ${idx+1} generato solo parzialmente: ${formatChapterValidationIssues(stabilized.validation)}.`,true,false);
+        const reason=backendPartial?'timeout backend durante bozza, testo parziale preservato':formatChapterValidationIssues(stabilized.validation);
+        setChapterOperationStatus(`Capitolo ${idx+1} generato solo parzialmente: ${reason}.`,true,false);
       }
     });
 
-    if(stabilized.validation.ok){
+    if(stabilized.validation.ok && !backendPartial){
       showToast(`Capitolo ${idx+1} pronto ✓`);
     }else{
       showToast(`Capitolo ${idx+1} non ancora completo: usa “Riprendi e completa”.`, true);
@@ -4282,6 +4295,7 @@ async function runChapterGeneration(idx,opts={}){
       showToast('Errore cap.'+(idx+1)+': '+e.message,true);
     }
   } finally {
+    if(noOutputWatchdog){clearTimeout(noOutputWatchdog);noOutputWatchdog=null;}
     __chapterGenLock=false;
     setPhaseButtonBusy('btnChapterAction',false);
   }
@@ -5204,7 +5218,7 @@ function getTaskTimeoutMs(taskName='outline_draft'){
   const task=String(taskName||'').trim();
   if(task==='outline_draft' || task==='outline_review') return 75000;
   if(task==='abstract_draft' || task==='abstract_review') return 90000;
-  if(task==='chapter_draft' || task==='chapter_resume' || task==='chapter_review' || task==='revisione_capitolo') return 420000;
+  if(task==='chapter_draft' || task==='chapter_resume' || task==='chapter_review' || task==='revisione_capitolo') return 300000;
   if(task==='tutor_revision' || task==='revisione_relatore') return 210000;
   return 120000;
 }
@@ -5241,7 +5255,7 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // ══════════════════════════════════════════════
 async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra={}){
   const d=await postTask(taskName,userPrompt,extra);
-  return {text:d.text||'',sources:[]};
+  return {text:d.text||'',sources:[],partial:!!d.partial,partialReason:String(d.partialReason||'')};
 }
 
 // ══════════════════════════════════════════════

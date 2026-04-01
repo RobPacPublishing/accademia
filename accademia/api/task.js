@@ -15,6 +15,7 @@ const SESSION_TTL_SECONDS = 180 * 24 * 60 * 60;
 const SNAPSHOT_LIMIT = 15;
 const EVENT_LIMIT = 50;
 const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
+const CHAPTER_DRAFT_TOTAL_TIMEOUT_MS = 230_000;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -183,8 +184,15 @@ export default async function handler(req, res) {
       case 'revisione_capitolo': {
         const canonicalTask = normalizeGenerationTask(task);
         const text = await generateText(canonicalTask, input);
-        await recordStat('provider_success', { task: canonicalTask, requestedTask: task });
-        return sendJson(res, 200, { text, task: canonicalTask });
+        const partial = !!(text && typeof text === 'object' && text.partial);
+        const payloadText = partial ? String(text?.text || '') : text;
+        await recordStat(partial ? 'provider_partial' : 'provider_success', { task: canonicalTask, requestedTask: task });
+        return sendJson(res, 200, {
+          text: payloadText,
+          task: canonicalTask,
+          partial,
+          partialReason: partial ? String(text?.reason || 'timeout') : '',
+        });
       }
 
       default:
@@ -601,8 +609,24 @@ async function generateWithProviders({ prompt, system, maxTokens, primaryTimeout
 async function generateChapterDraftStructured(input) {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
+  const startedAt = Date.now();
+  const ensureTimeBudget = (parts = []) => {
+    if (Date.now() - startedAt <= CHAPTER_DRAFT_TOTAL_TIMEOUT_MS) return;
+    if (parts.length) {
+      const partialText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
+      return {
+        partial: true,
+        text: partialText,
+        reason: 'chapter_timeout_partial',
+      };
+    }
+    const err = new Error('Timeout provider. Nessuna modifica applicata: riprova.');
+    err.code = 'provider_timeout';
+    throw err;
+  };
 
   if (!context.subsections.length) {
+    ensureTimeBudget();
     const prompt = buildProviderPrompt('chapter_draft', input);
     const raw = await generateWithProviders({
       prompt,
@@ -620,6 +644,8 @@ async function generateChapterDraftStructured(input) {
   const parts = [];
 
   for (let i = 0; i < context.subsections.length; i += 1) {
+    const timeoutPartial = ensureTimeBudget(parts);
+    if (timeoutPartial) return timeoutPartial;
     const subsection = context.subsections[i];
     let result = await generateOneSubsection({
       input,
@@ -634,6 +660,8 @@ async function generateChapterDraftStructured(input) {
 
     let attempts = 0;
     while (attempts < 4 && (!result.complete || needsMoreSectionText(result.text, targets.sectionWords))) {
+      const timeoutPartialLoop = ensureTimeBudget(parts);
+      if (timeoutPartialLoop) return timeoutPartialLoop;
       result = await continueOneSubsection({
         input,
         context,
@@ -651,6 +679,8 @@ async function generateChapterDraftStructured(input) {
   let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
   let finalAttempts = 0;
   while (finalAttempts < 3 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
+    const timeoutPartialFinal = ensureTimeBudget(parts);
+    if (timeoutPartialFinal) return timeoutPartialFinal;
     const lastSubsection = context.subsections[context.subsections.length - 1];
     const continued = await continueOneSubsection({
       input,
@@ -665,6 +695,7 @@ async function generateChapterDraftStructured(input) {
     finalAttempts += 1;
   }
 
+  ensureTimeBudget(parts);
   chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
   return chapterText;
 }
