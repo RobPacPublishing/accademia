@@ -5169,7 +5169,25 @@ function uniqueTitlePush(bucket,title,baseNorm){
   if(!clean || clean.length<18) return;
   if(norm===baseNorm) return;
   if(bucket.some(existing=>normalizeCreativeComparison(existing)===norm)) return;
+  if(bucket.some(existing=>titleStructureFingerprint(existing)===titleStructureFingerprint(clean))) return;
+  if(bucket.some(existing=>titleOpeningToken(existing)===titleOpeningToken(clean))) return;
+  if(titleWordCount(clean)>16) return;
   bucket.push(clean);
+}
+
+function titleWordCount(value){
+  return String(value||'').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function titleOpeningToken(value){
+  return normalizeCreativeComparison(String(value||'').split(/\s+/)[0]||'');
+}
+
+function titleStructureFingerprint(value){
+  return normalizeCreativeComparison(value)
+    .replace(/\b(di|del|della|delle|dei|degli|e|tra|nel|nella|nelle|per|con|una|uno|un)\b/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
 }
 
 function createTitleSuggestions(context){
@@ -5177,9 +5195,6 @@ function createTitleSuggestions(context){
   const base=normalizeCreativeTopic(context.topic);
   if(!base || base.length<12) return [];
   const faculty=facultyTitleProfile(context.facolta);
-  const method=methodologyFrame(context.approccio);
-  const degree=degreeFrame(context.tipo);
-  const approachLabel=methodologyLabel(context.approccio);
   const course=context.corso;
   const angles=disciplineAngles(context);
   const concepts=buildConceptualTopicVariants(base);
@@ -5190,13 +5205,15 @@ function createTitleSuggestions(context){
   const secondary=concepts[1]||primary;
   const tertiary=concepts[2]||secondary;
 
-  uniqueTitlePush(titles, `Tra ${angles[0]} e ${angles[1]}: ${primary} in ${course}`, baseNorm);
-  uniqueTitlePush(titles, `${secondary}: una ${method.study} tra ${faculty.c} e ${faculty.d}`, baseNorm);
-  uniqueTitlePush(titles, `${tertiary}: ${faculty.a}, ${faculty.b} e ${faculty.app}`, baseNorm);
-  uniqueTitlePush(titles, `${secondary}: questioni ${faculty.adj} e ${degree.x}`, baseNorm);
-  uniqueTitlePush(titles, `Ripensare ${tertiary}: prospettiva ${approachLabel} e implicazioni per ${course}`, baseNorm);
-  uniqueTitlePush(titles, `Oltre le formulazioni immediate: ${tertiary} tra ${angles[2]} e ${angles[3]}`, baseNorm);
-  uniqueTitlePush(titles, `${secondary}: ${method.question}`, baseNorm);
+  const families=[
+    `Quadri teorici per ${primary}: ${angles[0]} e ${angles[1]}`,
+    `${secondary} nelle scienze ${faculty.adj}: prospettive e modelli interpretativi`,
+    `Limiti critici di ${tertiary}: assunti, controversie e nodi metodologici`,
+    `${tertiary} in ${course}: evidenze empiriche e implicazioni operative`,
+    `Governance di ${secondary}: politiche pubbliche, istituzioni e responsabilità`
+  ];
+
+  families.forEach(title=>uniqueTitlePush(titles,title,baseNorm));
 
   return titles.slice(0,5);
 }
