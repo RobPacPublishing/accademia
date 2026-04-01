@@ -2730,6 +2730,14 @@ function setPhaseButtonBusy(id,busy,labelBusy='Elaborazione in corso...'){
     const approvedLock=(id==='btnStep1'&&isIndexApprovedState())||(id==='btnAbstractAction'&&isAbstractApprovedState());
     btn.disabled=approvedLock;
     if(btn.dataset.originalLabel) btn.innerHTML=btn.dataset.originalLabel;
+    if(id==='btnStep1'){
+      updateStep1ButtonState();
+      return;
+    }
+    if(id==='btnAbstractAction'){
+      updateAbstractButtonState();
+      return;
+    }
   }
 }
 
@@ -3276,6 +3284,30 @@ function syncResidualUxLocks(){
   if(indiceDelete) indiceDelete.disabled=busyGlobal || !thesis.indice;
   const abstractDelete=document.getElementById('abstractDeleteBtn');
   if(abstractDelete) abstractDelete.disabled=busyGlobal || !thesis.abstract;
+
+  const step1Btn=document.getElementById('btnStep1');
+  if(step1Btn){
+    step1Btn.disabled=busyGlobal || indiceApproved;
+    if(!busyGlobal){
+      step1Btn.innerHTML=indiceApproved?'✓ Indice approvato':(indiceMode==='manual'?'✦ Usa questo indice':'✦ Genera Indice');
+    }
+  }
+
+  const abstractBtn=document.getElementById('btnAbstractAction');
+  if(abstractBtn){
+    abstractBtn.disabled=busyGlobal || abstractApproved;
+    if(!busyGlobal){
+      abstractBtn.innerHTML=abstractApproved?'✓ Abstract approvato':(abstractMode==='manual'?'✦ Usa questo abstract':'✦ Genera Abstract');
+    }
+  }
+
+  const skipAbstractBtn=document.getElementById('btnSkipAbstract');
+  if(skipAbstractBtn){
+    skipAbstractBtn.disabled=busyGlobal || abstractApproved;
+    if(!busyGlobal){
+      skipAbstractBtn.innerHTML=abstractApproved?'✓ Capitoli attivati':'↷ Vai direttamente ai Capitoli';
+    }
+  }
 }
 
 function restoreProgressUI(savedForm=null){
