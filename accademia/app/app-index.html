@@ -4239,6 +4239,8 @@ async function runChapterGeneration(idx,opts={}){
     const txt=document.getElementById(`chapText-${idx}`);
     if(txt && !hasContent) txt.textContent='Generazione interrotta prima del completamento. Puoi riprovare senza avanzare di capitolo.';
     updateChapterSavedBlockStatus(idx);
+    syncChapterActionButtons(idx);
+    syncPrimaryOutputButtons();
     renderNextChapterLauncher();
     updateChapterProgressBar(Math.max(0,idx),total,false);
     saveProgress();
@@ -4328,6 +4330,8 @@ async function runChapterGeneration(idx,opts={}){
     const txt=document.getElementById(`chapText-${idx}`);
     if(txt && !String(ch.content||'').trim()) txt.textContent='Generazione interrotta prima del completamento. Puoi riprovare senza avanzare di capitolo.';
     updateChapterSavedBlockStatus(idx);
+    syncChapterActionButtons(idx);
+    syncPrimaryOutputButtons();
     renderNextChapterLauncher();
     saveProgress();
     updateChapterProgressBar(Math.max(0,idx),total,false);
@@ -4343,6 +4347,8 @@ async function runChapterGeneration(idx,opts={}){
     if(noOutputWatchdog){clearTimeout(noOutputWatchdog);noOutputWatchdog=null;}
     __chapterGenLock=false;
     setPhaseButtonBusy('btnChapterAction',false);
+    syncChapterActionButtons(idx);
+    syncPrimaryOutputButtons();
   }
 }
 
