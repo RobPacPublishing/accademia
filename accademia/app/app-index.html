@@ -4347,17 +4347,27 @@ async function runChapterGeneration(idx,opts={}){
     const rawText=sanitizeAcademicDraftText(String(result.text||'').trim());
     if(!rawText) throw new Error('Nessun contenuto restituito dal backend');
 
-    const stabilized=await stabilizeChapterContent(idx,title,rawText);
-    const finalText=sanitizeAcademicDraftText(String(stabilized.text||'').trim());
+    const backendPartial=!!result.partial;
+    const backendPartialReason=String(result.partialReason||'');
+    const intentionalChapterPartial=backendPartial&&(backendPartialReason==='chapter_seed_partial'||backendPartialReason==='chapter_resume_partial');
+    let finalText='';
+    let validation=null;
+    if(intentionalChapterPartial){
+      finalText=rawText;
+      validation=analyzeChapterCompleteness(finalText,idx);
+    }else{
+      const stabilized=await stabilizeChapterContent(idx,title,rawText);
+      finalText=sanitizeAcademicDraftText(String(stabilized.text||'').trim());
+      validation=stabilized.validation;
+    }
     if(!finalText) throw new Error('Il backend non ha restituito un capitolo utilizzabile');
 
     const versionLabel=existingRecord.versions?.length ? (useResume?'Ripresa completata':'Rigenerazione capitolo') : 'Originale';
     writeChapterVersion(idx,finalText,versionLabel);
     const ch=ensureChapterRecord(idx,title);
-    ch.partialValidation=stabilized.validation;
+    ch.partialValidation=validation;
     ch.lastGenerationError='';
-    const backendPartial=!!result.partial;
-    ch.generationState=(stabilized.validation.ok && !backendPartial)?'complete':'partial';
+    ch.generationState=(validation?.ok && !backendPartial)?'complete':'partial';
 
     streamText(`chapText-${idx}`,finalText,()=>{
       document.getElementById(`chapOutput-${idx}`)?.classList.remove('typing');
@@ -4368,15 +4378,21 @@ async function runChapterGeneration(idx,opts={}){
       syncChapterActionButtons(idx);
       renderNextChapterLauncher();
       saveProgress();
-      if(stabilized.validation.ok && !backendPartial){
+      if(validation?.ok && !backendPartial){
         setChapterOperationStatus(`Capitolo ${idx+1} generato correttamente.`,false,false);
       }else{
-        const reason=backendPartial?'timeout backend durante bozza, testo parziale preservato':formatChapterValidationIssues(stabilized.validation);
+        const reason=intentionalChapterPartial
+          ? (backendPartialReason==='chapter_seed_partial'
+            ? 'prima bozza utile pronta'
+            : 'capitolo ampliato, usa “Riprendi e completa”')
+          : (backendPartialReason==='chapter_timeout_partial'
+            ? 'timeout backend durante bozza, testo parziale preservato'
+            : formatChapterValidationIssues(validation));
         setChapterOperationStatus(`Capitolo ${idx+1} generato solo parzialmente: ${reason}.`,true,false);
       }
     });
 
-    if(stabilized.validation.ok && !backendPartial){
+    if(validation?.ok && !backendPartial){
       showToast(`Capitolo ${idx+1} pronto ✓`);
     }else{
       showToast(`Capitolo ${idx+1} non ancora completo: usa “Riprendi e completa”.`, true);

@@ -184,10 +184,11 @@ export default async function handler(req, res) {
       case 'revisione_relatore':
       case 'revisione_capitolo': {
         const canonicalTask = normalizeGenerationTask(task);
-        const chapterLock = canonicalTask === 'chapter_draft'
+        const isChapterGenerationTask = canonicalTask === 'chapter_draft' || canonicalTask === 'chapter_resume';
+        const chapterLock = isChapterGenerationTask
           ? await acquireChapterLock(input, CHAPTER_DRAFT_LOCK_TTL_SECONDS)
           : null;
-        if (canonicalTask === 'chapter_draft' && !chapterLock?.ok) {
+        if (isChapterGenerationTask && !chapterLock?.ok) {
           return sendJson(res, 409, {
             error: 'chapter_already_running',
             details: 'È già in corso una generazione per questo capitolo. Attendi la chiusura prima di riprovare.',
@@ -569,8 +570,6 @@ function normalizeGenerationTask(task) {
     case 'chapter_review':
     case 'revisione_capitolo':
       return 'chapter_review';
-    case 'chapter_resume':
-      return 'chapter_draft';
     case 'tutor_revision':
     case 'revisione_relatore':
       return 'tutor_revision';
@@ -606,8 +605,8 @@ function resolveChapterLockScope(input) {
 }
 
 async function generateText(task, input) {
-  if (task === 'chapter_draft') {
-    return await generateChapterDraftStructured(input);
+  if (task === 'chapter_draft' || task === 'chapter_resume') {
+    return await generateChapterDraftStructured(input, task === 'chapter_resume' ? 'resume' : 'fresh');
   }
 
   const prompt = buildProviderPrompt(task, input);
@@ -655,7 +654,7 @@ async function generateWithProviders({ prompt, system, maxTokens, primaryTimeout
 }
 
 
-async function generateChapterDraftStructured(input) {
+async function generateChapterDraftStructured(input, mode = 'fresh') {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
   const startedAt = Date.now();
@@ -675,6 +674,10 @@ async function generateChapterDraftStructured(input) {
     throw err;
   };
 
+  const isResume = mode === 'resume';
+  const intentionalPartialReason = isResume ? 'chapter_resume_partial' : 'chapter_seed_partial';
+  const existingChapterContent = isResume ? postProcessChapterText(String(input?.existingChapterContent || ''), context) : '';
+
   if (!context.subsections.length) {
     ensureTimeBudget();
     const callBudget = Math.max(8_000, Math.min(remainingMs() - 1_000, 52_000));
@@ -688,6 +691,13 @@ async function generateChapterDraftStructured(input) {
       openaiTimeoutMs: Math.max(8_000, Math.min(callBudget - 1_000, 40_000)),
     });
     const chapterText = postProcessChapterText(raw, context);
+    if (!isResume) {
+      return {
+        partial: true,
+        text: chapterText,
+        reason: intentionalPartialReason,
+      };
+    }
     return await appendChapterNotesIfNeeded(input, context, chapterText, system);
   }
 
@@ -706,63 +716,100 @@ async function generateChapterDraftStructured(input) {
     };
   };
 
-  for (let i = 0; i < context.subsections.length; i += 1) {
-    const timeoutPartial = ensureTimeBudget(parts);
-    if (timeoutPartial) return timeoutPartial;
-    const subsection = context.subsections[i];
-    let result = await generateOneSubsection({
+  const statusByCode = context.subsections.map((subsection) => evaluateSubsectionStatus(existingChapterContent, context, subsection, targets.sectionWords));
+  const firstMissingIdx = Math.max(0, statusByCode.findIndex((x) => !x.complete));
+  const targetIdx = firstMissingIdx < 0 ? Math.max(0, context.subsections.length - 1) : firstMissingIdx;
+  const subsection = context.subsections[targetIdx];
+  const timeoutPartial = ensureTimeBudget(parts);
+  if (timeoutPartial) return timeoutPartial;
+
+  let result = await generateOneSubsection({
+    input,
+    context,
+    subsection,
+    index: targetIdx,
+    total: context.subsections.length,
+    system,
+    targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
+    previousSectionText: statusByCode[targetIdx - 1]?.text || '',
+  });
+  let currentSectionText = postProcessChapterSectionText(result.text, subsection);
+  const maxContinuation = isResume ? 1 : 0;
+  let attempts = 0;
+  while (attempts < maxContinuation && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
+    const timeoutPartialLoop = ensureTimeBudget(parts);
+    if (timeoutPartialLoop) return buildTimeoutPartial(currentSectionText) || timeoutPartialLoop;
+    result = await continueOneSubsection({
       input,
       context,
       subsection,
-      index: i,
-      total: context.subsections.length,
       system,
-      targetWords: targets.firstPassSectionWords,
-      previousSectionText: parts[i - 1] || '',
-    });
-    let currentSectionText = postProcessChapterSectionText(result.text, subsection);
-
-    let attempts = 0;
-    while (attempts < 6 && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
-      const timeoutPartialLoop = ensureTimeBudget(parts);
-      if (timeoutPartialLoop) return buildTimeoutPartial(currentSectionText) || timeoutPartialLoop;
-      result = await continueOneSubsection({
-        input,
-        context,
-        subsection,
-        system,
-        existingText: currentSectionText,
-        targetWords: targets.sectionWords,
-      });
-      currentSectionText = postProcessChapterSectionText(result.text, subsection);
-      attempts += 1;
-    }
-
-    parts.push(currentSectionText);
-  }
-
-  let chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-  let finalAttempts = 0;
-  while (finalAttempts < 3 && chapterNeedsCompletion(chapterText, targets.chapterWords, context)) {
-    const timeoutPartialFinal = ensureTimeBudget(parts);
-    if (timeoutPartialFinal) return timeoutPartialFinal;
-    const lastSubsection = context.subsections[context.subsections.length - 1];
-    const continued = await continueOneSubsection({
-      input,
-      context,
-      subsection: lastSubsection,
-      system,
-      existingText: parts[parts.length - 1],
+      existingText: currentSectionText,
       targetWords: targets.sectionWords,
     });
-    parts[parts.length - 1] = postProcessChapterSectionText(continued.text, lastSubsection);
-    chapterText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-    finalAttempts += 1;
+    currentSectionText = postProcessChapterSectionText(result.text, subsection);
+    attempts += 1;
+  }
+
+  let chapterText = isResume
+    ? upsertSubsectionInChapterText(existingChapterContent, context, subsection, currentSectionText)
+    : postProcessChapterText(`${context.chapterHeading}\n\n${currentSectionText}`, context);
+
+  const nextMissingIdx = context.subsections.findIndex((sub, idx) => {
+    if (idx === targetIdx) return !isSectionCompleteText(currentSectionText, targets.sectionWords);
+    return !statusByCode[idx]?.complete;
+  });
+  const chapterComplete = nextMissingIdx < 0 && !chapterNeedsCompletion(chapterText, targets.chapterWords, context);
+  if (!chapterComplete) {
+    return {
+      partial: true,
+      text: chapterText,
+      reason: intentionalPartialReason,
+    };
   }
 
   ensureTimeBudget(parts);
   chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
   return chapterText;
+}
+
+function evaluateSubsectionStatus(chapterText, context, subsection, targetWords) {
+  const extracted = extractSubsectionText(chapterText, context, subsection);
+  return {
+    text: extracted,
+    complete: isSectionCompleteText(extracted, targetWords),
+  };
+}
+
+function isSectionCompleteText(sectionText, targetWords) {
+  if (!String(sectionText || '').trim()) return false;
+  return !needsMoreSectionText(sectionText, targetWords);
+}
+
+function extractSubsectionText(chapterText, context, subsection) {
+  const text = String(chapterText || '');
+  if (!text) return '';
+  const heading = `${subsection.code} ${subsection.title}`;
+  const start = text.indexOf(heading);
+  if (start < 0) return '';
+  let end = text.length;
+  for (const next of context.subsections) {
+    if (next.code === subsection.code) continue;
+    const nextHeading = `${next.code} ${next.title}`;
+    const idx = text.indexOf(nextHeading, start + heading.length);
+    if (idx > start && idx < end) end = idx;
+  }
+  return postProcessChapterSectionText(text.slice(start, end).trim(), subsection);
+}
+
+function upsertSubsectionInChapterText(chapterText, context, subsection, sectionText) {
+  let base = String(chapterText || '').trim();
+  if (!base) base = context.chapterHeading;
+  const extracted = extractSubsectionText(base, context, subsection);
+  if (!extracted) {
+    return postProcessChapterText(`${base}\n\n${sectionText}`.trim(), context);
+  }
+  return postProcessChapterText(base.replace(extracted, sectionText), context);
 }
 
 function deriveChapterTargets(input, context) {
