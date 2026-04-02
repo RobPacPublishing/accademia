@@ -7,6 +7,7 @@ const RESEND_FROM = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const ADMIN_DASH_KEY = process.env.ADMIN_DASH_KEY || process.env.ACC_ADMIN_DASH_KEY || '';
+const LEGACY_PUBLIC_ACCESS_CODE = 'robpac-accademia-2026';
 const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_MODEL_PRIMARY || 'claude-sonnet-4-6';
 const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_MODEL_FALLBACK || 'claude-haiku-4-5-20251001';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
@@ -171,6 +172,17 @@ export default async function handler(req, res) {
         if (!code) return sendJson(res, 200, { valid: false, reason: 'invalid' });
         const unlock = await verifyUnlockCode(code, input?.sessionToken);
         return sendJson(res, 200, unlock);
+      }
+
+      case '__verify_access_key': {
+        const accessKey = String(input?.accessKey || '').trim();
+        const result = verifyUserAccessKey(accessKey);
+        if (!result.valid) {
+          await recordEvent('access_key_invalid', { hasValue: !!accessKey });
+          return sendJson(res, 200, result);
+        }
+        await recordEvent('access_key_ok', { source: result.source });
+        return sendJson(res, 200, { valid: true, role: 'user' });
       }
 
       case 'outline_draft':
@@ -557,6 +569,33 @@ function parseUnlockConfig() {
   }
 
   return { premium, base };
+}
+
+function verifyUserAccessKey(rawAccessKey) {
+  const accessKey = String(rawAccessKey || '').trim().toUpperCase();
+  if (!accessKey) return { valid: false, reason: 'invalid' };
+
+  const cfg = parseUserAccessConfig();
+  if (cfg.standard.has(accessKey)) return { valid: true, source: 'standard' };
+  if (cfg.test.has(accessKey)) return { valid: true, source: 'test_user' };
+  return { valid: false, reason: 'invalid' };
+}
+
+function parseUserAccessConfig() {
+  const standard = new Set();
+  const test = new Set();
+  const standardCsv = String(
+    process.env.USER_ACCESS_KEYS
+    || process.env.ACC_USER_ACCESS_KEYS
+    || process.env.ACCESS_CODE
+    || LEGACY_PUBLIC_ACCESS_CODE
+  );
+  const testCsv = String(process.env.TEST_USER_ACCESS_KEYS || '');
+
+  standardCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => standard.add(x));
+  testCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => test.add(x));
+
+  return { standard, test };
 }
 
 
