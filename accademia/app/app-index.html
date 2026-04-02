@@ -2336,7 +2336,6 @@ function refreshRevisionUi(){
 }
 
 // ── DISCLAIMER ──
-const ACCESS_CODE = 'robpac-accademia-2026';
 const ACCESS_SESSION_KEY = '_td_gate_v12';
 const OWNER_FREE_RENEWAL_SESSION_KEY = '_td_owner_free_renewal_v1';
 const ACCESS_KEY_CACHE = 'accademia_has_access_key_v1';
@@ -2419,14 +2418,15 @@ function applyAccessState(unlocked){
   }
 }
 
-function acceptDisclaimer(){
+async function acceptDisclaimer(){
   const {c1,c2,c3,code,msg} = getAccessElements();
   if(!c1||!c2||!c3||!code) return;
   const allChecked = !!(c1.checked && c2.checked && c3.checked);
   const enteredCode = code.value.trim();
-  if(enteredCode !== ACCESS_CODE){
+  const access = await apiTask('__verify_access_key',{accessKey:enteredCode}).catch(()=>({valid:false,reason:'error'}));
+  if(!access?.valid){
     if(msg){
-      msg.textContent = 'Chiave di accesso non valida.';
+      msg.textContent = access?.reason==='error' ? 'Verifica chiave non disponibile. Riprova.' : 'Chiave di accesso non valida.';
       msg.style.color = '#ff8a8a';
     }
     code.focus();
