@@ -730,7 +730,8 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       openaiTimeoutMs: Math.max(8_000, Math.min(callBudget - 1_000, 40_000)),
     });
     const chapterText = postProcessChapterText(raw, context);
-    if (!isResume) {
+    const shouldReturnFreshPartial = !isResume && remainingMs() < 30_000 && wordCount(chapterText) < 1800;
+    if (shouldReturnFreshPartial) {
       return {
         partial: true,
         text: chapterText,
@@ -742,6 +743,11 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
 
   const targets = deriveChapterTargets(input, context);
   const parts = [];
+  const freshStrategy = isResume ? null : decideFreshGenerationStrategy({
+    subsectionCount: context.subsections.length,
+    chapterTargetWords: targets.chapterWords,
+    initialBudgetMs: remainingMs(),
+  });
   const buildTimeoutPartial = (fallbackText = '') => {
     const merged = [
       ...parts,
@@ -757,46 +763,56 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
 
   const statusByCode = context.subsections.map((subsection) => evaluateSubsectionStatus(existingChapterContent, context, subsection, targets.sectionWords));
   const firstMissingIdx = Math.max(0, statusByCode.findIndex((x) => !x.complete));
-  const targetIdx = firstMissingIdx < 0 ? Math.max(0, context.subsections.length - 1) : firstMissingIdx;
-  const subsection = context.subsections[targetIdx];
+  const startIdx = firstMissingIdx < 0 ? Math.max(0, context.subsections.length - 1) : firstMissingIdx;
   const timeoutPartial = ensureTimeBudget(parts);
   if (timeoutPartial) return timeoutPartial;
 
-  let result = await generateOneSubsection({
-    input,
-    context,
-    subsection,
-    index: targetIdx,
-    total: context.subsections.length,
-    system,
-    targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
-    previousSectionText: statusByCode[targetIdx - 1]?.text || '',
-  });
-  let currentSectionText = postProcessChapterSectionText(result.text, subsection);
-  const maxContinuation = isResume ? 1 : 0;
-  let attempts = 0;
-  while (attempts < maxContinuation && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
+  let chapterText = existingChapterContent || context.chapterHeading;
+  let continuationUsed = 0;
+  for (let idx = startIdx; idx < context.subsections.length; idx += 1) {
+    const subsection = context.subsections[idx];
     const timeoutPartialLoop = ensureTimeBudget(parts);
-    if (timeoutPartialLoop) return buildTimeoutPartial(currentSectionText) || timeoutPartialLoop;
-    result = await continueOneSubsection({
+    if (timeoutPartialLoop) return buildTimeoutPartial(chapterText) || timeoutPartialLoop;
+    let result = await generateOneSubsection({
       input,
       context,
       subsection,
+      index: idx,
+      total: context.subsections.length,
       system,
-      existingText: currentSectionText,
-      targetWords: targets.sectionWords,
+      targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
+      previousSectionText: idx > 0 ? extractSubsectionText(chapterText, context, context.subsections[idx - 1]) : '',
     });
-    currentSectionText = postProcessChapterSectionText(result.text, subsection);
-    attempts += 1;
+    let currentSectionText = postProcessChapterSectionText(result.text, subsection);
+    const maxContinuation = isResume || (freshStrategy && freshStrategy.allowContinuation) ? 1 : 0;
+    let attempts = 0;
+    while (attempts < maxContinuation && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
+      const timeoutPartialContinue = ensureTimeBudget(parts);
+      if (timeoutPartialContinue) return buildTimeoutPartial(currentSectionText) || timeoutPartialContinue;
+      result = await continueOneSubsection({
+        input,
+        context,
+        subsection,
+        system,
+        existingText: currentSectionText,
+        targetWords: targets.sectionWords,
+      });
+      currentSectionText = postProcessChapterSectionText(result.text, subsection);
+      attempts += 1;
+      continuationUsed += 1;
+    }
+
+    chapterText = upsertSubsectionInChapterText(chapterText, context, subsection, currentSectionText);
+    if (isResume) break;
+    if (!freshStrategy?.completeInSinglePass) break;
+    if (remainingMs() < freshStrategy.minRemainingMs) break;
+    if (continuationUsed > freshStrategy.maxContinuations) break;
+    if (wordCount(chapterText) >= freshStrategy.maxFreshWords) break;
   }
 
-  let chapterText = isResume
-    ? upsertSubsectionInChapterText(existingChapterContent, context, subsection, currentSectionText)
-    : postProcessChapterText(`${context.chapterHeading}\n\n${currentSectionText}`, context);
-
-  const nextMissingIdx = context.subsections.findIndex((sub, idx) => {
-    if (idx === targetIdx) return !isSectionCompleteText(currentSectionText, targets.sectionWords);
-    return !statusByCode[idx]?.complete;
+  const nextMissingIdx = context.subsections.findIndex((sub) => {
+    const sectionText = extractSubsectionText(chapterText, context, sub);
+    return !isSectionCompleteText(sectionText, targets.sectionWords);
   });
   const chapterComplete = nextMissingIdx < 0 && !chapterNeedsCompletion(chapterText, targets.chapterWords, context);
   if (!chapterComplete) {
@@ -862,6 +878,19 @@ function deriveChapterTargets(input, context) {
   const sectionWords = Math.max(560, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
   const firstPassSectionWords = Math.max(360, Math.min(520, Math.round(sectionWords * 0.62)));
   return { chapterWords, sectionWords, firstPassSectionWords };
+}
+
+function decideFreshGenerationStrategy({ subsectionCount, chapterTargetWords, initialBudgetMs }) {
+  const smallOrMedium = subsectionCount <= 4 && chapterTargetWords <= 4200;
+  const enoughBudget = initialBudgetMs >= 95_000;
+  const completeInSinglePass = smallOrMedium && enoughBudget;
+  return {
+    completeInSinglePass,
+    allowContinuation: completeInSinglePass,
+    minRemainingMs: completeInSinglePass ? 40_000 : 30_000,
+    maxContinuations: completeInSinglePass ? 1 : 0,
+    maxFreshWords: completeInSinglePass ? Math.min(5000, chapterTargetWords + 350) : Math.min(3200, chapterTargetWords),
+  };
 }
 
 function parseChapterContext(input) {
