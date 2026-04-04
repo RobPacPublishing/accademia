@@ -4277,7 +4277,7 @@ async function runChapterGeneration(idx,opts={}){
   const output=document.getElementById(`chapOutput-${idx}`);
   const textEl=document.getElementById(`chapText-${idx}`);
   if(output) output.classList.add('typing');
-  if(textEl && !(useResume && hasExistingContent)){
+  if(textEl && !hasExistingContent){
     textEl.textContent=useResume?'Ripresa e completamento in corso...':'Elaborazione in corso...';
   }
   setChapterOperationStatus(`${useResume?'Ripresa':'Generazione'} del Capitolo ${idx+1} in corso...`,false,true);
