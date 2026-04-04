@@ -748,6 +748,7 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     chapterTargetWords: targets.chapterWords,
     initialBudgetMs: remainingMs(),
   });
+  const existingChapterWords = wordCount(existingChapterContent);
   const buildTimeoutPartial = (fallbackText = '') => {
     const merged = [
       ...parts,
@@ -803,7 +804,23 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     }
 
     chapterText = upsertSubsectionInChapterText(chapterText, context, subsection, currentSectionText);
-    if (isResume) break;
+    if (isResume) {
+      const remainingSubsections = context.subsections
+        .slice(idx + 1)
+        .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
+        .length;
+      const targetRemainingWords = Math.max(0, targets.chapterWords - wordCount(chapterText));
+      const resumeStrategy = decideResumeGenerationStrategy({
+        remainingSubsections,
+        generatedWords: wordCount(chapterText),
+        existingWords: existingChapterWords,
+        targetRemainingWords,
+        continuationsUsed: continuationUsed,
+        remainingBudgetMs: remainingMs(),
+      });
+      if (!resumeStrategy.continueGeneration) break;
+      continue;
+    }
     if (!freshStrategy?.completeInSinglePass) break;
     if (remainingMs() < freshStrategy.minRemainingMs) break;
     if (continuationUsed > freshStrategy.maxContinuations) break;
@@ -891,6 +908,33 @@ function decideFreshGenerationStrategy({ subsectionCount, chapterTargetWords, in
     maxContinuations: completeInSinglePass ? 1 : 0,
     maxFreshWords: completeInSinglePass ? Math.min(5000, chapterTargetWords + 350) : Math.min(3200, chapterTargetWords),
   };
+}
+
+function decideResumeGenerationStrategy({
+  remainingSubsections,
+  generatedWords,
+  existingWords,
+  targetRemainingWords,
+  continuationsUsed,
+  remainingBudgetMs,
+}) {
+  if (remainingSubsections <= 0) return { continueGeneration: false };
+  if (remainingBudgetMs < 42_000) return { continueGeneration: false };
+  if (continuationsUsed >= 2 && remainingBudgetMs < 70_000) return { continueGeneration: false };
+
+  const resumedWords = Math.max(0, generatedWords - existingWords);
+  const residualModerate = remainingSubsections <= 3 && targetRemainingWords <= 2200;
+  const enoughBudgetForClose = remainingBudgetMs >= 62_000;
+  if (residualModerate && enoughBudgetForClose) return { continueGeneration: true };
+
+  if (remainingSubsections === 1 && remainingBudgetMs >= 48_000 && targetRemainingWords <= 1200) {
+    return { continueGeneration: true };
+  }
+
+  const firstResumePush = resumedWords < 900 && remainingSubsections <= 4 && remainingBudgetMs >= 58_000;
+  if (firstResumePush) return { continueGeneration: true };
+
+  return { continueGeneration: false };
 }
 
 function parseChapterContext(input) {
