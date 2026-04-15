@@ -272,7 +272,8 @@ function assert(condition, message) {
 }
 
 function normalizeEmail(value) {
-  return String(value || '').trim().toLowerCase();
+  const s = String(value || '').trim().toLowerCase();
+  return s.includes('@') ? s : '';
 }
 
 function redactEmail(email) {
@@ -286,7 +287,8 @@ function makeId(prefix) {
 }
 
 function generateOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  const n = randomBytes(3).readUIntBE(0, 3) % 900000;
+  return String(100000 + n).padStart(6, '0');
 }
 
 function hashEmail(email) {
