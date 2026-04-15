@@ -18,6 +18,7 @@ const EVENT_LIMIT = 50;
 const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
 const CHAPTER_DRAFT_TOTAL_TIMEOUT_MS = 230_000;
 const CHAPTER_DRAFT_LOCK_TTL_SECONDS = 5 * 60;
+const CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS = 16_000;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -783,6 +784,7 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       system,
       targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
       previousSectionText: idx > 0 ? extractSubsectionText(chapterText, context, context.subsections[idx - 1]) : '',
+      fastPath: !isResume && idx === startIdx,
     });
     let currentSectionText = postProcessChapterSectionText(result.text, subsection);
     const maxContinuation = isResume || (freshStrategy && freshStrategy.allowContinuation) ? 1 : 0;
@@ -804,6 +806,13 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     }
 
     chapterText = upsertSubsectionInChapterText(chapterText, context, subsection, currentSectionText);
+    if (!isResume && freshStrategy?.fastPathEnabled && idx === startIdx) {
+      return {
+        partial: true,
+        text: chapterText,
+        reason: intentionalPartialReason,
+      };
+    }
     if (isResume) {
       const remainingSubsections = context.subsections
         .slice(idx + 1)
@@ -901,8 +910,10 @@ function decideFreshGenerationStrategy({ subsectionCount, chapterTargetWords, in
   const smallOrMedium = subsectionCount <= 4 && chapterTargetWords <= 4200;
   const enoughBudget = initialBudgetMs >= 95_000;
   const completeInSinglePass = smallOrMedium && enoughBudget;
+  const fastPathEnabled = subsectionCount > 1;
   return {
     completeInSinglePass,
+    fastPathEnabled,
     allowContinuation: completeInSinglePass,
     minRemainingMs: completeInSinglePass ? 40_000 : 30_000,
     maxContinuations: completeInSinglePass ? 1 : 0,
@@ -1091,15 +1102,18 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
   ].filter(Boolean).join('\n\n');
 }
 
-async function generateOneSubsection({ input, context, subsection, index, total, system, targetWords, previousSectionText }) {
+async function generateOneSubsection({ input, context, subsection, index, total, system, targetWords, previousSectionText, fastPath = false }) {
   const prompt = buildChapterSubsectionPrompt(input, context, subsection, index, total, targetWords, previousSectionText);
+  const primaryTimeoutMs = fastPath ? CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS : 28_000;
+  const fallbackTimeoutMs = fastPath ? 12_000 : 20_000;
+  const openaiTimeoutMs = fastPath ? 14_000 : 22_000;
   const raw = await generateWithProviders({
     prompt,
     system,
-    maxTokens: Math.min(1000, Math.max(520, Math.round(targetWords * 0.95))),
-    primaryTimeoutMs: 28_000,
-    fallbackTimeoutMs: 20_000,
-    openaiTimeoutMs: 22_000,
+    maxTokens: Math.min(1000, Math.max(520, Math.round(targetWords * (fastPath ? 0.82 : 0.95)))),
+    primaryTimeoutMs,
+    fallbackTimeoutMs,
+    openaiTimeoutMs,
   });
   return {
     text: stripCompletionMarker(raw),
