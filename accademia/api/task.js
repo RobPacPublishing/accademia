@@ -19,6 +19,7 @@ const SECTION_COMPLETE_MARKER = '[[SECTION_COMPLETE]]';
 const CHAPTER_DRAFT_TOTAL_TIMEOUT_MS = 230_000;
 const CHAPTER_DRAFT_LOCK_TTL_SECONDS = 5 * 60;
 const CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS = 16_000;
+const CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS = 11_000;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -773,19 +774,44 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   let continuationUsed = 0;
   for (let idx = startIdx; idx < context.subsections.length; idx += 1) {
     const subsection = context.subsections[idx];
+    const subsectionStatus = statusByCode[idx] || { text: '', complete: false };
     const timeoutPartialLoop = ensureTimeBudget(parts);
     if (timeoutPartialLoop) return buildTimeoutPartial(chapterText) || timeoutPartialLoop;
-    let result = await generateOneSubsection({
-      input,
-      context,
-      subsection,
-      index: idx,
-      total: context.subsections.length,
-      system,
-      targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
-      previousSectionText: idx > 0 ? extractSubsectionText(chapterText, context, context.subsections[idx - 1]) : '',
-      fastPath: !isResume && idx === startIdx,
-    });
+    let result;
+    if (isResume && subsectionStatus.text) {
+      try {
+        result = await continueOneSubsection({
+          input,
+          context,
+          subsection,
+          system,
+          existingText: subsectionStatus.text,
+          targetWords: targets.sectionWords,
+          fastPath: idx === startIdx,
+        });
+      } catch (err) {
+        if (idx === startIdx && isProviderTimeout(err)) {
+          return {
+            partial: true,
+            text: chapterText,
+            reason: intentionalPartialReason,
+          };
+        }
+        throw err;
+      }
+    } else {
+      result = await generateOneSubsection({
+        input,
+        context,
+        subsection,
+        index: idx,
+        total: context.subsections.length,
+        system,
+        targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
+        previousSectionText: idx > 0 ? extractSubsectionText(chapterText, context, context.subsections[idx - 1]) : '',
+        fastPath: !isResume && idx === startIdx,
+      });
+    }
     let currentSectionText = postProcessChapterSectionText(result.text, subsection);
     const maxContinuation = isResume || (freshStrategy && freshStrategy.allowContinuation) ? 1 : 0;
     let attempts = 0;
@@ -806,6 +832,22 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     }
 
     chapterText = upsertSubsectionInChapterText(chapterText, context, subsection, currentSectionText);
+    if (isResume && idx === startIdx) {
+      const remainingSubsections = context.subsections
+        .slice(idx + 1)
+        .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
+        .length;
+      const targetRemainingWords = Math.max(0, targets.chapterWords - wordCount(chapterText));
+      const residualLarge = remainingSubsections >= 3 || targetRemainingWords >= 2300;
+      const lowBudgetAfterFirstUpdate = remainingMs() < 44_000;
+      if (residualLarge && lowBudgetAfterFirstUpdate) {
+        return {
+          partial: true,
+          text: chapterText,
+          reason: intentionalPartialReason,
+        };
+      }
+    }
     if (!isResume && freshStrategy?.fastPathEnabled && idx === startIdx) {
       return {
         partial: true,
@@ -930,19 +972,19 @@ function decideResumeGenerationStrategy({
   remainingBudgetMs,
 }) {
   if (remainingSubsections <= 0) return { continueGeneration: false };
-  if (remainingBudgetMs < 42_000) return { continueGeneration: false };
-  if (continuationsUsed >= 2 && remainingBudgetMs < 70_000) return { continueGeneration: false };
+  if (remainingBudgetMs < 30_000) return { continueGeneration: false };
+  if (continuationsUsed >= 2 && remainingBudgetMs < 52_000) return { continueGeneration: false };
 
   const resumedWords = Math.max(0, generatedWords - existingWords);
   const residualModerate = remainingSubsections <= 3 && targetRemainingWords <= 2200;
-  const enoughBudgetForClose = remainingBudgetMs >= 62_000;
+  const enoughBudgetForClose = remainingBudgetMs >= 48_000;
   if (residualModerate && enoughBudgetForClose) return { continueGeneration: true };
 
-  if (remainingSubsections === 1 && remainingBudgetMs >= 48_000 && targetRemainingWords <= 1200) {
+  if (remainingSubsections === 1 && remainingBudgetMs >= 36_000 && targetRemainingWords <= 1200) {
     return { continueGeneration: true };
   }
 
-  const firstResumePush = resumedWords < 900 && remainingSubsections <= 4 && remainingBudgetMs >= 58_000;
+  const firstResumePush = resumedWords < 900 && remainingSubsections <= 4 && remainingBudgetMs >= 44_000;
   if (firstResumePush) return { continueGeneration: true };
 
   return { continueGeneration: false };
@@ -1121,7 +1163,7 @@ async function generateOneSubsection({ input, context, subsection, index, total,
   };
 }
 
-async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords }) {
+async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords, fastPath = false }) {
   const obj = input && typeof input === 'object' ? input : {};
   const prompt = [
     'TASK: chapter_draft_section_continue',
@@ -1144,10 +1186,10 @@ async function continueOneSubsection({ input, context, subsection, system, exist
   const addition = await generateWithProviders({
     prompt,
     system,
-    maxTokens: 620,
-    primaryTimeoutMs: 24_000,
-    fallbackTimeoutMs: 18_000,
-    openaiTimeoutMs: 20_000,
+    maxTokens: fastPath ? 420 : 620,
+    primaryTimeoutMs: fastPath ? CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS : 24_000,
+    fallbackTimeoutMs: fastPath ? 9_000 : 18_000,
+    openaiTimeoutMs: fastPath ? 10_000 : 20_000,
   });
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
