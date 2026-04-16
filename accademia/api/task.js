@@ -813,7 +813,21 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       });
     }
     let currentSectionText = postProcessChapterSectionText(result.text, subsection);
-    const maxContinuation = isResume || (freshStrategy && freshStrategy.allowContinuation) ? 1 : 0;
+    const remainingAfterCurrent = context.subsections
+      .slice(idx + 1)
+      .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
+      .length;
+    const nearCompleteAtSubsectionLevel = isResume && isNearCompleteForResumeFinalization({
+      remainingSubsections: remainingAfterCurrent,
+      targetRemainingWords: Math.max(0, targets.chapterWords - wordCount(chapterText)),
+      generatedWords: wordCount(chapterText),
+      targetChapterWords: targets.chapterWords,
+      remainingBudgetMs: remainingMs(),
+      continuationsUsed: continuationUsed,
+    });
+    const maxContinuation = isResume
+      ? (nearCompleteAtSubsectionLevel ? 2 : 1)
+      : ((freshStrategy && freshStrategy.allowContinuation) ? 1 : 0);
     let attempts = 0;
     while (attempts < maxContinuation && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
       const timeoutPartialContinue = ensureTimeBudget(parts);
@@ -861,6 +875,14 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
         .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
         .length;
       const targetRemainingWords = Math.max(0, targets.chapterWords - wordCount(chapterText));
+      const nearCompleteFinalization = isNearCompleteForResumeFinalization({
+        remainingSubsections,
+        targetRemainingWords,
+        generatedWords: wordCount(chapterText),
+        targetChapterWords: targets.chapterWords,
+        remainingBudgetMs: remainingMs(),
+        continuationsUsed: continuationUsed,
+      });
       const resumeStrategy = decideResumeGenerationStrategy({
         remainingSubsections,
         generatedWords: wordCount(chapterText),
@@ -868,6 +890,7 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
         targetRemainingWords,
         continuationsUsed: continuationUsed,
         remainingBudgetMs: remainingMs(),
+        nearCompleteFinalization,
       });
       if (!resumeStrategy.continueGeneration) break;
       continue;
@@ -970,9 +993,11 @@ function decideResumeGenerationStrategy({
   targetRemainingWords,
   continuationsUsed,
   remainingBudgetMs,
+  nearCompleteFinalization = false,
 }) {
   if (remainingSubsections <= 0) return { continueGeneration: false };
   if (remainingBudgetMs < 30_000) return { continueGeneration: false };
+  if (nearCompleteFinalization) return { continueGeneration: true };
   if (continuationsUsed >= 2 && remainingBudgetMs < 52_000) return { continueGeneration: false };
 
   const resumedWords = Math.max(0, generatedWords - existingWords);
@@ -988,6 +1013,22 @@ function decideResumeGenerationStrategy({
   if (firstResumePush) return { continueGeneration: true };
 
   return { continueGeneration: false };
+}
+
+function isNearCompleteForResumeFinalization({
+  remainingSubsections,
+  targetRemainingWords,
+  generatedWords,
+  targetChapterWords,
+  remainingBudgetMs,
+  continuationsUsed,
+}) {
+  const littleStructureLeft = remainingSubsections <= 1;
+  const lowResidualTarget = targetRemainingWords <= 900;
+  const highCoverage = generatedWords >= Math.max(1600, Math.round(targetChapterWords * 0.82));
+  const enoughBudget = remainingBudgetMs >= 34_000;
+  const continuationStillReasonable = continuationsUsed <= 3;
+  return littleStructureLeft && lowResidualTarget && highCoverage && enoughBudget && continuationStillReasonable;
 }
 
 function parseChapterContext(input) {
