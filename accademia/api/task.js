@@ -698,215 +698,120 @@ async function generateWithProviders({ prompt, system, maxTokens, primaryTimeout
 async function generateChapterDraftStructured(input, mode = 'fresh') {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
-  const startedAt = Date.now();
-  const remainingMs = () => Math.max(0, CHAPTER_DRAFT_TOTAL_TIMEOUT_MS - (Date.now() - startedAt));
-  const ensureTimeBudget = (parts = []) => {
-    if (remainingMs() > 0) return;
-    if (parts.length) {
-      const partialText = postProcessChapterText(`${context.chapterHeading}\n\n${parts.join('\n\n')}`, context);
-      return {
-        partial: true,
-        text: partialText,
-        reason: 'chapter_timeout_partial',
-      };
-    }
-    const err = new Error('Timeout provider. Nessuna modifica applicata: riprova.');
-    err.code = 'provider_timeout';
-    throw err;
-  };
-
   const isResume = mode === 'resume';
   const intentionalPartialReason = isResume ? 'chapter_resume_partial' : 'chapter_seed_partial';
-  const existingChapterContent = isResume ? postProcessChapterText(String(input?.existingChapterContent || ''), context) : '';
+  const targets = deriveChapterTargets(input, context);
+
+  const existingChapterContent = postProcessChapterText(String(input?.existingChapterContent || ''), context);
 
   if (!context.subsections.length) {
-    ensureTimeBudget();
-    const callBudget = Math.max(8_000, Math.min(remainingMs() - 1_000, 52_000));
     const prompt = buildProviderPrompt('chapter_draft', input);
     const raw = await generateWithProviders({
       prompt,
       system,
       maxTokens: 2200,
-      primaryTimeoutMs: callBudget,
-      fallbackTimeoutMs: Math.max(8_000, Math.min(callBudget - 1_000, 38_000)),
-      openaiTimeoutMs: Math.max(8_000, Math.min(callBudget - 1_000, 40_000)),
+      primaryTimeoutMs: 46_000,
+      fallbackTimeoutMs: 34_000,
+      openaiTimeoutMs: 36_000,
     });
     const chapterText = postProcessChapterText(raw, context);
-    const shouldReturnFreshPartial = !isResume && remainingMs() < 30_000 && wordCount(chapterText) < 1800;
-    if (shouldReturnFreshPartial) {
+    return isResume ? chapterText : { partial: true, text: chapterText, reason: intentionalPartialReason };
+  }
+
+  let chapterText = existingChapterContent || context.chapterHeading;
+  const stateMachine = buildChapterSubsectionStateMachine({
+    input,
+    context,
+    chapterText,
+    targetWords: targets.sectionWords,
+  });
+
+  const nextIdx = stateMachine.findIndex((x) => x.status !== 'done');
+  if (nextIdx < 0) {
+    chapterText = await harmonizeChapterLight(input, context, chapterText, system);
+    chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
+    return chapterText;
+  }
+
+  const nextSubsection = context.subsections[nextIdx];
+  const subsectionState = stateMachine[nextIdx];
+  const previousSectionText = nextIdx > 0
+    ? extractSubsectionText(chapterText, context, context.subsections[nextIdx - 1])
+    : '';
+
+  let generated;
+  try {
+    if (subsectionState.status === 'in_progress' && subsectionState.text) {
+      generated = await continueOneSubsection({
+        input,
+        context,
+        subsection: nextSubsection,
+        system,
+        existingText: subsectionState.text,
+        targetWords: targets.sectionWords,
+        fastPath: true,
+      });
+    } else {
+      generated = await generateOneSubsection({
+        input,
+        context,
+        subsection: nextSubsection,
+        index: nextIdx,
+        total: context.subsections.length,
+        system,
+        targetWords: targets.sectionWords,
+        previousSectionText,
+        fastPath: true,
+      });
+    }
+  } catch (err) {
+    if (isProviderTimeout(err) && String(chapterText || '').trim()) {
       return {
         partial: true,
         text: chapterText,
-        reason: intentionalPartialReason,
+        reason: 'chapter_timeout_partial',
       };
     }
-    return await appendChapterNotesIfNeeded(input, context, chapterText, system);
+    throw err;
   }
 
-  const targets = deriveChapterTargets(input, context);
-  const parts = [];
-  const freshStrategy = isResume ? null : decideFreshGenerationStrategy({
-    subsectionCount: context.subsections.length,
-    chapterTargetWords: targets.chapterWords,
-    initialBudgetMs: remainingMs(),
-  });
-  const existingChapterWords = wordCount(existingChapterContent);
-  const buildTimeoutPartial = (fallbackText = '') => {
-    const merged = [
-      ...parts,
-      String(fallbackText || '').trim(),
-    ].filter(Boolean);
-    if (!merged.length) return null;
-    return {
-      partial: true,
-      text: postProcessChapterText(`${context.chapterHeading}\n\n${merged.join('\n\n')}`, context),
-      reason: 'chapter_timeout_partial',
-    };
-  };
-
-  const statusByCode = context.subsections.map((subsection) => evaluateSubsectionStatus(existingChapterContent, context, subsection, targets.sectionWords));
-  const firstMissingIdx = Math.max(0, statusByCode.findIndex((x) => !x.complete));
-  const startIdx = firstMissingIdx < 0 ? Math.max(0, context.subsections.length - 1) : firstMissingIdx;
-  const timeoutPartial = ensureTimeBudget(parts);
-  if (timeoutPartial) return timeoutPartial;
-
-  let chapterText = existingChapterContent || context.chapterHeading;
-  let continuationUsed = 0;
-  for (let idx = startIdx; idx < context.subsections.length; idx += 1) {
-    const subsection = context.subsections[idx];
-    const subsectionStatus = statusByCode[idx] || { text: '', complete: false };
-    const timeoutPartialLoop = ensureTimeBudget(parts);
-    if (timeoutPartialLoop) return buildTimeoutPartial(chapterText) || timeoutPartialLoop;
-    let result;
-    if (isResume && subsectionStatus.text) {
-      try {
-        result = await continueOneSubsection({
-          input,
-          context,
-          subsection,
-          system,
-          existingText: subsectionStatus.text,
-          targetWords: targets.sectionWords,
-          fastPath: idx === startIdx,
-        });
-      } catch (err) {
-        if (idx === startIdx && isProviderTimeout(err)) {
-          return {
-            partial: true,
-            text: chapterText,
-            reason: intentionalPartialReason,
-          };
-        }
-        throw err;
-      }
-    } else {
-      result = await generateOneSubsection({
+  let currentSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
+  if (!generated.complete && needsMoreSectionText(currentSectionText, targets.sectionWords)) {
+    try {
+      const continued = await continueOneSubsection({
         input,
         context,
-        subsection,
-        index: idx,
-        total: context.subsections.length,
-        system,
-        targetWords: isResume ? targets.sectionWords : targets.firstPassSectionWords,
-        previousSectionText: idx > 0 ? extractSubsectionText(chapterText, context, context.subsections[idx - 1]) : '',
-        fastPath: !isResume && idx === startIdx,
-      });
-    }
-    let currentSectionText = postProcessChapterSectionText(result.text, subsection);
-    const remainingAfterCurrent = context.subsections
-      .slice(idx + 1)
-      .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
-      .length;
-    const nearCompleteAtSubsectionLevel = isResume && isNearCompleteForResumeFinalization({
-      remainingSubsections: remainingAfterCurrent,
-      targetRemainingWords: Math.max(0, targets.chapterWords - wordCount(chapterText)),
-      generatedWords: wordCount(chapterText),
-      targetChapterWords: targets.chapterWords,
-      remainingBudgetMs: remainingMs(),
-      continuationsUsed: continuationUsed,
-    });
-    const maxContinuation = isResume
-      ? (nearCompleteAtSubsectionLevel ? 2 : 1)
-      : ((freshStrategy && freshStrategy.allowContinuation) ? 1 : 0);
-    let attempts = 0;
-    while (attempts < maxContinuation && (!result.complete || needsMoreSectionText(currentSectionText, targets.sectionWords))) {
-      const timeoutPartialContinue = ensureTimeBudget(parts);
-      if (timeoutPartialContinue) return buildTimeoutPartial(currentSectionText) || timeoutPartialContinue;
-      result = await continueOneSubsection({
-        input,
-        context,
-        subsection,
+        subsection: nextSubsection,
         system,
         existingText: currentSectionText,
         targetWords: targets.sectionWords,
       });
-      currentSectionText = postProcessChapterSectionText(result.text, subsection);
-      attempts += 1;
-      continuationUsed += 1;
-    }
-
-    chapterText = upsertSubsectionInChapterText(chapterText, context, subsection, currentSectionText);
-    if (isResume && idx === startIdx) {
-      const remainingSubsections = context.subsections
-        .slice(idx + 1)
-        .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
-        .length;
-      const targetRemainingWords = Math.max(0, targets.chapterWords - wordCount(chapterText));
-      const residualLarge = remainingSubsections >= 3 || targetRemainingWords >= 2300;
-      const lowBudgetAfterFirstUpdate = remainingMs() < 44_000;
-      if (residualLarge && lowBudgetAfterFirstUpdate) {
+      currentSectionText = postProcessChapterSectionText(continued.text, nextSubsection);
+      generated = continued;
+    } catch (err) {
+      if (isProviderTimeout(err)) {
+        chapterText = upsertSubsectionInChapterText(chapterText, context, nextSubsection, currentSectionText);
         return {
           partial: true,
           text: chapterText,
-          reason: intentionalPartialReason,
+          reason: 'chapter_timeout_partial',
         };
       }
+      throw err;
     }
-    if (!isResume && freshStrategy?.fastPathEnabled && idx === startIdx) {
-      return {
-        partial: true,
-        text: chapterText,
-        reason: intentionalPartialReason,
-      };
-    }
-    if (isResume) {
-      const remainingSubsections = context.subsections
-        .slice(idx + 1)
-        .filter((sub) => !isSectionCompleteText(extractSubsectionText(chapterText, context, sub), targets.sectionWords))
-        .length;
-      const targetRemainingWords = Math.max(0, targets.chapterWords - wordCount(chapterText));
-      const nearCompleteFinalization = isNearCompleteForResumeFinalization({
-        remainingSubsections,
-        targetRemainingWords,
-        generatedWords: wordCount(chapterText),
-        targetChapterWords: targets.chapterWords,
-        remainingBudgetMs: remainingMs(),
-        continuationsUsed: continuationUsed,
-      });
-      const resumeStrategy = decideResumeGenerationStrategy({
-        remainingSubsections,
-        generatedWords: wordCount(chapterText),
-        existingWords: existingChapterWords,
-        targetRemainingWords,
-        continuationsUsed: continuationUsed,
-        remainingBudgetMs: remainingMs(),
-        nearCompleteFinalization,
-      });
-      if (!resumeStrategy.continueGeneration) break;
-      continue;
-    }
-    if (!freshStrategy?.completeInSinglePass) break;
-    if (remainingMs() < freshStrategy.minRemainingMs) break;
-    if (continuationUsed > freshStrategy.maxContinuations) break;
-    if (wordCount(chapterText) >= freshStrategy.maxFreshWords) break;
   }
 
-  const nextMissingIdx = context.subsections.findIndex((sub) => {
-    const sectionText = extractSubsectionText(chapterText, context, sub);
-    return !isSectionCompleteText(sectionText, targets.sectionWords);
+  chapterText = upsertSubsectionInChapterText(chapterText, context, nextSubsection, currentSectionText);
+
+  const updatedState = buildChapterSubsectionStateMachine({
+    input,
+    context,
+    chapterText,
+    targetWords: targets.sectionWords,
   });
-  const chapterComplete = nextMissingIdx < 0 && !chapterNeedsCompletion(chapterText, targets.chapterWords, context);
-  if (!chapterComplete) {
+  const hasPending = updatedState.some((x) => x.status !== 'done');
+
+  if (hasPending) {
     return {
       partial: true,
       text: chapterText,
@@ -914,9 +819,83 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     };
   }
 
-  ensureTimeBudget(parts);
+  chapterText = await harmonizeChapterLight(input, context, chapterText, system);
   chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
   return chapterText;
+}
+
+function buildChapterSubsectionStateMachine({ input, context, chapterText, targetWords }) {
+  const persisted = parsePersistedSubsectionState(input, context);
+  return context.subsections.map((subsection) => {
+    const extracted = extractSubsectionText(chapterText, context, subsection);
+    const fromTextDone = isSectionCompleteText(extracted, targetWords);
+    const persistedStatus = persisted.get(subsection.code) || 'pending';
+
+    let status = 'pending';
+    if (fromTextDone) {
+      status = 'done';
+    } else if (extracted) {
+      status = 'in_progress';
+    } else if (persistedStatus === 'in_progress' || persistedStatus === 'done') {
+      status = persistedStatus;
+    }
+
+    return {
+      code: subsection.code,
+      title: subsection.title,
+      text: extracted,
+      status,
+    };
+  });
+}
+
+function parsePersistedSubsectionState(input, context) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const raw = obj.chapterSubsectionState;
+  const map = new Map();
+  if (!raw || typeof raw !== 'object') return map;
+
+  for (const subsection of context.subsections) {
+    const entry = raw[subsection.code];
+    const status = typeof entry === 'string' ? entry : entry?.status;
+    if (status === 'pending' || status === 'in_progress' || status === 'done') {
+      map.set(subsection.code, status);
+    }
+  }
+  return map;
+}
+
+async function harmonizeChapterLight(input, context, chapterText, system) {
+  const baseline = postProcessChapterText(chapterText, context);
+  if (!String(baseline || '').trim()) return baseline;
+
+  try {
+    const prompt = [
+      'TASK: chapter_harmonize_light',
+      `CAPITOLO: ${context.chapterHeading}`,
+      'Esegui una sola passata leggera di armonizzazione del testo esistente.',
+      'OBIETTIVI:',
+      '- migliora continuità e transizioni tra sottosezioni;',
+      '- uniforma stile e lessico senza cambiare struttura o contenuti chiave;',
+      '- non aggiungere nuove sezioni o sottosezioni;',
+      '- non rigenerare da zero il capitolo.',
+      `TESTO ATTUALE:\n${clip(String(baseline), 9000)}`,
+    ].join('\n\n');
+
+    const harmonized = await generateWithProviders({
+      prompt,
+      system,
+      maxTokens: 1400,
+      primaryTimeoutMs: 18_000,
+      fallbackTimeoutMs: 14_000,
+      openaiTimeoutMs: 16_000,
+    });
+
+    const cleaned = postProcessChapterText(harmonized, context);
+    return cleaned || baseline;
+  } catch (_) {
+    return baseline;
+  }
 }
 
 function evaluateSubsectionStatus(chapterText, context, subsection, targetWords) {
