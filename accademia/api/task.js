@@ -972,9 +972,11 @@ function decideResumeGenerationStrategy({
   targetRemainingWords,
   continuationsUsed,
   remainingBudgetMs,
+  nearCompleteFinalization = false,
 }) {
   if (remainingSubsections <= 0) return { continueGeneration: false };
   if (remainingBudgetMs < 30_000) return { continueGeneration: false };
+  if (nearCompleteFinalization) return { continueGeneration: true };
   if (continuationsUsed >= 2 && remainingBudgetMs < 52_000) return { continueGeneration: false };
 
   const resumedWords = Math.max(0, generatedWords - existingWords);
@@ -990,6 +992,22 @@ function decideResumeGenerationStrategy({
   if (firstResumePush) return { continueGeneration: true };
 
   return { continueGeneration: false };
+}
+
+function isNearCompleteForResumeFinalization({
+  remainingSubsections,
+  targetRemainingWords,
+  generatedWords,
+  targetChapterWords,
+  remainingBudgetMs,
+  continuationsUsed,
+}) {
+  const littleStructureLeft = remainingSubsections <= 1;
+  const lowResidualTarget = targetRemainingWords <= 900;
+  const highCoverage = generatedWords >= Math.max(1600, Math.round(targetChapterWords * 0.82));
+  const enoughBudget = remainingBudgetMs >= 34_000;
+  const continuationStillReasonable = continuationsUsed <= 3;
+  return littleStructureLeft && lowResidualTarget && highCoverage && enoughBudget && continuationStillReasonable;
 }
 
 function parseChapterContext(input) {
