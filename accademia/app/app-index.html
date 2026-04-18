@@ -2844,6 +2844,31 @@ function formatChapterValidationIssues(validation){
   return issues.join('; ') || 'bozza ancora da completare';
 }
 
+function getChapterPointProgress(idx){
+  const subsections=parseExpectedChapterSubsections(idx);
+  const ch=thesis.chapters?.[idx];
+  const clean=String(ch?.content||'').replace(/\r\n/g,'\n').trim();
+  if(!subsections.length){
+    return {currentPoint:'',nextPoint:'',status:'unknown',hasOpening:!!clean};
+  }
+  const matches=(subsections||[]).map(sub=>({
+    sub,
+    present:(new RegExp(`(^|\\n)${escapeRegexLocal(sub.code)}\\s+`,'m')).test(clean)
+  }));
+  const firstMissingIdx=matches.findIndex(x=>!x.present);
+  const lastPresentIdx=firstMissingIdx>0 ? firstMissingIdx-1 : (firstMissingIdx===-1 ? matches.length-1 : -1);
+  const current=lastPresentIdx>=0?matches[lastPresentIdx].sub:null;
+  const next=firstMissingIdx>=0?matches[firstMissingIdx].sub:null;
+  const state=getChapterGenerationState(idx);
+  if(!clean || !current){
+    return {currentPoint:subsections[0].code,nextPoint:subsections[0].code,status:'missing',hasOpening:!!clean};
+  }
+  if(state==='partial'){
+    return {currentPoint:current.code,nextPoint:next?.code||'',status:'incomplete',hasOpening:!!clean};
+  }
+  return {currentPoint:current.code,nextPoint:next?.code||'',status:next?'next':'done',hasOpening:!!clean};
+}
+
 function getChapterGenerationState(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch || typeof ch!=='object') return 'missing';
@@ -2859,14 +2884,21 @@ function isChapterReadyForRevision(idx){
 function getChapterLauncherConfig(idx){
   const title=thesis.chapterTitles?.[idx]||`Capitolo ${idx+1}`;
   const state=getChapterGenerationState(idx);
+  const progress=getChapterPointProgress(idx);
   if(state==='partial'){
-    return {visible:true, action:`resumeChapterGeneration(${idx})`, label:`✦ Genera sottocapitolo successivo · Capitolo ${idx+1} — ${escHtml(title)}`};
+    const point=progress.currentPoint||`${idx+1}.1`;
+    return {visible:true, action:`resumeChapterGeneration(${idx})`, label:`✦ Completa punto ${point} · Capitolo ${idx+1} — ${escHtml(title)}`};
   }
   if(state==='error'){
     return {visible:true, action:`resumeChapterGeneration(${idx}, true)`, label:`✦ Riprova Capitolo ${idx+1} — ${escHtml(title)}`};
   }
   if(state==='missing'){
-    return {visible:true, action:'generateNextChapter()', label:`✦ Genera Capitolo ${idx+1} — ${escHtml(title)}`};
+    const firstPoint=progress.currentPoint||`${idx+1}.1`;
+    const hasOpening=progress.hasOpening;
+    return {visible:true, action:'generateNextChapter()', label:`✦ ${hasOpening?`Genera punto ${firstPoint}`:`Genera apertura capitolo e punto ${firstPoint}`} · Capitolo ${idx+1} — ${escHtml(title)}`};
+  }
+  if(state==='complete' && progress.nextPoint){
+    return {visible:true, action:`resumeChapterGeneration(${idx})`, label:`✦ Genera punto ${progress.nextPoint} · Capitolo ${idx+1} — ${escHtml(title)}`};
   }
   return {visible:false, action:'generateNextChapter()', label:`✦ Genera Capitolo ${idx+1} — ${escHtml(title)}`};
 }
@@ -3017,6 +3049,24 @@ function getChapterStatusChip(idx){
   return {cls:'done', text:'✓ Completato'};
 }
 
+function getChapterResumeLabel(idx,state){
+  if(state==='error') return '↻ Riprova generazione';
+  const progress=getChapterPointProgress(idx);
+  const point=progress.currentPoint||`${idx+1}.1`;
+  return `↻ Completa punto ${point}`;
+}
+
+function getChapterProgressStatusText(idx,state){
+  const progress=getChapterPointProgress(idx);
+  if(state==='partial'){
+    return `In lavorazione: punto ${progress.currentPoint||`${idx+1}.1`} · Punto ${progress.currentPoint||`${idx+1}.1`} incompleto${progress.nextPoint?` · Prossimo: punto ${progress.nextPoint}`:''}`;
+  }
+  if(state==='complete' && progress.nextPoint){
+    return `Prossimo: punto ${progress.nextPoint}`;
+  }
+  return '';
+}
+
 function updateChapterSavedBlockStatus(idx){
   const chip=document.getElementById(`chapChip-${idx}`);
   const data=getChapterStatusChip(idx);
@@ -3031,7 +3081,7 @@ function updateChapterSavedBlockStatus(idx){
   const state=getChapterGenerationState(idx);
   if(resumeBtn){
     resumeBtn.style.display=(state==='partial'||state==='error')?'inline-flex':'none';
-    resumeBtn.textContent=state==='error'?'↻ Riprova generazione':'↻ Genera sottocapitolo successivo';
+    resumeBtn.textContent=getChapterResumeLabel(idx,state);
     resumeBtn.onclick=()=>resumeChapterGeneration(idx,state==='error');
   }
   const row=document.getElementById(`chapApproval-${idx}`);
@@ -3049,7 +3099,7 @@ function renderSavedChapterBlock(idx,total){
     state==='error'
       ? 'Generazione interrotta prima del completamento. Usa “Riprova generazione”.'
       : state==='partial'
-        ? 'Capitolo in avanzamento. Usa “Genera sottocapitolo successivo” per continuare senza riscrivere il testo già presente.'
+        ? 'Capitolo in avanzamento. Completa prima il punto corrente prima di passare al successivo.'
         : ''
   ));
   const existing=document.getElementById(`chap-${idx}`);
@@ -3088,7 +3138,7 @@ function renderSavedChapterBlock(idx,total){
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
       <div class="chapter-tools-bar">
-        <button class="chapter-tool-btn bypass" id="chapResumeBtn-${idx}" style="display:${state==='partial'||state==='error'?'inline-flex':'none'}">${state==='error'?'↻ Riprova generazione':'↻ Genera sottocapitolo successivo'}</button>
+        <button class="chapter-tool-btn bypass" id="chapResumeBtn-${idx}" style="display:${state==='partial'||state==='error'?'inline-flex':'none'}">${getChapterResumeLabel(idx,state)}</button>
         <button class="chapter-tool-btn" id="chapRevToggle-${idx}" onclick="toggleRevision('chap-${idx}')">✎ Revisione capitolo</button>
         <button class="chapter-tool-btn tutor" id="chapTutorToggle-${idx}" onclick="toggleTutorRevision(${idx})">🧑‍🏫 Osservazioni del relatore</button>
       </div>
@@ -3127,10 +3177,11 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
   const state=getChapterGenerationState(idx);
   if(state==='partial'){
     const details=formatChapterValidationIssues(thesis.chapters?.[idx]?.partialValidation);
+    const progressText=getChapterProgressStatusText(idx,state);
     return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
-        <span class="hint">Capitolo ${idx+1} in avanzamento: ${details}. Genera i sottocapitoli mancanti prima dell’approvazione.</span>
+        <span class="hint">Capitolo ${idx+1} in avanzamento: ${details}. ${progressText||''}</span>
         <div class="actions">
-          <button class="btn-approve" onclick="resumeChapterGeneration(${idx})">↻ Genera sottocapitolo successivo</button>
+          <button class="btn-approve" onclick="resumeChapterGeneration(${idx})">${getChapterResumeLabel(idx,state)}</button>
         </div>
       </div>`;
   }
@@ -3354,8 +3405,7 @@ function restoreProgressUI(savedForm=null){
     thesis.chapters.forEach((_,idx)=>renderSavedChapterBlock(idx,total));
     if(total>0) updateChapterProgressBar(Math.min(thesis.currentChapterIdx,total-1), total, false);
     if(thesis.currentChapterIdx<total){
-      const nextTitle=thesis.chapterTitles[thesis.currentChapterIdx]||'';
-      document.getElementById('nextChapters').innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="generateNextChapter()">✦ Genera Capitolo ${thesis.currentChapterIdx+1} — ${escHtml(nextTitle)}</button>`;
+      renderNextChapterLauncher();
       if(!thesis.chapters[thesis.currentChapterIdx]) document.getElementById('nextChapters').classList.add('visible');
     }
     thesis.chapters.forEach((_,idx)=>renderRevCounter(idx));
@@ -4254,8 +4304,9 @@ async function runChapterGeneration(idx,opts={}){
   const taskName=useResume?'chapter_resume':'chapter_draft';
 
   __chapterGenLock=true;
-  await saveLastValidState(`${useResume?'prima_generazione_sottocapitolo_successivo':'prima_generazione'}_capitolo_${idx+1}`,{silent:true});
-  setPhaseButtonBusy('btnChapterAction',true,`<span class="spinner"></span>${useResume?'Generazione sottocapitolo successivo...':'Generazione capitolo...'}`);
+  const currentPointLabel=getChapterPointProgress(idx).currentPoint||`${idx+1}.1`;
+  await saveLastValidState(`${useResume?'prima_completamento_punto':'prima_generazione'}_capitolo_${idx+1}`,{silent:true});
+  setPhaseButtonBusy('btnChapterAction',true,`<span class="spinner"></span>${useResume?`Completamento punto ${currentPointLabel}...`:'Generazione capitolo...'}`);
 
   existingRecord.title=title;
   existingRecord.generationState='generating';
@@ -4278,9 +4329,9 @@ async function runChapterGeneration(idx,opts={}){
   const textEl=document.getElementById(`chapText-${idx}`);
   if(output) output.classList.add('typing');
   if(textEl && !hasExistingContent){
-    textEl.textContent=useResume?'Generazione sottocapitolo successivo in corso...':'Elaborazione in corso...';
+    textEl.textContent=useResume?`Completamento punto ${currentPointLabel} in corso...`:'Elaborazione in corso...';
   }
-  setChapterOperationStatus(`${useResume?'Generazione sottocapitolo successivo':'Generazione'} del Capitolo ${idx+1} in corso...`,false,true);
+  setChapterOperationStatus(`${useResume?`In lavorazione: punto ${currentPointLabel}`:`Generazione Capitolo ${idx+1} in corso...`}`,false,true);
   saveProgress();
   const noOutputWatchdogMs=95_000;
   let noOutputWatchdog=null;
@@ -4386,7 +4437,7 @@ async function runChapterGeneration(idx,opts={}){
         const reason=intentionalChapterPartial
           ? (backendPartialReason==='chapter_seed_partial'
             ? 'prima bozza utile pronta'
-            : 'capitolo ampliato, usa “Genera sottocapitolo successivo”')
+            : `punto ${currentPointLabel} ampliato, usa “Completa punto ${currentPointLabel}”`)
           : (backendPartialReason==='chapter_timeout_partial'
             ? 'timeout backend durante bozza, testo parziale preservato'
             : formatChapterValidationIssues(validation));
@@ -4397,7 +4448,7 @@ async function runChapterGeneration(idx,opts={}){
     if(validation?.ok && !backendPartial){
       showToast(`Capitolo ${idx+1} pronto ✓`);
     }else{
-      showToast(`Capitolo ${idx+1} in avanzamento: usa “Genera sottocapitolo successivo”.`, true);
+      showToast(`Capitolo ${idx+1} in avanzamento: usa “Completa punto ${currentPointLabel}”.`, true);
     }
   }catch(e){
     if(generationSettled) return;
@@ -4422,8 +4473,8 @@ async function runChapterGeneration(idx,opts={}){
     saveProgress();
     updateChapterProgressBar(Math.max(0,idx),total,false);
     if(ch.generationState==='partial'){
-      setChapterOperationStatus(`Generazione sottocapitolo successivo del Capitolo ${idx+1} interrotta (${e.message}). Bozza precedente mantenuta: puoi riprendere dal punto corrente.`,true,false);
-      showToast(`Generazione sottocapitolo successivo interrotta cap.${idx+1}: bozza mantenuta.`,true);
+      setChapterOperationStatus(`Completamento punto ${currentPointLabel} del Capitolo ${idx+1} interrotto (${e.message}). Bozza precedente mantenuta: puoi riprendere dal punto corrente.`,true,false);
+      showToast(`Completamento punto ${currentPointLabel} interrotto cap.${idx+1}: bozza mantenuta.`,true);
     }else{
       setChapterOperationStatus(`Errore nel Capitolo ${idx+1}: ${e.message}`,true,false);
       showToast('Errore cap.'+(idx+1)+': '+e.message,true);
@@ -4610,7 +4661,7 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
     });
     saveProgress();
     triggerAutoSnapshot('revise');
-    showToast(stabilized.validation.ok?'Capitolo revisionato ✓':'Capitolo aggiornato ma ancora incompleto: usa “Genera sottocapitolo successivo”.',!stabilized.validation.ok);
+    showToast(stabilized.validation.ok?'Capitolo revisionato ✓':`Capitolo aggiornato ma ancora incompleto: usa “Completa punto ${getChapterPointProgress(idx).currentPoint||`${idx+1}.1`}”.`,!stabilized.validation.ok);
   }catch(e){
     resetChapterUiAfterError(idx,`Errore revisione Capitolo ${idx+1}: ${e.message}`);
     showToast('Errore: '+e.message,true);
@@ -4702,7 +4753,7 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
     });
     saveProgress();
     triggerAutoSnapshot('tutor');
-    showToast(stabilized.validation.ok?'Osservazioni del relatore applicate ✓':'Capitolo aggiornato ma ancora incompleto: usa “Genera sottocapitolo successivo”.',!stabilized.validation.ok);
+    showToast(stabilized.validation.ok?'Osservazioni del relatore applicate ✓':`Capitolo aggiornato ma ancora incompleto: usa “Completa punto ${getChapterPointProgress(idx).currentPoint||`${idx+1}.1`}”.`,!stabilized.validation.ok);
   }catch(e){
     resetChapterUiAfterError(idx,`Errore osservazioni relatore Capitolo ${idx+1}: ${e.message}`);
     showToast('Errore: '+e.message,true);
