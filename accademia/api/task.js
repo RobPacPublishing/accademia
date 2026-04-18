@@ -776,6 +776,13 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   let currentSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
+  if (isResume && subsectionState.text) {
+    currentSectionText = mergeAppendOnlySubsectionText({
+      stableExistingText: subsectionState.text,
+      generatedSectionText: currentSectionText,
+      subsection: nextSubsection,
+    });
+  }
   if (!generated.complete && needsMoreSectionText(currentSectionText, targets.sectionWords)) {
     try {
       const continued = await continueOneSubsection({
@@ -786,7 +793,14 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
         existingText: currentSectionText,
         targetWords: targets.sectionWords,
       });
-      currentSectionText = postProcessChapterSectionText(continued.text, nextSubsection);
+      const continuedSectionText = postProcessChapterSectionText(continued.text, nextSubsection);
+      currentSectionText = (isResume && subsectionState.text)
+        ? mergeAppendOnlySubsectionText({
+          stableExistingText: subsectionState.text,
+          generatedSectionText: continuedSectionText,
+          subsection: nextSubsection,
+        })
+        : continuedSectionText;
       generated = continued;
     } catch (err) {
       if (isProviderTimeout(err)) {
@@ -828,7 +842,8 @@ function buildChapterSubsectionStateMachine({ input, context, chapterText, targe
   const persisted = parsePersistedSubsectionState(input, context);
   return context.subsections.map((subsection) => {
     const extracted = extractSubsectionText(chapterText, context, subsection);
-    const fromTextDone = isSectionCompleteText(extracted, targetWords);
+    const fromTextDone = isSectionCompleteText(extracted, targetWords)
+      || isLikelySubsectionComplete(extracted, targetWords);
     const persistedStatus = persisted.get(subsection.code) || 'pending';
 
     let status = 'pending';
@@ -909,6 +924,16 @@ function evaluateSubsectionStatus(chapterText, context, subsection, targetWords)
 function isSectionCompleteText(sectionText, targetWords) {
   if (!String(sectionText || '').trim()) return false;
   return !needsMoreSectionText(sectionText, targetWords);
+}
+
+function isLikelySubsectionComplete(sectionText, targetWords) {
+  const text = String(sectionText || '').trim();
+  if (!text) return false;
+  const headingStripped = text.replace(/^\d+\.\d+\s+[^\n]+\n*/i, '').trim();
+  const bodyWords = wordCount(headingStripped);
+  const minimumWords = Math.max(230, Math.round(targetWords * 0.52));
+  const hasMultipleParagraphs = headingStripped.split(/\n\s*\n/).filter(Boolean).length >= 2;
+  return bodyWords >= minimumWords && hasMultipleParagraphs && !endsSuspiciously(headingStripped);
 }
 
 function extractSubsectionText(chapterText, context, subsection) {
@@ -1290,6 +1315,88 @@ function cleanContinuationText(text, subsection) {
     .replace(/^#+\s*/gm, '')
     .replace(/\*\*/g, '')
     .trim();
+}
+
+function mergeAppendOnlySubsectionText({ stableExistingText, generatedSectionText, subsection }) {
+  const stable = postProcessChapterSectionText(stableExistingText, subsection);
+  const candidate = postProcessChapterSectionText(generatedSectionText, subsection);
+  const stableBody = removeSubsectionHeading(stable, subsection);
+  const candidateBody = removeSubsectionHeading(candidate, subsection);
+
+  if (!candidateBody) return stable;
+  if (!stableBody) return candidate;
+  if (normalizeForComparison(candidateBody).startsWith(normalizeForComparison(stableBody))) {
+    const maybeNovelTail = candidateBody.slice(stableBody.length).trim();
+    if (!maybeNovelTail) return stable;
+    const mergedTail = sanitizeAppendOnlyTail(maybeNovelTail, subsection, stableBody);
+    return mergedTail ? `${stable}\n\n${mergedTail}`.trim() : stable;
+  }
+
+  const overlapChars = longestSuffixPrefixOverlap(stableBody, candidateBody);
+  const rawTail = overlapChars > 0 ? candidateBody.slice(overlapChars).trim() : '';
+  const mergedTail = sanitizeAppendOnlyTail(rawTail, subsection, stableBody);
+  if (mergedTail) return `${stable}\n\n${mergedTail}`.trim();
+
+  const rewrittenStart = looksLikeSectionRewrite(stableBody, candidateBody);
+  if (rewrittenStart) return stable;
+  return stable;
+}
+
+function removeSubsectionHeading(text, subsection) {
+  return String(text || '')
+    .replace(new RegExp(`^${escapeRegex(subsection.code)}\\s+${escapeRegex(subsection.title)}\\s*\\n*`, 'i'), '')
+    .trim();
+}
+
+function normalizeForComparison(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function longestSuffixPrefixOverlap(baseText, candidateText) {
+  const base = normalizeForComparison(baseText);
+  const candidate = normalizeForComparison(candidateText);
+  if (!base || !candidate) return 0;
+
+  const maxProbe = Math.min(base.length, candidate.length, 420);
+  for (let len = maxProbe; len >= 36; len -= 1) {
+    const suffix = base.slice(-len);
+    if (candidate.startsWith(suffix)) {
+      const roughIdx = baseText.length - len;
+      return Math.max(0, roughIdx);
+    }
+  }
+  return 0;
+}
+
+function sanitizeAppendOnlyTail(tailText, subsection, stableBody) {
+  let tail = cleanContinuationText(tailText, subsection)
+    .replace(new RegExp(`^${escapeRegex(subsection.code)}\\s+${escapeRegex(subsection.title)}\\s*`, 'i'), '')
+    .trim();
+  if (!tail) return '';
+
+  const stableNorm = normalizeForComparison(stableBody);
+  const tailNorm = normalizeForComparison(tail);
+  if (!tailNorm) return '';
+  if (stableNorm.includes(tailNorm)) return '';
+
+  const firstParagraph = tail.split(/\n\s*\n/)[0] || '';
+  if (firstParagraph && stableNorm.includes(normalizeForComparison(firstParagraph))) {
+    const rest = tail.slice(firstParagraph.length).trim();
+    tail = rest;
+  }
+  return tail.trim();
+}
+
+function looksLikeSectionRewrite(stableBody, candidateBody) {
+  const stableNorm = normalizeForComparison(stableBody);
+  const candidateNorm = normalizeForComparison(candidateBody);
+  if (!stableNorm || !candidateNorm) return false;
+  const stableStart = stableNorm.slice(0, Math.min(220, stableNorm.length));
+  const candidateStart = candidateNorm.slice(0, Math.min(220, candidateNorm.length));
+  return stableStart && candidateStart && stableStart === candidateStart;
 }
 
 function escapeRegex(value) {
