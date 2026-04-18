@@ -2800,6 +2800,65 @@ function parseExpectedChapterSubsections(idx){
   return subsections;
 }
 
+function normalizeChapterSectionsMap(rawSections,idx){
+  const expected=parseExpectedChapterSubsections(idx);
+  const src=(rawSections && typeof rawSections==='object')?rawSections:{};
+  const out={};
+  expected.forEach(sub=>{
+    const entry=(src[sub.code] && typeof src[sub.code]==='object')?src[sub.code]:{};
+    const text=String(entry.text||'');
+    const status=['pending','generating','done','error'].includes(String(entry.status||''))?String(entry.status):'pending';
+    out[sub.code]={
+      title:String(entry.title||sub.title),
+      text,
+      status:entry.locked?'done':status,
+      locked:entry.locked===true
+    };
+  });
+  return out;
+}
+
+function validateChapterSectionLocal(sectionText){
+  const text=String(sectionText||'').trim();
+  if(!text) return false;
+  const words=chapterPointWords(text);
+  if(words<600) return false;
+  if(chapterEndsSuspiciouslyLocal(text)) return false;
+  return true;
+}
+
+function migrateChapterSectionsFromContent(idx,chapterText){
+  const expected=parseExpectedChapterSubsections(idx);
+  const out={};
+  expected.forEach(sub=>{
+    const extracted=extractChapterPointText(chapterText,idx,sub.code);
+    const valid=validateChapterSectionLocal(extracted);
+    out[sub.code]={
+      title:sub.title,
+      text:String(extracted||''),
+      status:valid?'done':(String(extracted||'').trim()?'generating':'pending'),
+      locked:valid
+    };
+  });
+  return out;
+}
+
+function composeChapterContentFromSectionsLocal(idx){
+  const ch=thesis.chapters?.[idx];
+  if(!ch||typeof ch!=='object') return '';
+  const title=thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`;
+  const head=`Capitolo ${idx+1} — ${title}`;
+  const parts=[head];
+  const opening=String(ch.opening||'').trim();
+  if(opening) parts.push(opening);
+  const expected=parseExpectedChapterSubsections(idx);
+  expected.forEach(sub=>{
+    const raw=String(ch.sections?.[sub.code]?.text||'').trim();
+    if(raw) parts.push(raw);
+  });
+  return parts.filter(Boolean).join('\n\n').trim();
+}
+
 function escapeRegexLocal(value){
   return String(value||'').replace(/[.*+?^${}()|[\]\\]/g,'\$&');
 }
@@ -2873,6 +2932,30 @@ function formatChapterValidationIssues(validation){
 function getChapterPointProgress(idx){
   const subsections=parseExpectedChapterSubsections(idx);
   const ch=thesis.chapters?.[idx];
+  const sections=(ch&&typeof ch==='object'&&ch.sections&&typeof ch.sections==='object')
+    ? normalizeChapterSectionsMap(ch.sections,idx)
+    : null;
+  if(sections && subsections.length){
+    for(let i=0;i<subsections.length;i+=1){
+      const sub=subsections[i];
+      const entry=sections[sub.code]||{};
+      const done=entry.locked===true || entry.status==='done';
+      if(done) continue;
+      const hasText=!!String(entry.text||'').trim();
+      return {
+        currentPoint:sub.code,
+        nextPoint:sub.code,
+        status:hasText?'incomplete':'missing',
+        hasOpening:!!String(ch?.opening||'').trim()
+      };
+    }
+    return {
+      currentPoint:subsections[subsections.length-1]?.code||'',
+      nextPoint:'',
+      status:'done',
+      hasOpening:!!String(ch?.opening||'').trim()
+    };
+  }
   const clean=String(ch?.content||'').replace(/\r\n/g,'\n').trim();
   if(!subsections.length){
     return {currentPoint:'',nextPoint:'',status:'unknown',hasOpening:!!clean};
@@ -2899,7 +2982,19 @@ function getChapterGenerationState(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch || typeof ch!=='object') return 'missing';
   if((thesis.approvedChapters||[])[idx]) return 'approved';
+  if(!chapterAllSectionsDone(idx)) return String(ch.generationState||'partial')==='error'?'error':'partial';
   return String(ch.generationState||'complete');
+}
+
+function chapterAllSectionsDone(idx){
+  const ch=thesis.chapters?.[idx];
+  const subs=parseExpectedChapterSubsections(idx);
+  if(!subs.length) return !!String(ch?.content||'').trim();
+  const sections=normalizeChapterSectionsMap(ch?.sections,idx);
+  return subs.every(sub=>{
+    const entry=sections[sub.code]||{};
+    return entry.locked===true || entry.status==='done';
+  });
 }
 
 function isChapterReadyForRevision(idx){
@@ -3977,11 +4072,13 @@ function requestApproveAbstract(){
 }
 
 function requestApproveChapter(idx){
+  if(!chapterAllSectionsDone(idx)){showToast(`Completa tutti i punti del Capitolo ${idx+1} prima dell’approvazione.`,true);return;}
   openApprovalConfirm(`Stai per approvare il Capitolo ${idx+1}. Verifica completezza, pulizia del testo, eventuali note e coerenza con il resto della tesi prima di confermare.`, ()=>approveChapter(idx));
 }
 
 function requestApproveLastChapter(){
   const idx=Number(thesis.currentChapterIdx||0);
+  if(!chapterAllSectionsDone(idx)){showToast('Completa tutti i punti dell’ultimo capitolo prima dell’approvazione finale.',true);return;}
   openApprovalConfirm('Stai per approvare l’ultimo capitolo e chiudere la fase di generazione capitoli. Conferma solo se il testo è davvero pronto.', ()=>approveLastChapter());
 }
 
@@ -4257,10 +4354,16 @@ function ensureChapterRecord(idx,title){
   const current=thesis.chapters?.[idx];
   const baseRecord=current&&typeof current==='object'?current:{};
   const versions=Array.isArray(baseRecord.versions)?baseRecord.versions:[];
+  const existingContent=String(baseRecord.content||'');
+  const sectionsFromState=normalizeChapterSectionsMap(baseRecord.sections,idx);
+  const needsSoftMigration=!Object.keys(sectionsFromState).some(k=>String(sectionsFromState[k]?.text||'').trim()) && !!existingContent.trim();
+  const migrated=needsSoftMigration?migrateChapterSectionsFromContent(idx,existingContent):sectionsFromState;
   thesis.chapters[idx]={
     ...baseRecord,
     title:title||baseRecord.title||thesis.chapterTitles?.[idx]||`Capitolo ${idx+1}`,
-    content:String(baseRecord.content||''),
+    content:existingContent,
+    sections:migrated,
+    opening:String(baseRecord.opening||''),
     versions,
     currentVersion:Number.isFinite(baseRecord.currentVersion)?baseRecord.currentVersion:Math.max(0,versions.length-1),
     generationState:String(baseRecord.generationState||'complete'),
@@ -4286,6 +4389,7 @@ function writeChapterVersion(idx,text,label){
     ch.versions[ch.currentVersion].timestamp=now();
   }
   ch.content=cleanText;
+  ch.sections=migrateChapterSectionsFromContent(idx,cleanText);
   return ch;
 }
 
@@ -4420,10 +4524,16 @@ async function runChapterGeneration(idx,opts={}){
       currentChapterIndex:idx,
       currentChapterTitle:title,
       existingChapterContent:existingContentSnapshot,
-      generationMode:hasExistingContent?'resume':'fresh'
+      generationMode:hasExistingContent?'resume':'fresh',
+      chapterSections: existingRecord.sections || {},
+      chapterOpening: String(existingRecord.opening||'')
     });
     if(generationSettled) return;
-    const rawText=sanitizeAcademicDraftText(String(result.text||'').trim());
+    if(result.sections && typeof result.sections==='object'){
+      existingRecord.sections=normalizeChapterSectionsMap(result.sections,idx);
+    }
+    const composedFromSections=composeChapterContentFromSectionsLocal(idx);
+    const rawText=sanitizeAcademicDraftText(String((result.text||composedFromSections)||'').trim());
     if(!rawText) throw new Error('Nessun contenuto restituito dal backend');
 
     const backendPartial=!!result.partial;
@@ -4435,7 +4545,7 @@ async function runChapterGeneration(idx,opts={}){
     validation=stabilized.validation;
     if(!finalText) throw new Error('Il backend non ha restituito un capitolo utilizzabile');
 
-    const generatedPointText=extractChapterPointText(finalText, idx, requestedPoint);
+    const generatedPointText=String(existingRecord.sections?.[requestedPoint]?.text||extractChapterPointText(finalText, idx, requestedPoint));
     const generatedPointWords=chapterPointWords(generatedPointText);
     const pointLooksComplete=!!generatedPointText && generatedPointWords>=600 && !chapterEndsSuspiciouslyLocal(generatedPointText);
     if(!pointLooksComplete){
@@ -4445,6 +4555,10 @@ async function runChapterGeneration(idx,opts={}){
     const versionLabel=existingRecord.versions?.length ? 'Nuovo punto generato' : 'Originale';
     writeChapterVersion(idx,finalText,versionLabel);
     const ch=ensureChapterRecord(idx,title);
+    if(result.sections && typeof result.sections==='object'){
+      ch.sections=normalizeChapterSectionsMap(result.sections,idx);
+      ch.content=composeChapterContentFromSectionsLocal(idx) || ch.content;
+    }
     ch.partialValidation=validation;
     ch.lastGenerationError='';
     ch.generationState=backendPartial?'partial':'complete';
@@ -5484,7 +5598,14 @@ async function callClaude(userPrompt, taskName='outline_draft'){
 // ══════════════════════════════════════════════
 async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra={}){
   const d=await postTask(taskName,userPrompt,extra);
-  return {text:d.text||'',sources:[],partial:!!d.partial,partialReason:String(d.partialReason||'')};
+  return {
+    text:d.text||'',
+    sources:[],
+    partial:!!d.partial,
+    partialReason:String(d.partialReason||''),
+    sections:(d.sections && typeof d.sections==='object')?d.sections:null,
+    generatedSectionCode:String(d.generatedSectionCode||'')
+  };
 }
 
 // ══════════════════════════════════════════════

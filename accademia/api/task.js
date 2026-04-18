@@ -218,13 +218,19 @@ export default async function handler(req, res) {
           if (chapterLock?.ok) await releaseChapterLock(chapterLock.key);
         }
         const partial = !!(text && typeof text === 'object' && text.partial);
-        const payloadText = partial ? String(text?.text || '') : text;
+        const payloadText = text && typeof text === 'object' ? String(text?.text || '') : String(text || '');
+        const payloadSections = text && typeof text === 'object' && text.sections && typeof text.sections === 'object'
+          ? text.sections
+          : null;
         await recordStat(partial ? 'provider_partial' : 'provider_success', { task: canonicalTask, requestedTask: task });
         return sendJson(res, 200, {
           text: payloadText,
           task: canonicalTask,
           partial,
           partialReason: partial ? String(text?.reason || 'timeout') : '',
+          sections: payloadSections,
+          generatedSectionCode: text && typeof text === 'object' ? String(text?.generatedSectionCode || '') : '',
+          done: !!(text && typeof text === 'object' && text.done),
         });
       }
 
@@ -702,7 +708,6 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   const context = parseChapterContext(input);
   const system = buildSystemPrompt('chapter_draft', input);
   const targets = deriveChapterTargets(input, context);
-
   const existingChapterContent = postProcessChapterText(String(input?.existingChapterContent || ''), context);
 
   if (!context.subsections.length) {
@@ -719,27 +724,32 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     return chapterText;
   }
 
-  let chapterText = existingChapterContent || context.chapterHeading;
-  const workTarget = findCurrentSubsectionWorkTarget(chapterText, context, targets.sectionWords);
-  if (workTarget.index < 0) {
-    chapterText = await harmonizeChapterLight(input, context, chapterText, system);
-    chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
-    return chapterText;
-  }
-
-  const nextIdx = workTarget.index;
-  const nextSubsection = context.subsections[nextIdx];
-  const previousSectionText = nextIdx > 0
-    ? extractSubsectionText(chapterText, context, context.subsections[nextIdx - 1])
-    : '';
-
-  if (workTarget.mode === 'continue') {
+  const chapterState = initializeChapterSectionsState({ input, context, existingChapterContent, targetWords: targets.sectionWords });
+  const blocked = findFirstBlockedSection(chapterState.sections, context.subsections);
+  if (blocked) {
     return {
       partial: true,
-      text: chapterText,
-      reason: 'chapter_existing_point_incomplete',
+      text: composeChapterContentFromSections(context, chapterState.sections, chapterState.opening),
+      sections: chapterState.sections,
+      reason: `chapter_previous_point_not_done:${blocked.code}`,
     };
   }
+
+  const nextSubsection = findNextSectionToGenerate(chapterState.sections, context.subsections);
+  if (!nextSubsection) {
+    let doneText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
+    doneText = await harmonizeChapterLight(input, context, doneText, system);
+    doneText = await appendChapterNotesIfNeeded(input, context, doneText, system);
+    return {
+      text: doneText,
+      sections: chapterState.sections,
+      done: true,
+    };
+  }
+  const nextIdx = context.subsections.findIndex((sub) => sub.code === nextSubsection.code);
+  const previousSectionText = nextIdx > 0
+    ? String(chapterState.sections?.[context.subsections[nextIdx - 1].code]?.text || '')
+    : '';
 
   let generated;
   try {
@@ -755,10 +765,11 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       fastPath: true,
     });
   } catch (err) {
-    if (isProviderTimeout(err) && String(chapterText || '').trim()) {
+    if (isProviderTimeout(err) && String(composeChapterContentFromSections(context, chapterState.sections, chapterState.opening) || '').trim()) {
       return {
         partial: true,
-        text: chapterText,
+        text: composeChapterContentFromSections(context, chapterState.sections, chapterState.opening),
+        sections: chapterState.sections,
         reason: 'chapter_timeout_partial',
       };
     }
@@ -784,27 +795,157 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     incompleteSection = !retried.complete || needsMoreSectionText(candidateSectionText, targets.sectionWords);
     const stillTooShort = candidateSectionWords < CHAPTER_POINT_MIN_WORDS;
     if (stillTooShort || incompleteSection) {
-      const err = new Error('Il punto 1.1 è ancora troppo breve o incompleto. Riprova.');
+      const err = new Error(`Il punto ${nextSubsection.code} è ancora troppo breve o incompleto. Riprova.`);
       err.statusCode = 400;
       throw err;
     }
   }
 
   if (incompleteSection) {
+    const current = chapterState.sections[nextSubsection.code] || {};
+    chapterState.sections[nextSubsection.code] = {
+      title: nextSubsection.title,
+      text: String(current.text || ''),
+      status: String(current.status || 'pending'),
+      locked: !!current.locked,
+    };
     return {
       partial: true,
-      text: chapterText,
+      text: composeChapterContentFromSections(context, chapterState.sections, chapterState.opening),
+      sections: chapterState.sections,
       reason: 'chapter_point_incomplete',
     };
   }
 
-  chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, candidateSectionText);
-  const hasPending = findCurrentSubsectionWorkTarget(chapterText, context, targets.sectionWords).index >= 0;
-  if (hasPending) return chapterText;
+  chapterState.sections[nextSubsection.code] = {
+    title: nextSubsection.title,
+    text: candidateSectionText,
+    status: 'done',
+    locked: true,
+  };
 
-  chapterText = await harmonizeChapterLight(input, context, chapterText, system);
-  chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
-  return chapterText;
+  const chapterText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
+  return {
+    text: chapterText,
+    sections: chapterState.sections,
+    generatedSectionCode: nextSubsection.code,
+    done: !findNextSectionToGenerate(chapterState.sections, context.subsections),
+  };
+}
+
+function initializeChapterSectionsState({ input, context, existingChapterContent, targetWords }) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const fromInput = normalizeSectionsMap(obj?.extra?.chapterSections || obj.chapterSections, context);
+  const chapterText = String(existingChapterContent || '');
+  const opening = String(obj?.extra?.chapterOpening || extractChapterOpeningFromText(chapterText, context)).trim();
+  const migrated = migrateSectionsFromChapterText(chapterText, context, targetWords);
+  const sections = {};
+  for (const subsection of context.subsections) {
+    const preferred = fromInput[subsection.code];
+    const fallback = migrated[subsection.code];
+    const picked = preferred || fallback || { title: subsection.title, text: '', status: 'pending', locked: false };
+    sections[subsection.code] = {
+      title: subsection.title,
+      text: String(picked.text || ''),
+      status: normalizeSectionStatus(picked.status, String(picked.text || '').trim() ? 'generating' : 'pending'),
+      locked: !!picked.locked,
+    };
+    if (sections[subsection.code].locked) sections[subsection.code].status = 'done';
+  }
+  return { sections, opening };
+}
+
+function normalizeSectionsMap(raw, context) {
+  const out = {};
+  const src = raw && typeof raw === 'object' ? raw : {};
+  for (const subsection of context.subsections) {
+    const entry = src[subsection.code];
+    if (!entry || typeof entry !== 'object') continue;
+    out[subsection.code] = {
+      title: String(entry.title || subsection.title),
+      text: String(entry.text || ''),
+      status: normalizeSectionStatus(entry.status, String(entry.text || '').trim() ? 'generating' : 'pending'),
+      locked: !!entry.locked,
+    };
+  }
+  return out;
+}
+
+function migrateSectionsFromChapterText(chapterText, context, targetWords) {
+  const migrated = {};
+  if (!String(chapterText || '').trim()) return migrated;
+  for (const subsection of context.subsections) {
+    const extracted = extractSubsectionText(chapterText, context, subsection);
+    const valid = validateChapterSection(extracted, targetWords);
+    migrated[subsection.code] = {
+      title: subsection.title,
+      text: extracted || '',
+      status: valid ? 'done' : (String(extracted || '').trim() ? 'generating' : 'pending'),
+      locked: valid,
+    };
+  }
+  return migrated;
+}
+
+function normalizeSectionStatus(status, fallback = 'pending') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'pending' || value === 'generating' || value === 'done' || value === 'error') return value;
+  if (value === 'in_progress') return 'generating';
+  return fallback;
+}
+
+function findFirstBlockedSection(sections, orderedSubsections) {
+  for (const subsection of orderedSubsections) {
+    const entry = sections[subsection.code] || {};
+    if (entry.locked || entry.status === 'done') continue;
+    if (String(entry.text || '').trim()) return { code: subsection.code };
+    return null;
+  }
+  return null;
+}
+
+function findNextSectionToGenerate(sections, orderedSubsections) {
+  for (const subsection of orderedSubsections) {
+    const entry = sections[subsection.code] || {};
+    if (entry.locked || entry.status === 'done') continue;
+    return subsection;
+  }
+  return null;
+}
+
+function extractChapterOpeningFromText(chapterText, context) {
+  const source = String(chapterText || '').trim();
+  if (!source) return '';
+  const withoutHeading = source
+    .replace(new RegExp(`^${escapeRegex(context.chapterHeading)}\\s*`, 'i'), '')
+    .trim();
+  if (!withoutHeading) return '';
+  if (!context.subsections.length) return withoutHeading;
+  const first = context.subsections[0];
+  const heading = `${first.code} ${first.title}`;
+  const idx = withoutHeading.indexOf(heading);
+  if (idx <= 0) return idx < 0 ? withoutHeading : '';
+  return withoutHeading.slice(0, idx).trim();
+}
+
+function composeChapterContentFromSections(context, sections, opening = '') {
+  const parts = [cleanChapterHeading(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`, context.currentChapterNumber)];
+  if (String(opening || '').trim()) parts.push(String(opening).trim());
+  for (const subsection of context.subsections) {
+    const entry = sections?.[subsection.code];
+    const text = String(entry?.text || '').trim();
+    if (!text) continue;
+    parts.push(postProcessChapterSectionText(text, subsection));
+  }
+  return postProcessChapterText(parts.filter(Boolean).join('\n\n').trim(), context);
+}
+
+function validateChapterSection(sectionText, targetWords) {
+  const text = String(sectionText || '').trim();
+  if (!text) return false;
+  if (countSubsectionBodyWords(text) < CHAPTER_POINT_MIN_WORDS) return false;
+  if (needsMoreSectionText(text, targetWords)) return false;
+  return true;
 }
 
 function findNextMissingSubsectionIndex(chapterText, context) {
