@@ -21,6 +21,7 @@ const CHAPTER_DRAFT_LOCK_TTL_SECONDS = 5 * 60;
 const CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS = 16_000;
 const CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS = 11_000;
 const CHAPTER_POINT_MIN_WORDS = 600;
+const CHAPTER_POINT_TARGET_MIN_WORDS = 700;
 const CHAPTER_POINT_MAX_WORDS = 900;
 
 export default async function handler(req, res) {
@@ -764,19 +765,40 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     throw err;
   }
 
-  const currentSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
-  const sectionBodyWords = countSubsectionBodyWords(currentSectionText);
-  const incompleteSection = !generated.complete || needsMoreSectionText(currentSectionText, targets.sectionWords);
-  const tooShort = sectionBodyWords < CHAPTER_POINT_MIN_WORDS;
-  if (incompleteSection || tooShort) {
+  let candidateSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
+  let candidateSectionWords = countSubsectionBodyWords(candidateSectionText);
+  let incompleteSection = !generated.complete || needsMoreSectionText(candidateSectionText, targets.sectionWords);
+  const tooShort = candidateSectionWords < CHAPTER_POINT_MIN_WORDS;
+
+  if (tooShort) {
+    const retried = await retryTooShortSubsection({
+      input,
+      context,
+      subsection: nextSubsection,
+      system,
+      existingText: candidateSectionText,
+      targetWords: targets.sectionWords,
+    });
+    candidateSectionText = postProcessChapterSectionText(retried.text, nextSubsection);
+    candidateSectionWords = countSubsectionBodyWords(candidateSectionText);
+    incompleteSection = !retried.complete || needsMoreSectionText(candidateSectionText, targets.sectionWords);
+    const stillTooShort = candidateSectionWords < CHAPTER_POINT_MIN_WORDS;
+    if (stillTooShort || incompleteSection) {
+      const err = new Error('Il punto 1.1 è ancora troppo breve o incompleto. Riprova.');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  if (incompleteSection) {
     return {
       partial: true,
       text: chapterText,
-      reason: tooShort ? 'chapter_point_too_short' : 'chapter_point_incomplete',
+      reason: 'chapter_point_incomplete',
     };
   }
 
-  chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
+  chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, candidateSectionText);
   const hasPending = findCurrentSubsectionWorkTarget(chapterText, context, targets.sectionWords).index >= 0;
   if (hasPending) return chapterText;
 
@@ -944,9 +966,21 @@ function deriveChapterTargets(input, context) {
     ? explicit
     : Math.max(3000, context.subsections.length * (degree.includes('magistr') ? 920 : 760));
   chapterWords = Math.min(chapterWords, 6200);
-  const sectionWords = Math.max(CHAPTER_POINT_MIN_WORDS, Math.min(CHAPTER_POINT_MAX_WORDS, Math.ceil(chapterWords / Math.max(context.subsections.length, 1))));
+  const sectionWords = Math.max(CHAPTER_POINT_TARGET_MIN_WORDS, Math.min(CHAPTER_POINT_MAX_WORDS, Math.ceil(chapterWords / Math.max(context.subsections.length, 1))));
   const firstPassSectionWords = Math.max(360, Math.min(520, Math.round(sectionWords * 0.62)));
   return { chapterWords, sectionWords, firstPassSectionWords };
+}
+
+async function retryTooShortSubsection({ input, context, subsection, system, existingText, targetWords }) {
+  return await continueOneSubsection({
+    input,
+    context,
+    subsection,
+    system,
+    existingText,
+    targetWords,
+    fastPath: false,
+  });
 }
 
 function decideFreshGenerationStrategy({ subsectionCount, chapterTargetWords, initialBudgetMs }) {
