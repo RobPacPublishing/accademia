@@ -986,7 +986,7 @@ function deriveChapterTargets(input, context) {
     ? explicit
     : Math.max(3000, context.subsections.length * (degree.includes('magistr') ? 1000 : 820));
   chapterWords = Math.min(chapterWords, 6200);
-  const sectionWords = Math.max(560, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
+  const sectionWords = Math.max(420, Math.ceil(chapterWords / Math.max(context.subsections.length, 1)));
   const firstPassSectionWords = Math.max(360, Math.min(520, Math.round(sectionWords * 0.62)));
   return { chapterWords, sectionWords, firstPassSectionWords };
 }
@@ -1226,6 +1226,7 @@ async function generateOneSubsection({ input, context, subsection, index, total,
 
 async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords, fastPath = false }) {
   const obj = input && typeof input === 'object' ? input : {};
+  const stableSection = postProcessChapterSectionText(existingText, subsection);
   const prompt = [
     'TASK: chapter_draft_section_continue',
     `CONTINUA SOLO LA SOTTOSEZIONE: ${subsection.code} ${subsection.title}`,
@@ -1254,9 +1255,17 @@ async function continueOneSubsection({ input, context, subsection, system, exist
   });
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
+  const generatedCandidate = `${stripCompletionMarker(stableSection).trim()}\n\n${cleanedAddition}`.trim();
+  const mergedAppendOnly = mergeAppendOnlySubsectionText({
+    stableExistingText: stableSection,
+    generatedSectionText: generatedCandidate,
+    subsection,
+  });
+  const mergedIsComplete = !needsMoreSectionText(mergedAppendOnly, targetWords)
+    || isLikelySubsectionComplete(mergedAppendOnly, targetWords);
   return {
-    text: `${stripCompletionMarker(existingText).trim()}\n\n${cleanedAddition}`.trim(),
-    complete: hasCompletionMarker(addition),
+    text: mergedAppendOnly,
+    complete: hasCompletionMarker(addition) || mergedIsComplete,
   };
 }
 
