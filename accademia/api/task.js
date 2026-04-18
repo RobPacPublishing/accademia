@@ -719,59 +719,33 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   let chapterText = existingChapterContent || context.chapterHeading;
-  const nextIdx = findNextMissingSubsectionIndex(chapterText, context);
-  if (nextIdx < 0) {
+  const workTarget = findCurrentSubsectionWorkTarget(chapterText, context, targets.sectionWords);
+  if (workTarget.index < 0) {
     chapterText = await harmonizeChapterLight(input, context, chapterText, system);
     chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
     return chapterText;
   }
 
+  const nextIdx = workTarget.index;
   const nextSubsection = context.subsections[nextIdx];
   const previousSectionText = nextIdx > 0
     ? extractSubsectionText(chapterText, context, context.subsections[nextIdx - 1])
     : '';
 
   let generated;
-  try {
-    generated = await generateOneSubsection({
-      input,
-      context,
-      subsection: nextSubsection,
-      index: nextIdx,
-      total: context.subsections.length,
-      system,
-      targetWords: targets.sectionWords,
-      previousSectionText,
-      fastPath: true,
-    });
-  } catch (err) {
-    if (isProviderTimeout(err) && String(chapterText || '').trim()) {
-      return {
-        partial: true,
-        text: chapterText,
-        reason: 'chapter_timeout_partial',
-      };
-    }
-    throw err;
-  }
-
-  let currentSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
-  if (!generated.complete && needsMoreSectionText(currentSectionText, targets.sectionWords)) {
+  if (workTarget.mode === 'continue') {
     try {
-      const continued = await continueOneSubsection({
+      generated = await continueOneSubsection({
         input,
         context,
         subsection: nextSubsection,
         system,
-        existingText: currentSectionText,
+        existingText: workTarget.text,
         targetWords: targets.sectionWords,
+        fastPath: true,
       });
-      const continuedSectionText = postProcessChapterSectionText(continued.text, nextSubsection);
-      currentSectionText = continuedSectionText;
-      generated = continued;
     } catch (err) {
-      if (isProviderTimeout(err)) {
-        chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
+      if (isProviderTimeout(err) && String(chapterText || '').trim()) {
         return {
           partial: true,
           text: chapterText,
@@ -780,10 +754,65 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       }
       throw err;
     }
-  }
+    chapterText = upsertSubsectionInChapterText(
+      chapterText,
+      context,
+      nextSubsection,
+      postProcessChapterSectionText(generated.text, nextSubsection),
+    );
+  } else {
+    try {
+      generated = await generateOneSubsection({
+        input,
+        context,
+        subsection: nextSubsection,
+        index: nextIdx,
+        total: context.subsections.length,
+        system,
+        targetWords: targets.sectionWords,
+        previousSectionText,
+        fastPath: true,
+      });
+    } catch (err) {
+      if (isProviderTimeout(err) && String(chapterText || '').trim()) {
+        return {
+          partial: true,
+          text: chapterText,
+          reason: 'chapter_timeout_partial',
+        };
+      }
+      throw err;
+    }
+    let currentSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
+    if (!generated.complete && needsMoreSectionText(currentSectionText, targets.sectionWords)) {
+      try {
+        const continued = await continueOneSubsection({
+          input,
+          context,
+          subsection: nextSubsection,
+          system,
+          existingText: currentSectionText,
+          targetWords: targets.sectionWords,
+        });
+        const continuedSectionText = postProcessChapterSectionText(continued.text, nextSubsection);
+        currentSectionText = continuedSectionText;
+        generated = continued;
+      } catch (err) {
+        if (isProviderTimeout(err)) {
+          chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
+          return {
+            partial: true,
+            text: chapterText,
+            reason: 'chapter_timeout_partial',
+          };
+        }
+        throw err;
+      }
+    }
 
-  chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
-  const hasPending = findNextMissingSubsectionIndex(chapterText, context) >= 0;
+    chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
+  }
+  const hasPending = findCurrentSubsectionWorkTarget(chapterText, context, targets.sectionWords).index >= 0;
 
   if (hasPending) {
     return {
@@ -804,6 +833,18 @@ function findNextMissingSubsectionIndex(chapterText, context) {
     if (!extractSubsectionText(chapterText, context, subsection)) return idx;
   }
   return -1;
+}
+
+function findCurrentSubsectionWorkTarget(chapterText, context, targetWords) {
+  for (let idx = 0; idx < context.subsections.length; idx += 1) {
+    const subsection = context.subsections[idx];
+    const extracted = extractSubsectionText(chapterText, context, subsection);
+    if (!extracted) return { index: idx, mode: 'draft', text: '' };
+    if (!isSectionCompleteText(extracted, targetWords) && !isLikelySubsectionComplete(extracted, targetWords)) {
+      return { index: idx, mode: 'continue', text: extracted };
+    }
+  }
+  return { index: -1, mode: 'done', text: '' };
 }
 
 function buildChapterSubsectionStateMachine({ input, context, chapterText, targetWords }) {
