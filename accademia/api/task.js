@@ -719,14 +719,7 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   let chapterText = existingChapterContent || context.chapterHeading;
-  const stateMachine = buildChapterSubsectionStateMachine({
-    input,
-    context,
-    chapterText,
-    targetWords: targets.sectionWords,
-  });
-
-  const nextIdx = stateMachine.findIndex((x) => x.status !== 'done');
+  const nextIdx = findNextMissingSubsectionIndex(chapterText, context);
   if (nextIdx < 0) {
     chapterText = await harmonizeChapterLight(input, context, chapterText, system);
     chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
@@ -734,36 +727,23 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   const nextSubsection = context.subsections[nextIdx];
-  const subsectionState = stateMachine[nextIdx];
   const previousSectionText = nextIdx > 0
     ? extractSubsectionText(chapterText, context, context.subsections[nextIdx - 1])
     : '';
 
   let generated;
   try {
-    if (subsectionState.status === 'in_progress' && subsectionState.text) {
-      generated = await continueOneSubsection({
-        input,
-        context,
-        subsection: nextSubsection,
-        system,
-        existingText: subsectionState.text,
-        targetWords: targets.sectionWords,
-        fastPath: true,
-      });
-    } else {
-      generated = await generateOneSubsection({
-        input,
-        context,
-        subsection: nextSubsection,
-        index: nextIdx,
-        total: context.subsections.length,
-        system,
-        targetWords: targets.sectionWords,
-        previousSectionText,
-        fastPath: true,
-      });
-    }
+    generated = await generateOneSubsection({
+      input,
+      context,
+      subsection: nextSubsection,
+      index: nextIdx,
+      total: context.subsections.length,
+      system,
+      targetWords: targets.sectionWords,
+      previousSectionText,
+      fastPath: true,
+    });
   } catch (err) {
     if (isProviderTimeout(err) && String(chapterText || '').trim()) {
       return {
@@ -776,13 +756,6 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   let currentSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
-  if (isResume && subsectionState.text) {
-    currentSectionText = mergeAppendOnlySubsectionText({
-      stableExistingText: subsectionState.text,
-      generatedSectionText: currentSectionText,
-      subsection: nextSubsection,
-    });
-  }
   if (!generated.complete && needsMoreSectionText(currentSectionText, targets.sectionWords)) {
     try {
       const continued = await continueOneSubsection({
@@ -794,17 +767,11 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
         targetWords: targets.sectionWords,
       });
       const continuedSectionText = postProcessChapterSectionText(continued.text, nextSubsection);
-      currentSectionText = (isResume && subsectionState.text)
-        ? mergeAppendOnlySubsectionText({
-          stableExistingText: subsectionState.text,
-          generatedSectionText: continuedSectionText,
-          subsection: nextSubsection,
-        })
-        : continuedSectionText;
+      currentSectionText = continuedSectionText;
       generated = continued;
     } catch (err) {
       if (isProviderTimeout(err)) {
-        chapterText = upsertSubsectionInChapterText(chapterText, context, nextSubsection, currentSectionText);
+        chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
         return {
           partial: true,
           text: chapterText,
@@ -815,15 +782,8 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     }
   }
 
-  chapterText = upsertSubsectionInChapterText(chapterText, context, nextSubsection, currentSectionText);
-
-  const updatedState = buildChapterSubsectionStateMachine({
-    input,
-    context,
-    chapterText,
-    targetWords: targets.sectionWords,
-  });
-  const hasPending = updatedState.some((x) => x.status !== 'done');
+  chapterText = appendSubsectionToChapterText(chapterText, context, nextSubsection, currentSectionText);
+  const hasPending = findNextMissingSubsectionIndex(chapterText, context) >= 0;
 
   if (hasPending) {
     return {
@@ -836,6 +796,14 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   chapterText = await harmonizeChapterLight(input, context, chapterText, system);
   chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
   return chapterText;
+}
+
+function findNextMissingSubsectionIndex(chapterText, context) {
+  for (let idx = 0; idx < context.subsections.length; idx += 1) {
+    const subsection = context.subsections[idx];
+    if (!extractSubsectionText(chapterText, context, subsection)) return idx;
+  }
+  return -1;
 }
 
 function buildChapterSubsectionStateMachine({ input, context, chapterText, targetWords }) {
@@ -960,6 +928,13 @@ function upsertSubsectionInChapterText(chapterText, context, subsection, section
     return postProcessChapterText(`${base}\n\n${sectionText}`.trim(), context);
   }
   return postProcessChapterText(base.replace(extracted, sectionText), context);
+}
+
+function appendSubsectionToChapterText(chapterText, context, subsection, sectionText) {
+  const base = postProcessChapterText(String(chapterText || ''), context);
+  const alreadyPresent = extractSubsectionText(base, context, subsection);
+  if (alreadyPresent) return base;
+  return postProcessChapterText(`${base}\n\n${sectionText}`.trim(), context);
 }
 
 function deriveChapterTargets(input, context) {
