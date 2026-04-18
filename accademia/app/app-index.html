@@ -2303,7 +2303,9 @@ function syncChapterActionButtons(idx){
   }
   if(revToggle){
     if(!ready){
-      revToggle.textContent=state==='error'?'↻ Riprova prima':'↻ Completa prima';
+      revToggle.textContent=state==='error'
+        ? '↻ Riprova punto corrente'
+        : getChapterResumeLabel(idx,'partial');
       revToggle.classList.remove('bypass');
       revToggle.onclick=()=>resumeChapterGeneration(idx,state==='error');
     }else{
@@ -2314,7 +2316,9 @@ function syncChapterActionButtons(idx){
   }
   if(tutorToggle){
     if(!ready){
-      tutorToggle.textContent='🧑‍🏫 Completa prima';
+      const progress=getChapterPointProgress(idx);
+      const point=progress.currentPoint||`${idx+1}.1`;
+      tutorToggle.textContent=`🧑‍🏫 Completa punto ${point}`;
       tutorToggle.classList.remove('bypass');
       tutorToggle.onclick=()=>resumeChapterGeneration(idx,state==='error');
     }else{
@@ -3099,7 +3103,7 @@ function renderSavedChapterBlock(idx,total){
     state==='error'
       ? 'Generazione interrotta prima del completamento. Usa “Riprova generazione”.'
       : state==='partial'
-        ? 'Capitolo in avanzamento. Completa prima il punto corrente prima di passare al successivo.'
+        ? `Punto ${(getChapterPointProgress(idx).currentPoint||`${idx+1}.1`)} generato parzialmente: completa il punto prima di passare al successivo.`
         : ''
   ));
   const existing=document.getElementById(`chap-${idx}`);
