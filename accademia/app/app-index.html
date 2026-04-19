@@ -2864,6 +2864,16 @@ function composeChapterContentFromSectionsLocal(idx){
   return parts.filter(Boolean).join('\n\n').trim();
 }
 
+function getCanonicalChapterContentLocal(idx,{persist=false}={}){
+  const ch=thesis.chapters?.[idx];
+  if(!ch||typeof ch!=='object') return '';
+  const hasSections=!!(ch.sections && typeof ch.sections==='object' && Object.keys(ch.sections).length);
+  const fromSections=hasSections ? composeChapterContentFromSectionsLocal(idx) : '';
+  const canonical=String(fromSections||ch.content||'').trim();
+  if(persist) ch.content=canonical;
+  return canonical;
+}
+
 function escapeRegexLocal(value){
   return String(value||'').replace(/[.*+?^${}()|[\]\\]/g,'\$&');
 }
@@ -4551,7 +4561,7 @@ async function runChapterGeneration(idx,opts={}){
     if(result.sections && typeof result.sections==='object'){
       existingRecord.sections=normalizeChapterSectionsMap(result.sections,idx);
     }
-    const composedFromSections=composeChapterContentFromSectionsLocal(idx);
+    const composedFromSections=getCanonicalChapterContentLocal(idx);
     const rawText=sanitizeAcademicDraftText(String((result.text||composedFromSections)||'').trim());
     if(!rawText) throw new Error('Nessun contenuto restituito dal backend');
 
@@ -4572,17 +4582,20 @@ async function runChapterGeneration(idx,opts={}){
     }
 
     const versionLabel=existingRecord.versions?.length ? 'Nuovo punto generato' : 'Originale';
-    writeChapterVersion(idx,finalText,versionLabel);
+    let canonicalContent=sanitizeAcademicDraftText(String(getCanonicalChapterContentLocal(idx)||'').trim());
+    const displayText=sanitizeAcademicDraftText(String((canonicalContent||finalText)||'').trim());
+    writeChapterVersion(idx,displayText,versionLabel);
     const ch=ensureChapterRecord(idx,title);
     if(result.sections && typeof result.sections==='object'){
       ch.sections=normalizeChapterSectionsMap(result.sections,idx);
-      ch.content=composeChapterContentFromSectionsLocal(idx) || ch.content;
+      canonicalContent=sanitizeAcademicDraftText(String(getCanonicalChapterContentLocal(idx)||'').trim());
     }
+    ch.content=canonicalContent || finalText;
     ch.partialValidation=validation;
     ch.lastGenerationError='';
     ch.generationState=backendPartial?'partial':'complete';
 
-    streamText(`chapText-${idx}`,finalText,()=>{
+    streamText(`chapText-${idx}`,ch.content,()=>{
       document.getElementById(`chapOutput-${idx}`)?.classList.remove('typing');
       document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${(ch.currentVersion||0)+1}`;
       updateChapterSavedBlockStatus(idx);
@@ -5079,7 +5092,7 @@ function copyAbstract(){
 function copyChapter(idx){
   const ch=(thesis.chapters||[])[idx];
   const title=(thesis.chapterTitles||[])[idx]||ch?.title||`Capitolo ${idx+1}`;
-  const content=ch?.content||'';
+  const content=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
   copyTextValue(`Capitolo ${idx+1}`, `${title}\n\n${content}`.trim());
 }
 
@@ -5117,7 +5130,8 @@ function buildFullPlainText(){
   const tl=tipoLaureaLabel(thesis.tipo);
   let out=`${thesis.argomento||'Tesi'}\n${thesis.facolta||''} — ${thesis.corso||''}\n${tl}\n\nINDICE\n\n${thesis.indice||''}\n\nABSTRACT\n\n${thesis.abstract||''}\n`;
   (thesis.chapters||[]).forEach((ch,i)=>{
-    out += `\n\nCAPITOLO ${i+1}: ${(thesis.chapterTitles?.[i]||ch.title||'').trim()}\n\n${ch.content||''}\n`;
+    const chapterContent=getCanonicalChapterContentLocal(i,{persist:true}) || '';
+    out += `\n\nCAPITOLO ${i+1}: ${(thesis.chapterTitles?.[i]||ch.title||'').trim()}\n\n${chapterContent}\n`;
   });
   return out.trim()+"\n";
 }
@@ -5146,14 +5160,16 @@ function downloadChapterDoc(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch){showToast('Capitolo non disponibile',true);return;}
   const title=`Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
-  downloadBlob(safeDocName(`Capitolo_${idx+1}`), buildSingleDoc(title, `<div>${formatChapterHtml(ch.content||'')}</div>`));
+  const chapterContent=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
+  downloadBlob(safeDocName(`Capitolo_${idx+1}`), buildSingleDoc(title, `<div>${formatChapterHtml(chapterContent)}</div>`));
 }
 
 function downloadChapterTxt(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch){showToast('Capitolo non disponibile',true);return;}
   const title=`Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
-  downloadTextFile(safeTxtName(`Capitolo_${idx+1}`), `${title}\n\n${ch.content||''}`);
+  const chapterContent=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
+  downloadTextFile(safeTxtName(`Capitolo_${idx+1}`), `${title}\n\n${chapterContent}`);
 }
 
 function downloadDocx(){
@@ -5180,9 +5196,10 @@ function buildWordHTML(){
 <pre style="font-family:Arial;font-size:10.5pt;line-height:1.9;white-space:pre-wrap">${escHtml(thesis.indice||'')}</pre>
 <br><hr style="border:none;border-top:1px solid #ccc"><br>
 <h2 style="font-family:Georgia,serif;font-size:15pt">ABSTRACT</h2>
-<p style="font-family:Arial;font-size:11pt;line-height:1.9;text-align:justify">${escHtml(thesis.abstract||'').replace(/\n/g,'<br>')}</p><br>`;
+  <p style="font-family:Arial;font-size:11pt;line-height:1.9;text-align:justify">${escHtml(thesis.abstract||'').replace(/\n/g,'<br>')}</p><br>`;
   (thesis.chapters||[]).forEach((ch,i)=>{
-    b+=`<div style="page-break-before:always"><h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2><div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(ch.content||'')}</div></div><br>`;
+    const chapterContent=getCanonicalChapterContentLocal(i,{persist:true}) || '';
+    b+=`<div style="page-break-before:always"><h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2><div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(chapterContent)}</div></div><br>`;
   });
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}pre{white-space:pre-wrap;line-height:1.9;font-family:Arial;font-size:10.5pt}@page{margin:3cm 2.5cm}</style></head><body>${b}</body></html>`;
 }
