@@ -2807,7 +2807,7 @@ function normalizeChapterSectionsMap(rawSections,idx){
   expected.forEach(sub=>{
     const entry=(src[sub.code] && typeof src[sub.code]==='object')?src[sub.code]:{};
     const text=String(entry.text||'');
-    const status=['pending','generating','done','error'].includes(String(entry.status||''))?String(entry.status):'pending';
+    const status=['pending','generating','done','error','incomplete'].includes(String(entry.status||''))?String(entry.status):'pending';
     out[sub.code]={
       title:String(entry.title||sub.title),
       text,
@@ -2823,6 +2823,11 @@ function validateChapterSectionLocal(sectionText){
   if(!text) return false;
   const words=chapterPointWords(text);
   if(words<600) return false;
+  const body=text.replace(/^\d+\.\d+\s+[^\n]+\n*/i,'').trim();
+  const substantialParagraphs=body.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean).filter(p=>p.split(/\s+/).filter(Boolean).length>=45).length;
+  if(substantialParagraphs<4) return false;
+  if(!/[.!?…»”"\)]$/.test(text)) return false;
+  if(seemsIntroductoryPointDraftLocal(text)) return false;
   if(chapterEndsSuspiciouslyLocal(text)) return false;
   return true;
 }
@@ -2875,6 +2880,17 @@ function chapterEndsSuspiciouslyLocal(text){
   const s=String(text||'').trim();
   if(!s) return true;
   return /(?:\b(?:e|ed|o|oppure|ma|perché|poiché|mentre|quando|dove|come|con|senza|tra|fra|di|a|da|in|su|per)\s*$|[:;,\-–—]\s*$|\b(?:infatti|inoltre|tuttavia|pertanto|quindi)\s*$)$/i.test(s);
+}
+
+function seemsIntroductoryPointDraftLocal(text){
+  const body=String(text||'').replace(/^\d+\.\d+\s+[^\n]+\n*/i,'').trim().toLowerCase();
+  if(!body) return true;
+  const opening=body.slice(0,650);
+  const introHints=['in questo paragrafo','in questo punto','nei prossimi paragrafi','verrà analizzato','saranno analizzati','si analizzerà','si introdurrà','introduzione','panoramica generale'];
+  const hasIntroLanguage=introHints.some(h=>opening.includes(h));
+  const words=body.split(/\s+/).filter(Boolean).length;
+  const paraCount=body.split(/\n\s*\n/).filter(Boolean).length;
+  return hasIntroLanguage && words<760 && paraCount<5;
 }
 
 function chapterAiClosureDetected(text){
@@ -2939,7 +2955,7 @@ function getChapterPointProgress(idx){
     for(let i=0;i<subsections.length;i+=1){
       const sub=subsections[i];
       const entry=sections[sub.code]||{};
-      const done=entry.locked===true || entry.status==='done';
+      const done=entry.locked===true && entry.status==='done';
       if(done) continue;
       const hasText=!!String(entry.text||'').trim();
       return {
@@ -2993,7 +3009,7 @@ function chapterAllSectionsDone(idx){
   const sections=normalizeChapterSectionsMap(ch?.sections,idx);
   return subs.every(sub=>{
     const entry=sections[sub.code]||{};
-    return entry.locked===true || entry.status==='done';
+    return entry.locked===true && entry.status==='done';
   });
 }
 
@@ -3008,7 +3024,10 @@ function getChapterLauncherConfig(idx){
   const progress=getChapterPointProgress(idx);
   if(state==='partial'){
     const point=progress.currentPoint||`${idx+1}.1`;
-    return {visible:true, action:`resumeChapterGeneration(${idx})`, label:`✦ Genera punto ${point} · Capitolo ${idx+1} — ${escHtml(title)}`};
+    const actionLabel=(progress.status==='incomplete' || progress.status==='error')
+      ? `Rigenera punto ${point}`
+      : `Genera punto ${point}`;
+    return {visible:true, action:`resumeChapterGeneration(${idx})`, label:`✦ ${actionLabel} · Capitolo ${idx+1} — ${escHtml(title)}`};
   }
   if(state==='error'){
     return {visible:true, action:`resumeChapterGeneration(${idx}, true)`, label:`✦ Riprova Capitolo ${idx+1} — ${escHtml(title)}`};
@@ -4578,8 +4597,9 @@ async function runChapterGeneration(idx,opts={}){
       }else{
         const reason=(backendPartialReason==='chapter_timeout_partial'
             ? 'timeout backend durante bozza, testo parziale preservato'
-            : formatChapterValidationIssues(validation));
+            : (backendPartialReason || formatChapterValidationIssues(validation)));
         setChapterOperationStatus(`Capitolo ${idx+1} generato solo parzialmente: ${reason}.`,true,false);
+        if(/incompleto/i.test(reason)) showToast(reason,true);
       }
     });
 
