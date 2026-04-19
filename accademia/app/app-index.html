@@ -2303,12 +2303,11 @@ function syncChapterActionButtons(idx){
   }
   if(revToggle){
     if(!ready){
-      revToggle.textContent=state==='error'
-        ? '↻ Riprova punto corrente'
-        : getChapterResumeLabel(idx,'partial');
+      revToggle.style.display='none';
       revToggle.classList.remove('bypass');
-      revToggle.onclick=()=>resumeChapterGeneration(idx,state==='error');
+      revToggle.onclick=null;
     }else{
+      revToggle.style.display='inline-flex';
       revToggle.textContent=available?'✎ Revisione capitolo':'🔓 Sblocca revisioni';
       revToggle.classList.toggle('bypass',bypass);
       revToggle.onclick=available?()=>toggleRevision(`chap-${idx}`):()=>openUnlockModal(idx);
@@ -2316,12 +2315,11 @@ function syncChapterActionButtons(idx){
   }
   if(tutorToggle){
     if(!ready){
-      const progress=getChapterPointProgress(idx);
-      const point=progress.currentPoint||`${idx+1}.1`;
-      tutorToggle.textContent=`🧑‍🏫 Genera punto ${point}`;
+      tutorToggle.style.display='none';
       tutorToggle.classList.remove('bypass');
-      tutorToggle.onclick=()=>resumeChapterGeneration(idx,state==='error');
+      tutorToggle.onclick=null;
     }else{
+      tutorToggle.style.display='inline-flex';
       tutorToggle.textContent='🧑‍🏫 Osservazioni del relatore';
       tutorToggle.classList.toggle('bypass',bypass);
       tutorToggle.onclick=available?()=>toggleTutorRevision(idx):()=>openUnlockModal(idx);
@@ -4547,7 +4545,7 @@ async function runChapterGeneration(idx,opts={}){
     noOutputWatchdog=setTimeout(()=>{
       const latest=ensureChapterRecord(idx,title);
       if(latest.generationState!=='generating') return;
-      setChapterOperationStatus(`Capitolo ${idx+1}: nessun output testuale ancora disponibile. Il backend risponde a blocco unico: attendo ancora per pochi minuti, poi interrompo con stato coerente.`,true,true);
+      setChapterOperationStatus(`Capitolo ${idx+1}: nessun output testuale ancora disponibile. Il backend può completare in blocco unico: attendo ancora.`,false,true);
     },noOutputWatchdogMs);
   };
   startNoOutputWatchdog();
