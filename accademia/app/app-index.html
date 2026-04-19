@@ -5136,10 +5136,9 @@ function copyAbstract(){
 }
 
 function copyChapter(idx){
-  const ch=(thesis.chapters||[])[idx];
-  const title=(thesis.chapterTitles||[])[idx]||ch?.title||`Capitolo ${idx+1}`;
-  const content=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
-  copyTextValue(`Capitolo ${idx+1}`, `${title}\n\n${content}`.trim());
+  const content=String(getCanonicalChapterContentLocal(idx,{persist:true}) || '').trim();
+  const html=`<div style="font-family:Calibri,Arial,sans-serif;white-space:pre-wrap;line-height:1.6;color:#111;"><div>${escHtml(content).replace(/\n/g,'<br>')}</div></div>`;
+  copyTextValue(`Capitolo ${idx+1}`, content, {html});
 }
 
 function copyFullThesis(){
