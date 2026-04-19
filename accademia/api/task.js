@@ -23,6 +23,7 @@ const CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS = 11_000;
 const CHAPTER_POINT_MIN_WORDS = 600;
 const CHAPTER_POINT_TARGET_MIN_WORDS = 700;
 const CHAPTER_POINT_MAX_WORDS = 900;
+const CHAPTER_POINT_MIN_SUBSTANTIAL_PARAGRAPHS = 4;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -778,7 +779,8 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
 
   let candidateSectionText = postProcessChapterSectionText(generated.text, nextSubsection);
   let candidateSectionWords = countSubsectionBodyWords(candidateSectionText);
-  let incompleteSection = !generated.complete || needsMoreSectionText(candidateSectionText, targets.sectionWords);
+  let sectionValidation = validateChapterSectionDetailed(candidateSectionText, targets.sectionWords);
+  let incompleteSection = !generated.complete || !sectionValidation.ok;
   const tooShort = candidateSectionWords < CHAPTER_POINT_MIN_WORDS;
 
   if (tooShort) {
@@ -792,7 +794,8 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     });
     candidateSectionText = postProcessChapterSectionText(retried.text, nextSubsection);
     candidateSectionWords = countSubsectionBodyWords(candidateSectionText);
-    incompleteSection = !retried.complete || needsMoreSectionText(candidateSectionText, targets.sectionWords);
+    sectionValidation = validateChapterSectionDetailed(candidateSectionText, targets.sectionWords);
+    incompleteSection = !retried.complete || !sectionValidation.ok;
     const stillTooShort = candidateSectionWords < CHAPTER_POINT_MIN_WORDS;
     if (stillTooShort || incompleteSection) {
       const err = new Error(`Il punto ${nextSubsection.code} è ancora troppo breve o incompleto. Riprova.`);
@@ -802,18 +805,18 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   if (incompleteSection) {
-    const current = chapterState.sections[nextSubsection.code] || {};
     chapterState.sections[nextSubsection.code] = {
       title: nextSubsection.title,
-      text: String(current.text || ''),
-      status: String(current.status || 'pending'),
-      locked: !!current.locked,
+      text: candidateSectionText,
+      status: 'incomplete',
+      locked: false,
     };
+    const incompleteMessage = `Il punto ${nextSubsection.code} è incompleto. Rigenera il punto.`;
     return {
       partial: true,
       text: composeChapterContentFromSections(context, chapterState.sections, chapterState.opening),
       sections: chapterState.sections,
-      reason: 'chapter_point_incomplete',
+      reason: incompleteMessage,
     };
   }
 
@@ -850,7 +853,11 @@ function initializeChapterSectionsState({ input, context, existingChapterContent
       status: normalizeSectionStatus(picked.status, String(picked.text || '').trim() ? 'generating' : 'pending'),
       locked: !!picked.locked,
     };
-    if (sections[subsection.code].locked) sections[subsection.code].status = 'done';
+    const isValidLocked = sections[subsection.code].locked && validateChapterSectionDetailed(sections[subsection.code].text, targetWords).ok;
+    sections[subsection.code].locked = isValidLocked;
+    sections[subsection.code].status = isValidLocked
+      ? 'done'
+      : normalizeSectionStatus(sections[subsection.code].status, String(sections[subsection.code].text || '').trim() ? 'incomplete' : 'pending');
   }
   return { sections, opening };
 }
@@ -889,7 +896,7 @@ function migrateSectionsFromChapterText(chapterText, context, targetWords) {
 
 function normalizeSectionStatus(status, fallback = 'pending') {
   const value = String(status || '').trim().toLowerCase();
-  if (value === 'pending' || value === 'generating' || value === 'done' || value === 'error') return value;
+  if (value === 'pending' || value === 'generating' || value === 'done' || value === 'error' || value === 'incomplete') return value;
   if (value === 'in_progress') return 'generating';
   return fallback;
 }
@@ -897,7 +904,8 @@ function normalizeSectionStatus(status, fallback = 'pending') {
 function findFirstBlockedSection(sections, orderedSubsections) {
   for (const subsection of orderedSubsections) {
     const entry = sections[subsection.code] || {};
-    if (entry.locked || entry.status === 'done') continue;
+    const completed = entry.locked === true && entry.status === 'done';
+    if (completed) continue;
     if (String(entry.text || '').trim()) return { code: subsection.code };
     return null;
   }
@@ -907,7 +915,8 @@ function findFirstBlockedSection(sections, orderedSubsections) {
 function findNextSectionToGenerate(sections, orderedSubsections) {
   for (const subsection of orderedSubsections) {
     const entry = sections[subsection.code] || {};
-    if (entry.locked || entry.status === 'done') continue;
+    const completed = entry.locked === true && entry.status === 'done';
+    if (completed) continue;
     return subsection;
   }
   return null;
@@ -941,11 +950,28 @@ function composeChapterContentFromSections(context, sections, opening = '') {
 }
 
 function validateChapterSection(sectionText, targetWords) {
+  return validateChapterSectionDetailed(sectionText, targetWords).ok;
+}
+
+function validateChapterSectionDetailed(sectionText, targetWords) {
   const text = String(sectionText || '').trim();
-  if (!text) return false;
-  if (countSubsectionBodyWords(text) < CHAPTER_POINT_MIN_WORDS) return false;
-  if (needsMoreSectionText(text, targetWords)) return false;
-  return true;
+  if (!text) return { ok: false, issues: ['empty'] };
+  const words = countSubsectionBodyWords(text);
+  const substantialParagraphs = countSubstantialParagraphs(text);
+  const hasStrongEnding = endsWithStrongPunctuation(text);
+  const suspendedEnding = endsSuspiciously(text);
+  const introductoryDraft = seemsIntroductoryDraft(text);
+  const tooShort = words < CHAPTER_POINT_MIN_WORDS;
+  const tooFewParagraphs = substantialParagraphs < CHAPTER_POINT_MIN_SUBSTANTIAL_PARAGRAPHS;
+  const needsExpansion = needsMoreSectionText(text, targetWords);
+  const issues = [];
+  if (tooShort) issues.push('min_words');
+  if (tooFewParagraphs) issues.push('min_substantial_paragraphs');
+  if (!hasStrongEnding) issues.push('missing_strong_ending');
+  if (suspendedEnding) issues.push('suspended_ending');
+  if (introductoryDraft) issues.push('introductory_draft');
+  if (needsExpansion) issues.push('needs_expansion');
+  return { ok: issues.length === 0, issues, words, substantialParagraphs };
 }
 
 function findNextMissingSubsectionIndex(chapterText, context) {
@@ -1468,10 +1494,52 @@ function wordCount(text) {
   return String(text || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
+function countSubstantialParagraphs(sectionText) {
+  const body = String(sectionText || '')
+    .replace(/^\d+\.\d+\s+[^\n]+\n*/i, '')
+    .trim();
+  if (!body) return 0;
+  return body
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => wordCount(p) >= 45)
+    .length;
+}
+
+function endsWithStrongPunctuation(text) {
+  const s = String(text || '').trim();
+  if (!s) return false;
+  return /[.!?…»”"\)]$/.test(s);
+}
+
 function endsSuspiciously(text) {
   const s = String(text || '').trim();
   if (!s) return true;
   return /(?:\b(?:e|ed|o|oppure|ma|perché|poiché|mentre|quando|dove|come|con|senza|tra|fra|di|a|da|in|su|per)\s*$|[:;,\-–—]\s*$|\b(?:infatti|inoltre|tuttavia|pertanto|quindi)\s*$)$/i.test(s);
+}
+
+function seemsIntroductoryDraft(text) {
+  const body = String(text || '')
+    .replace(/^\d+\.\d+\s+[^\n]+\n*/i, '')
+    .trim()
+    .toLowerCase();
+  if (!body) return true;
+  const opening = body.slice(0, 650);
+  const introHints = [
+    'in questo paragrafo',
+    'in questo punto',
+    'nei prossimi paragrafi',
+    'verrà analizzato',
+    'saranno analizzati',
+    'si analizzerà',
+    'si introdurrà',
+    'introduzione',
+    'panoramica generale',
+  ];
+  const hasIntroLanguage = introHints.some((hint) => opening.includes(hint));
+  const bodyWords = wordCount(body);
+  const paraCount = body.split(/\n\s*\n/).filter(Boolean).length;
+  return hasIntroLanguage && bodyWords < 760 && paraCount < 5;
 }
 
 function cleanContinuationText(text, subsection) {
