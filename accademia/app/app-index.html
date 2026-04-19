@@ -2985,11 +2985,11 @@ function chapterPointWords(pointText){
   return body?body.split(/\s+/).filter(Boolean).length:0;
 }
 
-function formatChapterValidationIssues(validation){
+function formatChapterValidationIssues(validation,idx=null){
   if(!validation) return 'completezza non verificata';
   const issues=[];
   if(Array.isArray(validation.missingSubsections) && validation.missingSubsections.length){
-    issues.push(`mancano ${validation.missingSubsections.map(x=>x.code).join(', ')}`);
+    issues.push(`mancano ${validation.missingSubsections.map(x=>formatChapterPointCode(x?.code,idx)).join(', ')}`);
   }
   if(validation.words && validation.minWords && validation.words<validation.minWords){
     issues.push(`testo corto (${validation.words}/${validation.minWords} parole)`);
@@ -2997,6 +2997,26 @@ function formatChapterValidationIssues(validation){
   if(validation.suspiciousEnding) issues.push('chiusura monca');
   if(validation.aiClosure) issues.push('chiusura artificiale da rifinire');
   return issues.join('; ') || 'bozza ancora da completare';
+}
+
+function formatChapterPointCode(rawCode,idx=null){
+  const code=String(rawCode||'').trim();
+  if(!code) return '';
+  if(code.includes('.')) return code;
+  const chapterNum=Number.isInteger(Number(idx)) ? Number(idx)+1 : null;
+  if(/^\d+$/.test(code)){
+    if(chapterNum){
+      if(code.length===1) return `${chapterNum}.${code}`;
+      const chapterPrefix=String(chapterNum);
+      if(code.startsWith(chapterPrefix) && code.length>chapterPrefix.length){
+        return `${chapterPrefix}.${code.slice(chapterPrefix.length)}`;
+      }
+      return `${chapterNum}.${code}`;
+    }
+    if(code.length===1) return code;
+    return `${code.slice(0,1)}.${code.slice(1)}`;
+  }
+  return code;
 }
 
 function getChapterPointProgress(idx){
@@ -3253,12 +3273,26 @@ function getChapterResumeLabel(idx,state){
 function getChapterProgressStatusText(idx,state){
   const progress=getChapterPointProgress(idx);
   if(state==='partial'){
-    return `In lavorazione: punto ${progress.currentPoint||`${idx+1}.1`} · Punto ${progress.currentPoint||`${idx+1}.1`} non valido${progress.nextPoint?` · Prossimo: punto ${progress.nextPoint}`:''}`;
+    const point=progress.currentPoint||`${idx+1}.1`;
+    if(progress.status==='missing'){
+      return `Prossimo punto da generare: ${point}`;
+    }
+    if(progress.status==='incomplete'){
+      return `Punto ${point} in bozza: completa o rigenera questo punto.`;
+    }
+    return `Prossimo punto da generare: ${progress.nextPoint||point}`;
   }
   if(state==='complete' && progress.nextPoint){
-    return `Prossimo: punto ${progress.nextPoint}`;
+    return `Prossimo punto da generare: ${progress.nextPoint}`;
   }
   return '';
+}
+
+function shouldShowChapterSecondaryResume(idx,state){
+  if(state!=='partial' && state!=='error') return false;
+  if((Number(thesis.currentChapterIdx)||0)!==idx) return true;
+  const primaryCfg=getChapterLauncherConfig(idx);
+  return !primaryCfg.visible;
 }
 
 function updateChapterSavedBlockStatus(idx){
@@ -3274,7 +3308,7 @@ function updateChapterSavedBlockStatus(idx){
   const resumeBtn=document.getElementById(`chapResumeBtn-${idx}`);
   const state=getChapterGenerationState(idx);
   if(resumeBtn){
-    resumeBtn.style.display=(state==='partial'||state==='error')?'inline-flex':'none';
+    resumeBtn.style.display=shouldShowChapterSecondaryResume(idx,state)?'inline-flex':'none';
     resumeBtn.textContent=getChapterResumeLabel(idx,state);
     resumeBtn.onclick=()=>resumeChapterGeneration(idx,state==='error');
   }
@@ -3293,7 +3327,7 @@ function renderSavedChapterBlock(idx,total){
     state==='error'
       ? 'Generazione interrotta prima del completamento. Usa “Riprova generazione”.'
       : state==='partial'
-        ? `Punto ${(getChapterPointProgress(idx).currentPoint||`${idx+1}.1`)} non valido: rigenera il punto senza sovrascrivere i contenuti già buoni.`
+        ? `Capitolo in avanzamento: riprendi dal punto ${(getChapterPointProgress(idx).currentPoint||`${idx+1}.1`)}.`
         : ''
   ));
   const existing=document.getElementById(`chap-${idx}`);
@@ -3332,7 +3366,7 @@ function renderSavedChapterBlock(idx,total){
         <div class="rev-counter-global" id="globalRevCounterInline-${idx}"></div>
       </div>
       <div class="chapter-tools-bar">
-        <button class="chapter-tool-btn bypass" id="chapResumeBtn-${idx}" style="display:${state==='partial'||state==='error'?'inline-flex':'none'}">${getChapterResumeLabel(idx,state)}</button>
+        <button class="chapter-tool-btn bypass" id="chapResumeBtn-${idx}" style="display:${shouldShowChapterSecondaryResume(idx,state)?'inline-flex':'none'}">${getChapterResumeLabel(idx,state)}</button>
         <button class="chapter-tool-btn" id="chapRevToggle-${idx}" onclick="toggleRevision('chap-${idx}')">✎ Revisione capitolo</button>
         <button class="chapter-tool-btn tutor" id="chapTutorToggle-${idx}" onclick="toggleTutorRevision(${idx})">🧑‍🏫 Osservazioni del relatore</button>
       </div>
@@ -3369,12 +3403,13 @@ ${getChapterApprovalRow(idx,total,!!(thesis.approvedChapters||[])[idx],true)}
 function getChapterApprovalRow(idx,total,approved,visible=true){
   const display=visible?'flex':'none';
   const state=getChapterGenerationState(idx);
+  const showResume=shouldShowChapterSecondaryResume(idx,state);
   if(state==='partial'){
-    const details=formatChapterValidationIssues(thesis.chapters?.[idx]?.partialValidation);
+    const details=formatChapterValidationIssues(thesis.chapters?.[idx]?.partialValidation,idx);
     const progressText=getChapterProgressStatusText(idx,state);
     return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
         <span class="hint">Capitolo ${idx+1} in avanzamento: ${details}. ${progressText||''}</span>
-        <div class="actions">
+        <div class="actions" style="display:${showResume?'flex':'none'}">
           <button class="btn-approve" onclick="resumeChapterGeneration(${idx})">${getChapterResumeLabel(idx,state)}</button>
         </div>
       </div>`;
@@ -3382,7 +3417,7 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
   if(state==='error'){
     return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
         <span class="hint">L’ultima generazione del Capitolo ${idx+1} si è interrotta. Riparti dallo stesso capitolo senza avanzare.</span>
-        <div class="actions">
+        <div class="actions" style="display:${showResume?'flex':'none'}">
           <button class="btn-approve" onclick="resumeChapterGeneration(${idx}, true)">↻ Riprova generazione</button>
         </div>
       </div>`;
