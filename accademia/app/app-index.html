@@ -5172,12 +5172,24 @@ function downloadTextFile(filename, text){
   downloadBlob(filename, text, 'text/plain;charset=utf-8');
 }
 
+
+function chapterContentHasInlineHeading(chapterContent){
+  const normalized=String(chapterContent||'').replace(/^\uFEFF/,'').trimStart();
+  if(!normalized)return false;
+  const lines=normalized.split('\n').map(line=>line.trim()).filter(Boolean).slice(0,4);
+  const cleaned=lines.map(line=>line.replace(/^#{1,6}\s*/,'').replace(/^\*\*(.+)\*\*$/,'$1').trim());
+  const hasInlineFullHeading=cleaned.some(line=>/^capitolo\s+\d+\s*[—-]\s*\S+/i.test(line)||/^capitolo\s+\d+\s*:\s*\S+/i.test(line));
+  if(hasInlineFullHeading)return true;
+  if(cleaned.length>=2&&/^capitolo\s+\d+\b/i.test(cleaned[0])&&!/^\d+(?:\.\d+)+\b/.test(cleaned[1]))return true;
+  return false;
+}
+
 function buildFullPlainText(){
   const tl=tipoLaureaLabel(thesis.tipo);
   let out=`${thesis.argomento||'Tesi'}\n${thesis.facolta||''} — ${thesis.corso||''}\n${tl}\n\nINDICE\n\n${thesis.indice||''}\n\nABSTRACT\n\n${thesis.abstract||''}\n`;
   (thesis.chapters||[]).forEach((ch,i)=>{
     const chapterContent=getCanonicalChapterContentLocal(i,{persist:true}) || '';
-    const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+    const hasChapterHeading=chapterContentHasInlineHeading(chapterContent);
     out += hasChapterHeading
       ? `\n\n${chapterContent}\n`
       : `\n\nCAPITOLO ${i+1}: ${(thesis.chapterTitles?.[i]||ch.title||'').trim()}\n\n${chapterContent}\n`;
@@ -5209,7 +5221,7 @@ function downloadChapterDoc(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch){showToast('Capitolo non disponibile',true);return;}
   const chapterContent=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
-  const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+  const hasChapterHeading=chapterContentHasInlineHeading(chapterContent);
   const title=hasChapterHeading ? (thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`) : `Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
   downloadBlob(safeDocName(`Capitolo_${idx+1}`), buildSingleDoc(title, `<div>${formatChapterHtml(chapterContent)}</div>`));
 }
@@ -5218,7 +5230,7 @@ function downloadChapterTxt(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch){showToast('Capitolo non disponibile',true);return;}
   const chapterContent=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
-  const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+  const hasChapterHeading=chapterContentHasInlineHeading(chapterContent);
   const title=`Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
   downloadTextFile(safeTxtName(`Capitolo_${idx+1}`), hasChapterHeading ? chapterContent : `${title}\n\n${chapterContent}`);
 }
@@ -5250,7 +5262,7 @@ function buildWordHTML(){
   <p style="font-family:Arial;font-size:11pt;line-height:1.9;text-align:justify">${escHtml(thesis.abstract||'').replace(/\n/g,'<br>')}</p><br>`;
   (thesis.chapters||[]).forEach((ch,i)=>{
     const chapterContent=getCanonicalChapterContentLocal(i,{persist:true}) || '';
-    const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+    const hasChapterHeading=chapterContentHasInlineHeading(chapterContent);
     const chapterHeading=hasChapterHeading ? '' : `<h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2>`;
     b+=`<div style="page-break-before:always">${chapterHeading}<div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(chapterContent)}</div></div><br>`;
   });
