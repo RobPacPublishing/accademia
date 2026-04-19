@@ -2025,7 +2025,11 @@ function getChapterCompactSummary(idx){
   const words=String(ch.content||'').trim().split(/\s+/).filter(Boolean).length;
   const version=((ch.currentVersion||0)+1);
   const state=getChapterGenerationState(idx);
-  const status=state==='complete'?'approvato e stabile':(state==='partial'?'parziale':'in lavorazione');
+  const status=state==='approved'
+    ? 'approvato'
+    : (state==='complete'
+      ? 'completato'
+      : (state==='partial' ? 'parziale' : 'in lavorazione'));
   return `<strong>${escHtml(thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`)}</strong><br>${words.toLocaleString('it-IT')} parole · v${version} · ${status}`;
 }
 
@@ -4754,11 +4758,7 @@ function approveChapter(idx){
   if(row) row.outerHTML=getChapterApprovalRow(idx,thesis.chapterTitles.length,true,true);
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   thesis.currentChapterIdx=idx+1;
-  const nc=document.getElementById('nextChapters');
-  if(nc){
-    nc.classList.remove('visible');
-    nc.innerHTML='';
-  }
+  renderNextChapterLauncher();
   setChapterCollapsed(idx,true);
   saveProgress();
   triggerAutoSnapshot('chapter');
