@@ -20,10 +20,10 @@ const CHAPTER_DRAFT_TOTAL_TIMEOUT_MS = 230_000;
 const CHAPTER_DRAFT_LOCK_TTL_SECONDS = 5 * 60;
 const CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS = 16_000;
 const CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS = 11_000;
-const CHAPTER_POINT_MIN_WORDS = 600;
-const CHAPTER_POINT_TARGET_MIN_WORDS = 700;
-const CHAPTER_POINT_MAX_WORDS = 900;
-const CHAPTER_POINT_MIN_SUBSTANTIAL_PARAGRAPHS = 4;
+const CHAPTER_POINT_MIN_WORDS = 700;
+const CHAPTER_POINT_TARGET_MIN_WORDS = 800;
+const CHAPTER_POINT_MAX_WORDS = 1000;
+const CHAPTER_POINT_MIN_SUBSTANTIAL_PARAGRAPHS = 5;
 
 export default async function handler(req, res) {
   setCors(res);
@@ -666,14 +666,29 @@ async function generateText(task, input) {
   return await generateWithProviders({ prompt, system, maxTokens });
 }
 
-async function generateWithProviders({ prompt, system, maxTokens, primaryTimeoutMs = 45_000, fallbackTimeoutMs = 30_000, openaiTimeoutMs = 35_000 }) {
+async function generateWithProviders({
+  prompt,
+  system,
+  maxTokens,
+  primaryTimeoutMs = 45_000,
+  fallbackTimeoutMs = 30_000,
+  openaiTimeoutMs = 35_000,
+  fallbackMaxTokens,
+  openaiMaxTokens,
+}) {
   const attempts = [];
+  const effectiveFallbackMaxTokens = Number.isFinite(Number(fallbackMaxTokens))
+    ? Math.max(1, Math.round(Number(fallbackMaxTokens)))
+    : Math.min(1800, maxTokens);
+  const effectiveOpenAIMaxTokens = Number.isFinite(Number(openaiMaxTokens))
+    ? Math.max(1, Math.round(Number(openaiMaxTokens)))
+    : Math.min(2200, maxTokens);
   if (ANTHROPIC_API_KEY) {
     attempts.push(() => callAnthropic({ model: ANTHROPIC_PRIMARY_MODEL, system, prompt, maxTokens, timeoutMs: primaryTimeoutMs }));
-    attempts.push(() => callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(1800, maxTokens), timeoutMs: fallbackTimeoutMs }));
+    attempts.push(() => callAnthropic({ model: ANTHROPIC_FALLBACK_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: effectiveFallbackMaxTokens, timeoutMs: fallbackTimeoutMs }));
   }
   if (OPENAI_API_KEY) {
-    attempts.push(() => callOpenAI({ model: OPENAI_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: Math.min(2200, maxTokens), timeoutMs: openaiTimeoutMs }));
+    attempts.push(() => callOpenAI({ model: OPENAI_MODEL, system, prompt: shrinkPrompt(prompt), maxTokens: effectiveOpenAIMaxTokens, timeoutMs: openaiTimeoutMs }));
   }
 
   if (!attempts.length) {
@@ -1374,16 +1389,21 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
 
 async function generateOneSubsection({ input, context, subsection, index, total, system, targetWords, previousSectionText, fastPath = false }) {
   const prompt = buildChapterSubsectionPrompt(input, context, subsection, index, total, targetWords, previousSectionText);
-  const primaryTimeoutMs = fastPath ? CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS : 28_000;
-  const fallbackTimeoutMs = fastPath ? 12_000 : 20_000;
-  const openaiTimeoutMs = fastPath ? 14_000 : 22_000;
+  const primaryTimeoutMs = fastPath ? CHAPTER_DRAFT_FAST_PATH_SECTION_TIMEOUT_MS : 90_000;
+  const fallbackTimeoutMs = fastPath ? 12_000 : 75_000;
+  const openaiTimeoutMs = fastPath ? 14_000 : 85_000;
+  const maxTokens = fastPath
+    ? Math.max(520, Math.round(targetWords * 0.82))
+    : 2600;
   const raw = await generateWithProviders({
     prompt,
     system,
-    maxTokens: Math.min(1000, Math.max(520, Math.round(targetWords * (fastPath ? 0.82 : 0.95)))),
+    maxTokens,
     primaryTimeoutMs,
     fallbackTimeoutMs,
     openaiTimeoutMs,
+    fallbackMaxTokens: fastPath ? undefined : 2600,
+    openaiMaxTokens: fastPath ? undefined : 2600,
   });
   return {
     text: stripCompletionMarker(raw),
@@ -1419,10 +1439,12 @@ async function continueOneSubsection({ input, context, subsection, system, exist
   const addition = await generateWithProviders({
     prompt,
     system,
-    maxTokens: fastPath ? 420 : 620,
-    primaryTimeoutMs: fastPath ? CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS : 24_000,
-    fallbackTimeoutMs: fastPath ? 9_000 : 18_000,
-    openaiTimeoutMs: fastPath ? 10_000 : 20_000,
+    maxTokens: fastPath ? 420 : 1800,
+    primaryTimeoutMs: fastPath ? CHAPTER_RESUME_FAST_PATH_SECTION_TIMEOUT_MS : 70_000,
+    fallbackTimeoutMs: fastPath ? 9_000 : 60_000,
+    openaiTimeoutMs: fastPath ? 10_000 : 65_000,
+    fallbackMaxTokens: fastPath ? undefined : 1800,
+    openaiMaxTokens: fastPath ? undefined : 1800,
   });
 
   const cleanedAddition = cleanContinuationText(addition, subsection);
