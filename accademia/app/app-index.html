@@ -2854,24 +2854,70 @@ function composeChapterContentFromSectionsLocal(idx){
   const title=thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`;
   const head=`Capitolo ${idx+1} — ${title}`;
   const parts=[head];
-  const opening=String(ch.opening||'').trim();
-  if(opening) parts.push(opening);
   const expected=parseExpectedChapterSubsections(idx);
+  const sectionTexts=[];
+  const sectionCodesWithText=[];
   expected.forEach(sub=>{
     const raw=String(ch.sections?.[sub.code]?.text||'').trim();
-    if(raw) parts.push(raw);
+    if(raw){
+      sectionTexts.push(raw);
+      sectionCodesWithText.push(sub.code);
+    }
   });
-  return parts.filter(Boolean).join('\n\n').trim();
+  const opening=String(ch.opening||'').trim();
+  if(opening){
+    const openingLower=opening.toLowerCase();
+    const hasChapterHeading=/^\s*capitolo\s+\d+\b/im.test(opening);
+    const duplicatesSectionCode=sectionCodesWithText.some(code=>new RegExp(`(^|\\n)\\s*${escapeRegexLocal(code)}\\s+`,'i').test(opening));
+    const openingMatchesSection=sectionTexts.some(txt=>txt && (openingLower===txt.toLowerCase() || openingLower.includes(txt.toLowerCase())));
+    if(!hasChapterHeading && !duplicatesSectionCode && !openingMatchesSection) parts.push(opening);
+  }
+  sectionTexts.forEach(txt=>parts.push(txt));
+  return normalizeCanonicalChapterContent(parts.filter(Boolean).join('\n\n').trim(),idx);
 }
 
 function getCanonicalChapterContentLocal(idx,{persist=false}={}){
   const ch=thesis.chapters?.[idx];
   if(!ch||typeof ch!=='object') return '';
-  const hasSections=!!(ch.sections && typeof ch.sections==='object' && Object.keys(ch.sections).length);
+  const hasSections=!!(ch.sections && typeof ch.sections==='object' && Object.values(ch.sections).some(sec=>String(sec?.text||'').trim()));
   const fromSections=hasSections ? composeChapterContentFromSectionsLocal(idx) : '';
-  const canonical=String(fromSections||ch.content||'').trim();
+  const canonical=String(hasSections ? fromSections : (ch.content||'')).trim();
   if(persist) ch.content=canonical;
   return canonical;
+}
+
+function normalizeCanonicalChapterContent(text,idx){
+  const clean=String(text||'').replace(/\r\n/g,'\n').trim();
+  if(!clean) return '';
+  const lines=clean.split('\n');
+  const out=[];
+  let chapterHeadingSeen=false;
+  const sectionSeen=new Set();
+  lines.forEach(line=>{
+    const trimmed=line.trim();
+    if(!trimmed){
+      if(out.length && out[out.length-1]!=='') out.push('');
+      return;
+    }
+    const chapterMatch=trimmed.match(/^capitolo\s+(\d+)\b/i);
+    if(chapterMatch){
+      const chapterNum=Number(chapterMatch[1]);
+      if(chapterHeadingSeen || (Number.isFinite(chapterNum) && chapterNum!==idx+1)) return;
+      chapterHeadingSeen=true;
+      out.push(trimmed);
+      return;
+    }
+    const secMatch=trimmed.match(/^(\d+\.\d+)\b/);
+    if(secMatch){
+      const code=secMatch[1];
+      if(sectionSeen.has(code)) return;
+      sectionSeen.add(code);
+      out.push(line);
+      return;
+    }
+    out.push(line);
+  });
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
 }
 
 function escapeRegexLocal(value){
@@ -5131,7 +5177,10 @@ function buildFullPlainText(){
   let out=`${thesis.argomento||'Tesi'}\n${thesis.facolta||''} — ${thesis.corso||''}\n${tl}\n\nINDICE\n\n${thesis.indice||''}\n\nABSTRACT\n\n${thesis.abstract||''}\n`;
   (thesis.chapters||[]).forEach((ch,i)=>{
     const chapterContent=getCanonicalChapterContentLocal(i,{persist:true}) || '';
-    out += `\n\nCAPITOLO ${i+1}: ${(thesis.chapterTitles?.[i]||ch.title||'').trim()}\n\n${chapterContent}\n`;
+    const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+    out += hasChapterHeading
+      ? `\n\n${chapterContent}\n`
+      : `\n\nCAPITOLO ${i+1}: ${(thesis.chapterTitles?.[i]||ch.title||'').trim()}\n\n${chapterContent}\n`;
   });
   return out.trim()+"\n";
 }
@@ -5159,17 +5208,19 @@ function downloadAbstractTxt(){
 function downloadChapterDoc(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch){showToast('Capitolo non disponibile',true);return;}
-  const title=`Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
   const chapterContent=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
+  const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+  const title=hasChapterHeading ? (thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`) : `Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
   downloadBlob(safeDocName(`Capitolo_${idx+1}`), buildSingleDoc(title, `<div>${formatChapterHtml(chapterContent)}</div>`));
 }
 
 function downloadChapterTxt(idx){
   const ch=thesis.chapters?.[idx];
   if(!ch){showToast('Capitolo non disponibile',true);return;}
-  const title=`Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
   const chapterContent=getCanonicalChapterContentLocal(idx,{persist:true}) || '';
-  downloadTextFile(safeTxtName(`Capitolo_${idx+1}`), `${title}\n\n${chapterContent}`);
+  const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+  const title=`Capitolo ${idx+1}: ${thesis.chapterTitles?.[idx]||ch.title||''}`;
+  downloadTextFile(safeTxtName(`Capitolo_${idx+1}`), hasChapterHeading ? chapterContent : `${title}\n\n${chapterContent}`);
 }
 
 function downloadDocx(){
@@ -5199,7 +5250,9 @@ function buildWordHTML(){
   <p style="font-family:Arial;font-size:11pt;line-height:1.9;text-align:justify">${escHtml(thesis.abstract||'').replace(/\n/g,'<br>')}</p><br>`;
   (thesis.chapters||[]).forEach((ch,i)=>{
     const chapterContent=getCanonicalChapterContentLocal(i,{persist:true}) || '';
-    b+=`<div style="page-break-before:always"><h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2><div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(chapterContent)}</div></div><br>`;
+    const hasChapterHeading=/^\s*capitolo\s+\d+\b/i.test(chapterContent);
+    const chapterHeading=hasChapterHeading ? '' : `<h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2>`;
+    b+=`<div style="page-break-before:always">${chapterHeading}<div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(chapterContent)}</div></div><br>`;
   });
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}pre{white-space:pre-wrap;line-height:1.9;font-family:Arial;font-size:10.5pt}@page{margin:3cm 2.5cm}</style></head><body>${b}</body></html>`;
 }
