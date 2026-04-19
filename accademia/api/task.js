@@ -763,7 +763,7 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       system,
       targetWords: targets.sectionWords,
       previousSectionText,
-      fastPath: true,
+      fastPath: false,
     });
   } catch (err) {
     if (isProviderTimeout(err) && String(composeChapterContentFromSections(context, chapterState.sections, chapterState.opening) || '').trim()) {
