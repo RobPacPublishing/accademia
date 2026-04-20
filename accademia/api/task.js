@@ -1347,8 +1347,45 @@ function postProcessChapterNotes(text) {
   return cleaned;
 }
 
+function buildDisciplinaryWritingGuidance(input) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const faculty = String(obj.faculty || obj.facolta || '').trim();
+  const course = String(obj.course || obj.degreeCourse || obj.corsoDiLaurea || '').trim();
+  const methodology = String(obj.methodology || obj.metodologia || '').trim();
+  const area = `${faculty} ${course}`.toLowerCase();
+  const methodHint = methodology
+    ? ` Integra sempre il ragionamento con coerenza rispetto alla metodologia dichiarata (${clip(methodology, 80)}), esplicitando passaggi, limiti e portata delle inferenze.`
+    : '';
+
+  const has = (patterns) => patterns.some((p) => area.includes(p));
+  let profile = '';
+  if (has(['comunicazione', 'media', 'sociologia', 'giornal', 'digitale', 'cultural'])) {
+    profile = 'Imposta l’argomentazione su media, pratiche discorsive, frame interpretativi, piattaforme, pubblico e visibilità; collega ogni passaggio al contesto socioculturale evitando generalizzazioni astratte.';
+  } else if (has(['psicologia', 'cognitiv', 'neurosc', 'comportament'])) {
+    profile = 'Distingui chiaramente costrutti, modelli teorici e processi cognitivi/comportamentali; formula inferenze caute ed evita diagnosi o affermazioni cliniche non supportate.';
+  } else if (has(['economia', 'management', 'aziendal', 'impresa', 'finance', 'mercato'])) {
+    profile = 'Collega i concetti a modelli economici/organizzativi, incentivi, mercato, efficienza e governance; mantieni rigore comparativo ed evita numeri o stime non verificabili.';
+  } else if (has(['giurisprud', 'diritto', 'legal', 'forense'])) {
+    profile = 'Argomenta distinguendo norme, principi, orientamenti dottrinali e profili interpretativi; evita affermazioni giuridiche assolute quando il supporto teorico non è esplicito.';
+  } else if (has(['formazione', 'pedagog', 'didatt', 'educaz', 'insegn'])) {
+    profile = 'Sviluppa il ragionamento su processi formativi, pratiche didattiche, contesti educativi e valutazione degli esiti; esplicita sempre implicazioni pedagogiche e limiti applicativi.';
+  } else if (has(['informatica', 'computer', 'tecnolog', 'intelligenza artificiale', 'ai', 'data science', 'software'])) {
+    profile = 'Struttura la trattazione in termini di modelli, architetture/processi, criteri di valutazione e trade-off; chiarisci assunzioni tecniche, vincoli e limiti di generalizzazione.';
+  } else if (has(['medicina', 'sanitar', 'infermier', 'clinic', 'farmacia', 'biomedic'])) {
+    profile = 'Usa massima prudenza: mantieni un taglio teorico-evidenziale, distingui risultati, limiti e livello di evidenza; non formulare indicazioni cliniche prescrittive.';
+  } else if (has(['filosofia', 'storia', 'lettere', 'umanist', 'lingu', 'arte'])) {
+    profile = 'Privilegia analisi concettuale e storico-interpretativa, chiarendo categorie, cornici teoriche e passaggi argomentativi; evita sintesi descrittive prive di problematizzazione critica.';
+  } else if (faculty || course || methodology) {
+    profile = 'Mantieni un’impostazione accademica disciplinata: definizioni operative, argomentazione progressiva, nessi logici espliciti, cautele inferenziali e lessico coerente con l’area di studio.';
+  }
+
+  if (!profile) return '';
+  return `${profile}${methodHint}`.trim();
+}
+
 function buildChapterSubsectionPrompt(input, context, subsection, index, total, targetWords, previousSectionText) {
   const obj = input && typeof input === 'object' ? input : {};
+  const disciplinaryGuidance = buildDisciplinaryWritingGuidance(obj);
   const previousContinuityBrief = buildPreviousSectionContinuityBrief(previousSectionText);
   const prevSummary = index > 0
     ? `La sottosezione precedente è ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetizioni.`
@@ -1397,6 +1434,7 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     obj.faculty || obj.degreeCourse || obj.degreeType
       ? `CONTESTO ACCADEMICO:\nFacoltà: ${clip(String(obj.faculty || ''), 120)}\nCorso: ${clip(String(obj.degreeCourse || ''), 160)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 60)}\nMetodologia: ${clip(String(obj.methodology || ''), 60)}`
       : '',
+    disciplinaryGuidance ? `PROFILO DISCIPLINARE DI SCRITTURA:\n${disciplinaryGuidance}` : '',
     obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 900)}` : '',
     summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):\n${summarizePreviousContext(obj.previousChapters)}` : '',
     previousContinuityBrief
@@ -1431,6 +1469,7 @@ async function generateOneSubsection({ input, context, subsection, index, total,
 
 async function continueOneSubsection({ input, context, subsection, system, existingText, targetWords, fastPath = false }) {
   const obj = input && typeof input === 'object' ? input : {};
+  const disciplinaryGuidance = buildDisciplinaryWritingGuidance(obj);
   const stableSection = postProcessChapterSectionText(existingText, subsection);
   const prompt = [
     'TASK: chapter_draft_section_continue',
@@ -1455,6 +1494,7 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Non anticipare il punto successivo.',
     '- Non inserire formule come "nel prossimo capitolo", "questo capitolo" o riepiloghi scolastici.',
     '- Non inventare fonti e non inserire citazioni puntuali con anno/pagina o bibliografia automatica.',
+    disciplinaryGuidance ? `PROFILO DISCIPLINARE DI SCRITTURA:\n${disciplinaryGuidance}` : '',
     wantsFootnoteApparatus(obj) ? '- Non inserire ancora la sezione finale Note in questa continuazione.' : '',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
     '- Se non è ancora completa, non usare il marcatore.',
