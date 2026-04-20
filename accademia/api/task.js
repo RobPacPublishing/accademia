@@ -1349,6 +1349,7 @@ function postProcessChapterNotes(text) {
 
 function buildChapterSubsectionPrompt(input, context, subsection, index, total, targetWords, previousSectionText) {
   const obj = input && typeof input === 'object' ? input : {};
+  const previousContinuityBrief = buildPreviousSectionContinuityBrief(previousSectionText);
   const prevSummary = index > 0
     ? `La sottosezione precedente è ${context.subsections[index - 1].code} ${context.subsections[index - 1].title}. Mantieni continuità logica senza ripetizioni.`
     : 'Apri il capitolo con una sottosezione introduttiva ma già analitica.';
@@ -1372,6 +1373,11 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     '- Sviluppa il tema con progressione argomentativa esplicita, facendo avanzare il ragionamento da un paragrafo al successivo.',
     '- Mantieni coerenza con indice, obiettivo generale della tesi, facoltà, metodologia e abstract approvato.',
     '- Non ripetere definizioni o concetti già trattati nel punto precedente o nella sottosezione precedente.',
+    '- Non aprire il sottocapitolo come se fosse il primo del capitolo.',
+    '- Non ripetere definizioni generali già trattate.',
+    '- Ogni nuovo sottocapitolo deve aggiungere un tassello teorico nuovo rispetto al precedente.',
+    '- Se richiami un concetto già trattato, fallo solo in forma breve e funzionale allo sviluppo successivo.',
+    '- Evita formule di raccordo meccaniche come "come visto nel paragrafo precedente" se non necessarie.',
     '- Non generare una bozza e non fermarti a un testo introduttivo.',
     '- Evita frasi tronche o interrotte: ogni frase deve essere sintatticamente completa.',
     '- Chiudi il punto con una micro-sintesi critica (limite, implicazione o conseguenza teorica), senza usare la formula "in conclusione".',
@@ -1381,8 +1387,8 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
     '- Usa paragrafi continui, tono accademico, lessico naturale.',
     '- Non inventare fonti e non inserire citazioni puntuali con anno/pagina o bibliografia automatica.',
     '- Eventuali richiami ad autori o teorie devono restare generali e coerenti con il tema trattato.',
-    previousSectionText
-      ? '- Usa la sottosezione precedente solo come contesto: non riscriverla, non ridefinire concetti già spiegati e fai avanzare l’argomentazione.'
+    previousContinuityBrief
+      ? '- Usa la memoria del punto precedente solo come contesto operativo: non riscriverla, non ridefinire concetti già spiegati e fai avanzare l’argomentazione.'
       : '',
     wantsFootnoteApparatus(obj) ? '- Non inserire ancora la sezione finale Note dentro questa sottosezione.' : '',
     `- Quando la sottosezione è davvero completa, chiudi l'ultima riga con il marcatore esatto ${SECTION_COMPLETE_MARKER}`,
@@ -1393,7 +1399,9 @@ function buildChapterSubsectionPrompt(input, context, subsection, index, total, 
       : '',
     obj.approvedAbstract ? `ABSTRACT APPROVATO:\n${clip(String(obj.approvedAbstract), 900)}` : '',
     summarizePreviousContext(obj.previousChapters) ? `CAPITOLI PRECEDENTI (SINTESI):\n${summarizePreviousContext(obj.previousChapters)}` : '',
-    previousSectionText ? `ULTIMA SOTTOSEZIONE GIÀ SVILUPPATA (ESTRATTO):\n${clip(String(previousSectionText), 420)}` : '',
+    previousContinuityBrief
+      ? `MEMORIA DEL PUNTO PRECEDENTE:\n${previousContinuityBrief}\n\nISTRUZIONI DI CONTINUITÀ:\n- Non ripetere il punto precedente.\n- Non ridefinire concetti già trattati.\n- Non ricominciare dal quadro generale.\n- Usa questa memoria solo per avanzare con contenuto nuovo e coerente.`
+      : '',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -1433,7 +1441,10 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     '- Non ripetere il titolo della sottosezione.',
     '- Non ricominciare da capo.',
     '- Continua esattamente dal punto in cui il testo si è fermato.',
+    '- Non ripetere il testo già generato.',
+    '- Non ricominciare il ragionamento: prosegui dall’ultima idea realmente sviluppata.',
     '- Non ripetere concetti, definizioni o passaggi già presenti nel testo già generato.',
+    '- Aggiungi solo contenuto nuovo, coerente e necessario allo sviluppo del punto.',
     '- Aggiungi sviluppo reale dell’argomentazione (nuovi passaggi analitici), non riformulazioni equivalenti.',
     `- Completa la sottosezione fino a renderla autonoma e pienamente sviluppata: almeno ${CHAPTER_POINT_MIN_SUBSTANTIAL_PARAGRAPHS} paragrafi sostanziali, sviluppo teorico completo e chiusura argomentativa coerente.`,
     `- Non limitarti ad aggiungere poche frasi o appendici brevi: estendi davvero il testo fino all'intervallo ${CHAPTER_POINT_TARGET_MIN_WORDS}-${CHAPTER_POINT_MAX_WORDS} parole (minimo assoluto ${CHAPTER_POINT_MIN_WORDS}).`,
@@ -1475,6 +1486,20 @@ async function continueOneSubsection({ input, context, subsection, system, exist
     text: mergedAppendOnly,
     complete: hasCompletionMarker(addition) || mergedIsComplete,
   };
+}
+
+function buildPreviousSectionContinuityBrief(previousSectionText) {
+  const raw = String(previousSectionText || '').trim();
+  if (!raw) return '';
+  const normalized = raw.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  if (!normalized) return '';
+
+  const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
+  const titleAndOpening = clip(lines.slice(0, 4).join('\n'), 240);
+  const closing = clip(normalized.slice(-220), 220);
+  if (!titleAndOpening && !closing) return '';
+  if (!closing || titleAndOpening === closing) return titleAndOpening;
+  return `${titleAndOpening}\n...\n${closing}`;
 }
 
 function summarizePreviousContext(previousChapters) {
