@@ -1753,13 +1753,50 @@ function escapeRegex(value) {
 function buildProviderPrompt(task, input) {
   if (typeof input === 'string') return clip(input, 30000);
   const obj = input && typeof input === 'object' ? input : {};
+  const disciplinaryGuidance = buildDisciplinaryWritingGuidance(obj);
+  const isChapterReviewTask = task === 'chapter_review' || task === 'revisione_capitolo';
+  const isTutorRevisionTask = task === 'tutor_revision' || task === 'revisione_relatore';
+  const isRevisionTask = isChapterReviewTask || isTutorRevisionTask;
   const sections = [];
   sections.push(`TASK: ${task}`);
   if (obj.prompt) sections.push(`RICHIESTA\n${clip(String(obj.prompt), 14000)}`);
+  if (isRevisionTask) {
+    sections.push([
+      'REGOLE DI REVISIONE ACCADEMICA',
+      '- Conserva struttura, titoli e ordine del capitolo esistente.',
+      '- Intervieni solo dove serve rispetto alla richiesta dell’utente o del relatore.',
+      '- Migliora chiarezza, profondità argomentativa, coerenza interna, precisione terminologica e stile accademico.',
+      '- Elimina ripetizioni, passaggi generici, frasi deboli o ridondanti.',
+      '- Non introdurre argomenti fuori indice e mantieni continuità con abstract, indice e parti già approvate.',
+      '- Non trasformare la revisione in una nuova generazione da zero.',
+      '- Non accorciare il capitolo salvo richiesta esplicita.',
+      '- Non aggiungere citazioni puntuali, anni, pagine o bibliografia se non forniti in input.',
+      '- Non inventare dati, fonti o riferimenti.',
+      '- Non alterare sezioni già approvate se non strettamente necessario per applicare la richiesta.',
+    ].join('\n'));
+  }
+  if (isTutorRevisionTask) {
+    sections.push([
+      'VINCOLI OSSERVAZIONI RELATORE',
+      '- Applica una per una le osservazioni del relatore, rendendo evidenti i miglioramenti nel testo.',
+      '- Non ignorare richieste specifiche o istruzioni puntuali.',
+      '- Mantieni tono accademico, prudente e metodologicamente coerente.',
+      '- Se una richiesta è ambigua, applicala nel modo più coerente con titolo, abstract e indice approvati.',
+    ].join('\n'));
+  }
+  if (isChapterReviewTask) {
+    sections.push([
+      'VINCOLI REVISIONE CAPITOLO',
+      '- Migliora il capitolo in modo sostanziale secondo la richiesta dell’utente.',
+      '- Evita riscrittura totale se non necessaria per soddisfare la richiesta.',
+      '- Mantieni continuità con le parti già approvate della tesi.',
+    ].join('\n'));
+  }
   if (obj.theme) sections.push(`ARGOMENTO\n${clip(String(obj.theme), 1200)}`);
   if (obj.faculty || obj.degreeCourse || obj.degreeType) {
     sections.push(`CONTESTO ACCADEMICO\nFacoltà: ${clip(String(obj.faculty || ''), 300)}\nCorso: ${clip(String(obj.degreeCourse || ''), 400)}\nTipo laurea: ${clip(String(obj.degreeType || ''), 120)}\nMetodologia: ${clip(String(obj.methodology || ''), 120)}`);
   }
+  if (isRevisionTask && disciplinaryGuidance) sections.push(`PROFILO DISCIPLINARE DI SCRITTURA\n${disciplinaryGuidance}`);
   if (obj.approvedOutline) sections.push(`INDICE APPROVATO\n${clip(String(obj.approvedOutline), 7000)}`);
   if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 4000)}`);
   if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
