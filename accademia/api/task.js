@@ -741,8 +741,9 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   }
 
   const chapterState = initializeChapterSectionsState({ input, context, existingChapterContent, targetWords: targets.sectionWords });
+  const nextSubsection = findNextSectionToGenerate(chapterState.sections, context.subsections);
   const blocked = findFirstBlockedSection(chapterState.sections, context.subsections);
-  if (blocked) {
+  if (blocked && (!nextSubsection || blocked.code !== nextSubsection.code)) {
     return {
       partial: true,
       text: composeChapterContentFromSections(context, chapterState.sections, chapterState.opening),
@@ -751,7 +752,6 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     };
   }
 
-  const nextSubsection = findNextSectionToGenerate(chapterState.sections, context.subsections);
   if (!nextSubsection) {
     let doneText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
     doneText = await harmonizeChapterLight(input, context, doneText, system);
@@ -767,19 +767,36 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     ? String(chapterState.sections?.[context.subsections[nextIdx - 1].code]?.text || '')
     : '';
 
+  const currentSectionEntry = chapterState.sections[nextSubsection.code] || {};
+  const currentSectionText = String(currentSectionEntry.text || '').trim();
+  const currentSectionCompleted = currentSectionEntry.locked === true && currentSectionEntry.status === 'done';
+  const shouldResumeIncompleteSection = !!currentSectionText && !currentSectionCompleted;
+
   let generated;
   try {
-    generated = await generateOneSubsection({
-      input,
-      context,
-      subsection: nextSubsection,
-      index: nextIdx,
-      total: context.subsections.length,
-      system,
-      targetWords: targets.sectionWords,
-      previousSectionText,
-      fastPath: false,
-    });
+    if (shouldResumeIncompleteSection) {
+      generated = await continueOneSubsection({
+        input,
+        context,
+        subsection: nextSubsection,
+        system,
+        existingText: currentSectionText,
+        targetWords: targets.sectionWords,
+        fastPath: false,
+      });
+    } else {
+      generated = await generateOneSubsection({
+        input,
+        context,
+        subsection: nextSubsection,
+        index: nextIdx,
+        total: context.subsections.length,
+        system,
+        targetWords: targets.sectionWords,
+        previousSectionText,
+        fastPath: false,
+      });
+    }
   } catch (err) {
     if (isProviderTimeout(err) && String(composeChapterContentFromSections(context, chapterState.sections, chapterState.opening) || '').trim()) {
       return {
