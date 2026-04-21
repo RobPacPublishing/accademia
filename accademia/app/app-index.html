@@ -5419,7 +5419,15 @@ function downloadWorkInProgressTxt(){
 
 function buildFormattedThesisDocHtml(){
   const title=String(thesis.argomento||'Tesi').trim() || 'Tesi';
-  const pageBreakHtml='<div style="page-break-before: always; break-before: page;"></div>';
+  const pageBreakHtml='<div style="display:block; height:0; line-height:0; page-break-before: always; break-before: page; mso-page-break-before: always;">&nbsp;</div>';
+  const pageBreakSectionStyle='page-break-before: always; break-before: page; mso-page-break-before: always;';
+  const buildSection=(heading,content,needsPageBreak=false)=>`
+    ${needsPageBreak ? pageBreakHtml : ''}
+    <section class="doc-section"${needsPageBreak ? ` style="${pageBreakSectionStyle}"` : ''}>
+      ${heading}
+      ${content}
+    </section>
+  `;
 
   const chapterBlocks=[];
   (thesis.chapters||[]).forEach((ch,idx)=>{
@@ -5427,13 +5435,7 @@ function buildFormattedThesisDocHtml(){
     if(!chapterContent)return;
     const chapterTitle=String(thesis.chapterTitles?.[idx]||ch?.title||'').trim();
     const heading=`<h1>Capitolo ${idx+1}${chapterTitle?` — ${escHtml(chapterTitle)}`:''}</h1>`;
-    chapterBlocks.push(`
-      ${pageBreakHtml}
-      <section class="doc-section">
-        ${heading}
-        <div>${formatChapterHtml(chapterContent)}</div>
-      </section>
-    `);
+    chapterBlocks.push(buildSection(heading, `<div>${formatChapterHtml(chapterContent)}</div>`, true));
   });
 
   const rawIndex=String(thesis.indice||'').trim();
@@ -5463,23 +5465,15 @@ function buildFormattedThesisDocHtml(){
   </style>
 </head>
 <body>
-  <section class="doc-section">
+  ${buildSection('', `
     <div class="frontespizio">
       <div class="titolo">${escHtml(title)}</div>
     </div>
-  </section>
+  `, false)}
 
-  ${pageBreakHtml}
-  <section class="doc-section">
-    <h1>Indice</h1>
-    ${indexHtml}
-  </section>
+  ${buildSection('<h1>Indice</h1>', indexHtml, true)}
 
-  ${pageBreakHtml}
-  <section class="doc-section">
-    <h1>Abstract</h1>
-    ${abstractHtml}
-  </section>
+  ${buildSection('<h1>Abstract</h1>', abstractHtml, true)}
 
   ${chapterBlocks.join('\n')}
 </body>
