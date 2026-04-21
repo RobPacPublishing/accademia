@@ -3130,14 +3130,25 @@ function relocateChapterFlowBlocks(){
   const progressWrap=document.getElementById('chapterProgressWrap');
   const budgetWrap=document.getElementById('globalRevCounterWrap');
   const launcher=document.getElementById('nextChapters');
-  if(!activeCard){
-    if(progressWrap && progressWrap.parentElement!==area) area.prepend(progressWrap);
-    if(budgetWrap && budgetWrap.parentElement!==area) area.prepend(budgetWrap);
-    return;
+
+  let anchor=activeCard||null;
+  if(!anchor){
+    const chapterCards=[...area.querySelectorAll('[id^="chap-"]')].filter(el=>/^chap-\d+$/.test(el.id));
+    if(!chapterCards.length) return;
+    const approvedOrComplete=chapterCards
+      .map(el=>({el,idx:Number(el.id.slice(5))}))
+      .filter(item=>{
+        const state=getChapterGenerationState(item.idx);
+        return state==='approved' || state==='complete';
+      })
+      .sort((a,b)=>a.idx-b.idx);
+    anchor=(approvedOrComplete.length?approvedOrComplete[approvedOrComplete.length-1].el:null) || chapterCards[chapterCards.length-1] || null;
   }
-  [launcher,budgetWrap,progressWrap].forEach(node=>{
-    if(node) activeCard.insertAdjacentElement('afterend',node);
-  });
+  if(!anchor || !anchor.parentNode) return;
+  const nodes=[launcher,progressWrap,budgetWrap].filter(Boolean);
+  if(!nodes.length) return;
+  const ref=anchor.nextSibling;
+  nodes.forEach(node=>anchor.parentNode.insertBefore(node,ref));
 }
 
 function renderNextChapterLauncher(){
