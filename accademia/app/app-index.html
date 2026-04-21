@@ -657,6 +657,7 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn-download" onclick="copyWorkInProgress()">📋 Copia lavoro completo finora</button>
       <button class="btn-download" onclick="downloadWorkInProgressTxt()">📝 Scarica lavoro completo finora</button>
+      <button class="btn-download" onclick="downloadFormattedThesisDoc()">🧾 Scarica bozza tesi formattata</button>
     </div>
   </div>
 
@@ -5414,6 +5415,91 @@ function copyWorkInProgress(){
 function downloadWorkInProgressTxt(){
   downloadTextFile(safeTxtName('Lavoro_completo_finora'), buildWorkInProgressPlainText());
   showToast('Download lavoro completo finora avviato ✓');
+}
+
+function buildFormattedThesisDocHtml(){
+  const title=String(thesis.argomento||'Tesi').trim() || 'Tesi';
+  const detailRows=[];
+  const tipoLabel=tipoLaureaLabel(thesis.tipo);
+  if(String(tipoLabel||'').trim()) detailRows.push(`<p><strong>Tipo laurea:</strong> ${escHtml(tipoLabel)}</p>`);
+  if(String(thesis.facolta||'').trim()) detailRows.push(`<p><strong>Facoltà:</strong> ${escHtml(thesis.facolta)}</p>`);
+  if(String(thesis.corso||'').trim()) detailRows.push(`<p><strong>Corso:</strong> ${escHtml(thesis.corso)}</p>`);
+  if(String(thesis.metodologia||'').trim()) detailRows.push(`<p><strong>Metodologia:</strong> ${escHtml(thesis.metodologia)}</p>`);
+
+  const chapterBlocks=[];
+  (thesis.chapters||[]).forEach((ch,idx)=>{
+    const chapterContent=String(getCanonicalChapterContentLocal(idx,{persist:true}) || '').trim();
+    if(!chapterContent)return;
+    const chapterTitle=String(thesis.chapterTitles?.[idx]||ch?.title||'').trim();
+    const heading=`<h1>Capitolo ${idx+1}${chapterTitle?` — ${escHtml(chapterTitle)}`:''}</h1>`;
+    chapterBlocks.push(`
+      <section class="doc-section page-break">
+        ${heading}
+        <div>${formatChapterHtml(chapterContent)}</div>
+      </section>
+    `);
+  });
+
+  const rawIndex=String(thesis.indice||'').trim();
+  const indexHtml=rawIndex
+    ? `<pre>${escHtml(rawIndex)}</pre>`
+    : `<p></p>`;
+
+  const rawAbstract=String(thesis.abstract||'').trim();
+  const abstractHtml=rawAbstract
+    ? `<p>${escHtml(rawAbstract).replace(/\n/g,'<br>')}</p>`
+    : `<p></p>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page{margin:3cm 2.5cm;}
+    body{margin:3cm 2.5cm;font-family:Arial,sans-serif;font-size:11pt;color:#111;}
+    h1,h2,h3{font-family:Georgia,serif;color:#111;}
+    h1{font-size:18pt;margin:0 0 16pt;}
+    p{line-height:1.9;text-align:justify;margin:0 0 8pt;}
+    pre{white-space:pre-wrap;line-height:1.9;font-family:Arial,sans-serif;font-size:11pt;margin:0;}
+    .frontespizio{min-height:62vh;display:flex;flex-direction:column;justify-content:center;text-align:center;}
+    .frontespizio .titolo{font-family:Georgia,serif;font-size:24pt;line-height:1.3;margin-bottom:18pt;}
+    .frontespizio .meta{max-width:580px;margin:0 auto;text-align:left;}
+    .frontespizio .meta p{margin-bottom:6pt;}
+    .doc-section{break-after:page;page-break-after:always;}
+    .page-break{break-before:page;page-break-before:always;}
+  </style>
+</head>
+<body>
+  <section class="doc-section">
+    <div class="frontespizio">
+      <div class="titolo">${escHtml(title)}</div>
+      <div class="meta">${detailRows.join('')}</div>
+    </div>
+  </section>
+
+  <section class="doc-section">
+    <h1>Indice</h1>
+    ${indexHtml}
+  </section>
+
+  <section class="doc-section">
+    <h1>Abstract</h1>
+    ${abstractHtml}
+  </section>
+
+  ${chapterBlocks.join('\n')}
+</body>
+</html>`;
+}
+
+function downloadFormattedThesisDoc(){
+  const hasContent=String(thesis.indice||'').trim() || String(thesis.abstract||'').trim() || (thesis.chapters||[]).some((_,idx)=>String(getCanonicalChapterContentLocal(idx,{persist:true}) || '').trim());
+  if(!hasContent){
+    showToast('Nessun contenuto disponibile per la bozza formattata', true);
+    return;
+  }
+  downloadBlob(safeDocName('Bozza_tesi_formattata'), buildFormattedThesisDocHtml());
+  showToast('Download bozza tesi formattata avviato ✓');
 }
 
 function buildWordHTML(){
