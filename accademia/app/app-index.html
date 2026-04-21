@@ -171,6 +171,7 @@
   .download-info strong{color:var(--text2);}
   .btn-download{display:flex;align-items:center;gap:8px;padding:12px 24px;background:var(--bg4);border:1px solid var(--gold);border-radius:var(--radius-sm);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
   .btn-download:hover{background:var(--gold-dim);box-shadow:0 0 20px rgba(201,168,76,.14);}
+  .download-bar.progressive{margin-top:0;margin-bottom:14px;}
   .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
   .spinner-blue{display:inline-block;width:12px;height:12px;border:2px solid rgba(91,155,213,.2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -650,6 +651,14 @@
   </div>
 
   <div id="chaptersArea"></div>
+
+  <div class="download-bar progressive" id="progressiveExportBar">
+    <div class="download-info">🧩 Export progressivo del lavoro sviluppato fino al momento</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-download" onclick="copyWorkInProgress()">📋 Copia lavoro completo finora</button>
+      <button class="btn-download" onclick="downloadWorkInProgressTxt()">📝 Scarica lavoro completo finora</button>
+    </div>
+  </div>
 
   <div class="download-bar" id="downloadBar" style="display:none">
     <div class="download-info">🎓 Tesi completa — <strong id="wordCount">—</strong> parole generate</div>
@@ -5288,6 +5297,51 @@ function chapterContentHasInlineHeading(chapterContent){
   return false;
 }
 
+function exportChapterStatusLabel(idx){
+  const state=getChapterGenerationState(idx);
+  if(state==='approved') return 'approvato';
+  if(state==='complete') return 'completato';
+  if(state==='partial' || state==='error') return 'bozza';
+  return 'non ancora disponibile';
+}
+
+function buildWorkInProgressPlainText(){
+  const chunks=[];
+  const title=String(thesis.argomento||'').trim();
+  chunks.push(`Titolo tesi\n${title||'non ancora disponibile'}`);
+
+  const details=[];
+  if(String(thesis.tipo||'').trim()) details.push(`Tipo laurea: ${tipoLaureaLabel(thesis.tipo)}`);
+  if(String(thesis.facolta||'').trim()) details.push(`Facoltà: ${thesis.facolta}`);
+  if(String(thesis.corso||'').trim()) details.push(`Corso: ${thesis.corso}`);
+  if(String(thesis.metodologia||'').trim()) details.push(`Metodologia: ${thesis.metodologia}`);
+  chunks.push(`Dati principali\n${details.length?details.join('\n'):'non ancora disponibili'}`);
+
+  const hasApprovedIndex=isIndexApprovedState();
+  const indexText=String(thesis.indice||'').trim();
+  chunks.push(`Indice${hasApprovedIndex?' (approvato)':''}\n${indexText||'non ancora disponibile'}`);
+
+  const hasApprovedAbstract=isAbstractApprovedState();
+  const abstractText=String(thesis.abstract||'').trim();
+  chunks.push(`Abstract${hasApprovedAbstract?' (approvato)':''}\n${abstractText||'non ancora disponibile'}`);
+
+  const titles=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[];
+  const total=Math.max(titles.length, Array.isArray(thesis.chapters)?thesis.chapters.length:0);
+  const chaptersOut=[];
+  for(let i=0;i<total;i++){
+    const chapterTitle=String(titles[i] || thesis.chapters?.[i]?.title || '').trim();
+    const chapterContent=String(getCanonicalChapterContentLocal(i,{persist:true}) || '').trim();
+    chaptersOut.push(
+`Capitolo ${i+1}${chapterTitle?`: ${chapterTitle}`:''}
+Stato: ${exportChapterStatusLabel(i)}
+
+${chapterContent||'non ancora disponibile'}`
+    );
+  }
+  chunks.push(`Capitoli\n${chaptersOut.length?chaptersOut.join('\n\n'):'non ancora disponibili'}`);
+  return `${chunks.join('\n\n')}\n`;
+}
+
 function buildFullPlainText(){
   const tl=tipoLaureaLabel(thesis.tipo);
   let out=`${thesis.argomento||'Tesi'}\n${thesis.facolta||''} — ${thesis.corso||''}\n${tl}\n\nINDICE\n\n${thesis.indice||''}\n\nABSTRACT\n\n${thesis.abstract||''}\n`;
@@ -5351,6 +5405,15 @@ function downloadDocx(){
 function downloadFullTxt(){
   downloadTextFile(safeTxtName('Tesi_completa'), buildFullPlainText());
   showToast('Download testo completo avviato ✓');
+}
+
+function copyWorkInProgress(){
+  copyTextValue('Lavoro completo finora', buildWorkInProgressPlainText());
+}
+
+function downloadWorkInProgressTxt(){
+  downloadTextFile(safeTxtName('Lavoro_completo_finora'), buildWorkInProgressPlainText());
+  showToast('Download lavoro completo finora avviato ✓');
 }
 
 function buildWordHTML(){
