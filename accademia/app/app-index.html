@@ -3004,6 +3004,21 @@ function formatChapterValidationIssues(validation,idx=null){
   return issues.join('; ') || 'bozza ancora da completare';
 }
 
+function formatChapterValidationIssuesUi(validation,idx=null){
+  if(!validation) return '';
+  const issues=[];
+  if(validation.words && validation.minWords && validation.words<validation.minWords){
+    issues.push(`testo corto (${validation.words}/${validation.minWords} parole)`);
+  }
+  if(validation.suspiciousEnding) issues.push('chiusura monca');
+  if(validation.aiClosure) issues.push('chiusura artificiale da rifinire');
+  if(!issues.length && Array.isArray(validation.missingSubsections) && validation.missingSubsections.length){
+    const next=validation.missingSubsections[0];
+    issues.push(`prossimo punto ${formatChapterPointCode(next?.code,idx)}`);
+  }
+  return issues.join('; ');
+}
+
 function formatChapterPointCode(rawCode,idx=null){
   const code=String(rawCode||'').trim();
   if(!code) return '';
@@ -3104,7 +3119,7 @@ function getChapterLauncherConfig(idx){
   if(state==='partial'){
     const point=progress.currentPoint||`${idx+1}.1`;
     const actionLabel=(progress.status==='incomplete' || progress.status==='error')
-      ? `Rigenera punto ${point}`
+      ? `Riprendi punto ${point}`
       : `Genera punto ${point}`;
     return {visible:true, action:`resumeChapterGeneration(${idx})`, label:`✦ ${actionLabel} · Capitolo ${idx+1} — ${escHtml(title)}`};
   }
@@ -3149,6 +3164,20 @@ function relocateChapterFlowBlocks(){
   if(!nodes.length) return;
   const ref=anchor.nextSibling;
   nodes.forEach(node=>anchor.parentNode.insertBefore(node,ref));
+}
+
+function scheduleChapterFlowAutoScroll(idx=thesis.currentChapterIdx){
+  const targetIdx=Math.max(0,Number(idx)||0);
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      const statusEl=document.getElementById('chProgressStatus');
+      const activeCard=document.getElementById(`chap-${targetIdx}`);
+      const target=(statusEl && statusEl.classList.contains('active')) ? statusEl : activeCard;
+      if(target){
+        target.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    });
+  });
 }
 
 function renderNextChapterLauncher(){
@@ -3303,7 +3332,7 @@ function getChapterResumeLabel(idx,state){
   if(state==='error') return '↻ Riprova generazione';
   const progress=getChapterPointProgress(idx);
   const point=progress.currentPoint||`${idx+1}.1`;
-  return `↻ Genera punto ${point}`;
+  return `↻ Riprendi punto ${point}`;
 }
 
 function getChapterProgressStatusText(idx,state){
@@ -3311,15 +3340,18 @@ function getChapterProgressStatusText(idx,state){
   if(state==='partial'){
     const point=progress.currentPoint||`${idx+1}.1`;
     if(progress.status==='missing'){
-      return `Prossimo punto da generare: ${point}`;
+      return `Prossimo punto ${point}.`;
+    }
+    if(progress.nextPoint && progress.nextPoint!==point){
+      return `Punto ${point} completato. Prossimo punto ${progress.nextPoint}.`;
     }
     if(progress.status==='incomplete'){
-      return `Punto ${point} in bozza: completa o rigenera questo punto.`;
+      return `Punto ${point} parziale: riprendi questo punto.`;
     }
-    return `Prossimo punto da generare: ${progress.nextPoint||point}`;
+    return `Prossimo punto ${progress.nextPoint||point}.`;
   }
   if(state==='complete' && progress.nextPoint){
-    return `Prossimo punto da generare: ${progress.nextPoint}`;
+    return `Prossimo punto ${progress.nextPoint}.`;
   }
   return '';
 }
@@ -3442,10 +3474,11 @@ function getChapterApprovalRow(idx,total,approved,visible=true){
   const state=getChapterGenerationState(idx);
   const showResume=shouldShowChapterSecondaryResume(idx,state);
   if(state==='partial'){
-    const details=formatChapterValidationIssues(thesis.chapters?.[idx]?.partialValidation,idx);
     const progressText=getChapterProgressStatusText(idx,state);
+    const details=formatChapterValidationIssuesUi(thesis.chapters?.[idx]?.partialValidation,idx);
+    const hint=[`Capitolo ${idx+1} in avanzamento.`,progressText,details].filter(Boolean).join(' ');
     return `<div class="approval-row" id="chapApproval-${idx}" style="display:${display}">
-        <span class="hint">Capitolo ${idx+1} in avanzamento: ${details}. ${progressText||''}</span>
+        <span class="hint">${hint}</span>
         <div class="actions" style="display:${showResume?'flex':'none'}">
           <button class="btn-approve" onclick="resumeChapterGeneration(${idx})">${getChapterResumeLabel(idx,state)}</button>
         </div>
@@ -4599,7 +4632,7 @@ async function runChapterGeneration(idx,opts={}){
   syncChapterActionButtons(idx);
   const block=document.getElementById(`chap-${idx}`);
   setChapterCollapsed(idx,false);
-  if(block) block.scrollIntoView({behavior:'smooth',block:'start'});
+  if(block) scheduleChapterFlowAutoScroll(idx);
   const output=document.getElementById(`chapOutput-${idx}`);
   const textEl=document.getElementById(`chapText-${idx}`);
   if(output) output.classList.add('typing');
@@ -4726,7 +4759,7 @@ async function runChapterGeneration(idx,opts={}){
       }else{
         const reason=(backendPartialReason==='chapter_timeout_partial'
             ? 'timeout backend durante bozza, testo parziale preservato'
-            : (backendPartialReason || formatChapterValidationIssues(validation)));
+            : (backendPartialReason || formatChapterValidationIssuesUi(validation,idx) || 'bozza ancora da completare'));
         setChapterOperationStatus(`Capitolo ${idx+1} generato solo parzialmente: ${reason}.`,true,false);
         if(/incompleto/i.test(reason)) showToast(reason,true);
       }
@@ -4776,12 +4809,14 @@ async function runChapterGeneration(idx,opts={}){
 }
 
 async function generateNextChapter(){
+  scheduleChapterFlowAutoScroll(thesis.currentChapterIdx);
   return runChapterGeneration(thesis.currentChapterIdx,{forceFresh:false});
 }
 
 async function resumeChapterGeneration(idx=thesis.currentChapterIdx,forceFresh=false){
   thesis.currentChapterIdx=idx;
   renderNextChapterLauncher();
+  scheduleChapterFlowAutoScroll(idx);
   return runChapterGeneration(idx,{forceFresh});
 }
 
@@ -4793,6 +4828,7 @@ function approveChapter(idx){
   thesis.currentChapterIdx=idx+1;
   renderNextChapterLauncher();
   setChapterCollapsed(idx,true);
+  updateChapterSavedBlockStatus(idx);
   saveProgress();
   triggerAutoSnapshot('chapter');
 }
@@ -4810,6 +4846,7 @@ function approveLastChapter(){
   document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
   syncChapterActionButtons(idx);
   setChapterCollapsed(idx,true);
+  updateChapterSavedBlockStatus(idx);
   showToast('🎓 Tesi completata!');
   saveProgress();
   triggerAutoSnapshot('final');
