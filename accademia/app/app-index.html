@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AccademIA — La tua laurea con I.A.</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23050505'/%3E%3Cpath d='M16 46 30 14h4l14 32h-6.4l-3.1-7.7H25.5L22.4 46H16Zm11.8-13h8.4L32 22.3 27.8 33Z' fill='%23C9A84C'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -2040,7 +2041,7 @@ function getChapterCompactSummary(idx){
     : (state==='complete'
       ? 'completato'
       : (state==='partial' ? 'parziale' : 'in lavorazione'));
-  return `<strong>${escHtml(thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`)}</strong><br>${words.toLocaleString('it-IT')} parole · v${version} · ${status}`;
+  return `<strong>${escHtml(thesis.chapterTitles?.[idx]||ch.title||`Capitolo ${idx+1}`)}</strong><br>${words.toLocaleString('it-IT')} parole · Versione ${version} · ${status}`;
 }
 
 function applyChapterCollapsedState(idx){
@@ -2064,6 +2065,21 @@ function toggleChapterCollapsed(idx){
 
 function scrollToPageEnd(){
   window.scrollTo({top:document.documentElement.scrollHeight,behavior:'smooth'});
+}
+
+
+function scrollToActiveChapterOutputEnd(idx=thesis.currentChapterIdx){
+  const targetIdx=Math.max(0,Number(idx)||0);
+  const endAnchor=document.getElementById(`chapBodyWrap-${targetIdx}`)
+    || document.getElementById(`chapText-${targetIdx}`)
+    || document.getElementById(`chapOutput-${targetIdx}`)
+    || document.getElementById(`chap-${targetIdx}`);
+  if(!endAnchor) return;
+  const jump=()=>{
+    endAnchor.scrollIntoView({behavior:'smooth',block:'end'});
+    window.scrollBy({top:140,behavior:'smooth'});
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(jump));
 }
 
 function updateGoBottomButton(){
@@ -3419,7 +3435,7 @@ function renderSavedChapterBlock(idx,total){
         <div class="output-block-title">
           📖 Capitolo ${idx+1}
           <span class="status-chip ${status.cls}" id="chapChip-${idx}">${status.text}</span>
-          <span class="version-badge" id="chapVerBadge-${idx}" style="display:${Array.isArray(ch.versions)&&ch.versions.length?'inline-flex':'none'}" onclick="openVersionModal('chapter',${idx})">↺ v${(ch.currentVersion||0)+1}</span>
+          <span class="version-badge" id="chapVerBadge-${idx}" style="display:${Array.isArray(ch.versions)&&ch.versions.length?'inline-flex':'none'}" onclick="openVersionModal('chapter',${idx})">↺ Versione ${(ch.currentVersion||0)+1}</span>
         </div>
         <div class="header-actions">
           <span style="font-size:12px;color:var(--text3);font-family:'DM Sans',sans-serif;font-style:italic">${escHtml(title)}</span>
@@ -4756,13 +4772,14 @@ async function runChapterGeneration(idx,opts={}){
 
     streamText(`chapText-${idx}`,ch.content,()=>{
       document.getElementById(`chapOutput-${idx}`)?.classList.remove('typing');
-      document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${(ch.currentVersion||0)+1}`;
+      document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ Versione ${(ch.currentVersion||0)+1}`;
       updateChapterSavedBlockStatus(idx);
       updateChapterProgressBar(idx,total,false);
       renderRevCounter(idx);
       syncChapterActionButtons(idx);
       renderNextChapterLauncher();
       saveProgress();
+      scrollToActiveChapterOutputEnd(idx);
       const nextPoint=getChapterPointProgress(idx).nextPoint;
       if(!backendPartial){
         setChapterOperationStatus(nextPoint?`Punto ${requestedPoint} completato. Prossimo: punto ${nextPoint}.`:`Capitolo ${idx+1} completato.`,false,false);
@@ -4968,7 +4985,7 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
       window.addRevisionHistoryEntry({kind:'reviseChapter',kindLabel:'Revisione capitolo',title:ch.title||`Capitolo ${idx+1}`,request:fb,before:beforeChapter,after:finalText});
     }
     ch.currentVersion=ch.versions.length-1;ch.content=finalText;ch.generationState=stabilized.validation.ok?'complete':'partial';ch.partialValidation=stabilized.validation;ch.lastGenerationError='';
-    document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${ch.currentVersion+1}`;
+    document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ Versione ${ch.currentVersion+1}`;
     if(result.sources.length>0){
       const bar=document.getElementById(`chapSources-${idx}`);
       bar.classList.add('visible');
@@ -5067,7 +5084,7 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
       window.addRevisionHistoryEntry({kind:'tutorReviseChapter',kindLabel:'Revisione relatore',title:ch.title||`Capitolo ${idx+1}`,request:notes,before:beforeTutorChapter,after:finalText});
     }
     ch.currentVersion=ch.versions.length-1; ch.content=finalText; ch.generationState=stabilized.validation.ok?'complete':'partial'; ch.partialValidation=stabilized.validation; ch.lastGenerationError='';
-    const badge=document.getElementById(`chapVerBadge-${idx}`); if(badge) badge.textContent=`↺ v${ch.currentVersion+1}`;
+    const badge=document.getElementById(`chapVerBadge-${idx}`); if(badge) badge.textContent=`↺ Versione ${ch.currentVersion+1}`;
     streamText(`chapText-${idx}`,finalText,()=>{
       document.getElementById(`chapOutput-${idx}`).classList.remove('typing');
       updateChapterSavedBlockStatus(idx);
@@ -5156,7 +5173,7 @@ function openVersionModal(type,idx){
     const item=document.createElement('div');
     item.className='version-item'+(i===ch.currentVersion?' current':'');
     item.innerHTML=`<span class="version-item-label">v${i+1} — ${v.label}</span><span class="version-item-time">${v.timestamp}</span>`;
-    item.onclick=()=>{ch.currentVersion=i;ch.content=v.content;document.getElementById(`chapText-${idx}`).textContent=v.content;document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ v${i+1}`;updateWordCount();closeModal('versionModal');showToast(`Versione ${i+1} ripristinata`);};
+    item.onclick=()=>{ch.currentVersion=i;ch.content=v.content;document.getElementById(`chapText-${idx}`).textContent=v.content;document.getElementById(`chapVerBadge-${idx}`).textContent=`↺ Versione ${i+1}`;updateWordCount();closeModal('versionModal');showToast(`Versione ${i+1} ripristinata`);};
     list.appendChild(item);
   });
   openModal('versionModal');
