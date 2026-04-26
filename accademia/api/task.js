@@ -662,7 +662,7 @@ async function generateText(task, input) {
 
   const prompt = buildProviderPrompt(task, input);
   const system = buildSystemPrompt(task, input);
-  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : 2600);
+  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 4000 : 2600));
   return await generateWithProviders({ prompt, system, maxTokens });
 }
 
