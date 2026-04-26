@@ -198,6 +198,8 @@ export default async function handler(req, res) {
       case 'chapter_draft':
       case 'chapter_resume':
       case 'chapter_review':
+      case 'chapter_subsection':
+      case 'chapter_opening':
       case 'tutor_revision':
       case 'revisione_relatore':
       case 'revisione_capitolo': {
