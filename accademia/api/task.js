@@ -656,13 +656,19 @@ function resolveChapterLockScope(input) {
 }
 
 async function generateText(task, input) {
+  if (task === 'chapter_subsection' || task === 'chapter_opening') {
+    const obj = input && typeof input === 'object' ? input : {};
+    const directPrompt = obj.prompt || '';
+    const system = buildSystemPrompt('chapter_draft', input);
+    return await generateWithProviders({ prompt: directPrompt, system, maxTokens: 1400, primaryTimeoutMs: 60_000, fallbackTimeoutMs: 45_000, openaiTimeoutMs: 50_000 });
+  }
   if (task === 'chapter_draft' || task === 'chapter_resume') {
     return await generateChapterDraftStructured(input, task === 'chapter_resume' ? 'resume' : 'fresh');
   }
 
   const prompt = buildProviderPrompt(task, input);
   const system = buildSystemPrompt(task, input);
-  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 4000 : 2600));
+  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 6000 : 2600));
   return await generateWithProviders({ prompt, system, maxTokens });
 }
 
