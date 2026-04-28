@@ -744,7 +744,8 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
       fallbackTimeoutMs: 34_000,
       openaiTimeoutMs: 36_000,
     });
-    const chapterText = postProcessChapterText(raw, context);
+    let chapterText = postProcessChapterText(raw, context);
+    chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
     return chapterText;
   }
 
@@ -867,12 +868,17 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     locked: true,
   };
 
-  const chapterText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
+  const isDone = !findNextSectionToGenerate(chapterState.sections, context.subsections);
+  let chapterText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
+  if (isDone) {
+    chapterText = await harmonizeChapterLight(input, context, chapterText, system);
+    chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
+  }
   return {
     text: chapterText,
     sections: chapterState.sections,
     generatedSectionCode: nextSubsection.code,
-    done: !findNextSectionToGenerate(chapterState.sections, context.subsections),
+    done: isDone,
   };
 }
 
@@ -880,7 +886,8 @@ function initializeChapterSectionsState({ input, context, existingChapterContent
   const obj = input && typeof input === 'object' ? input : {};
   const fromInput = normalizeSectionsMap(obj?.extra?.chapterSections || obj.chapterSections, context);
   const chapterText = String(existingChapterContent || '');
-  const opening = String(obj?.extra?.chapterOpening || extractChapterOpeningFromText(chapterText, context)).trim();
+  const rawOpening = obj?.extra?.chapterOpening ?? obj?.chapterOpening ?? '';
+  const opening = String(rawOpening || extractChapterOpeningFromText(chapterText, context)).trim();
   const migrated = migrateSectionsFromChapterText(chapterText, context, targetWords);
   const sections = {};
   for (const subsection of context.subsections) {
@@ -1313,7 +1320,14 @@ function normalizeOutlineLine(line) {
 
 function wantsFootnoteApparatus(input) {
   const obj = input && typeof input === 'object' ? input : {};
-  return obj?.constraints?.includeFootnotes !== false;
+  const raw = obj?.constraints?.includeFootnotes;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return raw !== false;
 }
 
 async function appendChapterNotesIfNeeded(input, context, chapterText, system) {
