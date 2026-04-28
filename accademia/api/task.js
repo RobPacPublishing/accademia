@@ -755,8 +755,8 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     existingChapterContent,
     targetWords: targets.sectionWords,
   });
-  const nextSubsection = findNextSectionToGenerate(chapterState.sections, context.subsections);
-  const blocked = findFirstBlockedSection(chapterState.sections, context.subsections);
+  const nextSubsection = findNextSectionToGenerate(chapterState.sections, context.subsections, targets.sectionWords);
+  const blocked = findFirstBlockedSection(chapterState.sections, context.subsections, targets.sectionWords);
   if (blocked && (!nextSubsection || blocked.code !== nextSubsection.code)) {
     return {
       partial: true,
@@ -769,11 +769,19 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   if (!nextSubsection) {
     let doneText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
     doneText = await harmonizeChapterLight(input, context, doneText, system);
-    doneText = await appendChapterNotesIfNeeded(input, context, doneText, system);
+    const finalDone = isChapterFullyComplete({
+      sections: chapterState.sections,
+      context,
+      chapterText: doneText,
+      targetWords: targets.sectionWords,
+    });
+    if (finalDone) {
+      doneText = await appendChapterNotesIfNeeded(input, context, doneText, system);
+    }
     return {
       text: doneText,
       sections: chapterState.sections,
-      done: true,
+      done: finalDone,
     };
   }
   const nextIdx = context.subsections.findIndex((sub) => sub.code === nextSubsection.code);
@@ -873,17 +881,26 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     locked: true,
   };
 
-  const isDone = !findNextSectionToGenerate(chapterState.sections, context.subsections);
+  const isDone = !findNextSectionToGenerate(chapterState.sections, context.subsections, targets.sectionWords);
   let chapterText = composeChapterContentFromSections(context, chapterState.sections, chapterState.opening);
+  let done = isDone;
   if (isDone) {
     chapterText = await harmonizeChapterLight(input, context, chapterText, system);
-    chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
+    done = isChapterFullyComplete({
+      sections: chapterState.sections,
+      context,
+      chapterText,
+      targetWords: targets.sectionWords,
+    });
+    if (done) {
+      chapterText = await appendChapterNotesIfNeeded(input, context, chapterText, system);
+    }
   }
   return {
     text: chapterText,
     sections: chapterState.sections,
     generatedSectionCode: nextSubsection.code,
-    done: isDone,
+    done,
   };
 }
 
@@ -967,10 +984,17 @@ function normalizeSectionStatus(status, fallback = 'pending') {
   return fallback;
 }
 
-function findFirstBlockedSection(sections, orderedSubsections) {
+function isSectionEntryDone(entry, targetWords) {
+  const text = String(entry?.text || '').trim();
+  if (!text) return false;
+  if (entry?.locked !== true || entry?.status !== 'done') return false;
+  return validateChapterSectionDetailed(text, targetWords).ok;
+}
+
+function findFirstBlockedSection(sections, orderedSubsections, targetWords) {
   for (const subsection of orderedSubsections) {
     const entry = sections[subsection.code] || {};
-    const completed = entry.locked === true && entry.status === 'done';
+    const completed = isSectionEntryDone(entry, targetWords);
     if (completed) continue;
     if (String(entry.text || '').trim()) return { code: subsection.code };
     return null;
@@ -978,14 +1002,31 @@ function findFirstBlockedSection(sections, orderedSubsections) {
   return null;
 }
 
-function findNextSectionToGenerate(sections, orderedSubsections) {
+function findNextSectionToGenerate(sections, orderedSubsections, targetWords) {
   for (const subsection of orderedSubsections) {
     const entry = sections[subsection.code] || {};
-    const completed = entry.locked === true && entry.status === 'done';
+    const completed = isSectionEntryDone(entry, targetWords);
     if (completed) continue;
     return subsection;
   }
   return null;
+}
+
+function chapterHasAllExpectedSubsections(chapterText, context) {
+  if (!Array.isArray(context?.subsections) || !context.subsections.length) return true;
+  const parsed = parseSubsectionsFromChapterText(chapterText, context);
+  return context.subsections.every((subsection) => String(parsed[subsection.code] || '').trim());
+}
+
+function areAllExpectedSectionsDone(sections, context, targetWords) {
+  if (!Array.isArray(context?.subsections) || !context.subsections.length) return true;
+  return context.subsections.every((subsection) => isSectionEntryDone(sections?.[subsection.code] || {}, targetWords));
+}
+
+function isChapterFullyComplete({ sections, context, chapterText, targetWords }) {
+  return areAllExpectedSectionsDone(sections, context, targetWords)
+    && chapterHasAllExpectedSubsections(chapterText, context)
+    && !chapterNeedsCompletion(chapterText, targetWords, context);
 }
 
 function extractChapterOpeningFromText(chapterText, context) {
@@ -1296,7 +1337,7 @@ function parseChapterContext(input) {
 
   for (const line of normalizedLines) {
     const chapterNamedMatch = line.match(/^(?:capitolo\s+)(\d+)\s*[—\-:.]?\s*(.*)$/i);
-    const chapterPlainMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    const chapterPlainMatch = line.match(/^(\d+)\s*[.)]\s+(.+)$/);
     const chapterMatch = chapterNamedMatch || chapterPlainMatch;
     if (chapterMatch) {
       const n = Number(chapterMatch[1]);
@@ -1309,7 +1350,7 @@ function parseChapterContext(input) {
     }
 
     if (!inside) continue;
-    const subsectionMatch = line.match(/^(\d+\.\d+)\s+(.+)$/);
+    const subsectionMatch = line.match(/^(\d+\.\d+)(?:\s*[—\-:.])?\s+(.+)$/);
     if (subsectionMatch && Number(subsectionMatch[1].split('.')[0]) === currentChapterNumber) {
       subsections.push({ code: subsectionMatch[1], title: subsectionMatch[2].trim() });
     }
@@ -1681,8 +1722,8 @@ function needsMoreSectionText(sectionText, targetWords) {
 function chapterNeedsCompletion(chapterText, targetWords, context) {
   if (wordCount(chapterText) < Math.max(1800, targetWords - 180)) return true;
   if (endsSuspiciously(chapterText)) return true;
-  const last = context.subsections[context.subsections.length - 1];
-  return last ? !chapterText.includes(last.code) : false;
+  if (!chapterHasAllExpectedSubsections(chapterText, context)) return true;
+  return false;
 }
 
 function wordCount(text) {
