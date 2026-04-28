@@ -749,7 +749,12 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
     return chapterText;
   }
 
-  const chapterState = initializeChapterSectionsState({ input, context, existingChapterContent, targetWords: targets.sectionWords });
+  const chapterState = await initializeChapterSectionsState({
+    input,
+    context,
+    existingChapterContent,
+    targetWords: targets.sectionWords,
+  });
   const nextSubsection = findNextSectionToGenerate(chapterState.sections, context.subsections);
   const blocked = findFirstBlockedSection(chapterState.sections, context.subsections);
   if (blocked && (!nextSubsection || blocked.code !== nextSubsection.code)) {
@@ -882,12 +887,13 @@ async function generateChapterDraftStructured(input, mode = 'fresh') {
   };
 }
 
-function initializeChapterSectionsState({ input, context, existingChapterContent, targetWords }) {
+async function initializeChapterSectionsState({ input, context, existingChapterContent, targetWords }) {
   const obj = input && typeof input === 'object' ? input : {};
   const fromInput = normalizeSectionsMap(obj?.extra?.chapterSections || obj.chapterSections, context);
   const chapterText = String(existingChapterContent || '');
   const rawOpening = obj?.extra?.chapterOpening ?? obj?.chapterOpening ?? '';
-  const opening = String(rawOpening || extractChapterOpeningFromText(chapterText, context)).trim();
+  let opening = String(rawOpening || extractChapterOpeningFromText(chapterText, context)).trim();
+  if (!opening) opening = generateFallbackChapterOpening(context);
   const migrated = migrateSectionsFromChapterText(chapterText, context, targetWords);
   const sections = {};
   for (const subsection of context.subsections) {
@@ -907,6 +913,18 @@ function initializeChapterSectionsState({ input, context, existingChapterContent
       : normalizeSectionStatus(sections[subsection.code].status, String(sections[subsection.code].text || '').trim() ? 'incomplete' : 'pending');
   }
   return { sections, opening };
+}
+
+function generateFallbackChapterOpening(context) {
+  const heading = String(context?.chapterHeading || '').trim() || `Capitolo ${context?.currentChapterNumber || ''}`.trim();
+  const subsections = Array.isArray(context?.subsections) ? context.subsections : [];
+  if (!subsections.length) {
+    return `Questo capitolo introduce il quadro concettuale e operativo di riferimento, chiarendo obiettivi analitici, criteri interpretativi e limiti dell'argomentazione che guideranno lo sviluppo delle sezioni successive.`;
+  }
+  const labels = subsections.map((s) => `${s.code} ${s.title}`).filter(Boolean);
+  const preview = labels.slice(0, 3).join('; ');
+  const tail = labels.length > 3 ? '; e i passaggi conclusivi della trattazione' : '';
+  return `Il capitolo ${heading.replace(/^Capitolo\s+\d+\s*[—-]?\s*/i, '').trim() || 'corrente'} definisce la cornice teorico-metodologica e orienta l'analisi in modo progressivo: ${preview}${tail}. Nel complesso, le sottosezioni costruiscono un percorso coerente che collega definizioni, snodi critici e implicazioni interpretative utili alla discussione della tesi.`;
 }
 
 function normalizeSectionsMap(raw, context) {
@@ -1370,7 +1388,7 @@ ${clip(String(chapterText), 5500)}`,
   const raw = await generateWithProviders({
     prompt,
     system,
-    maxTokens: 700,
+    maxTokens: 1700,
     primaryTimeoutMs: 22_000,
     fallbackTimeoutMs: 18_000,
     openaiTimeoutMs: 20_000,
