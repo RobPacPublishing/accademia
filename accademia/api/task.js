@@ -921,8 +921,9 @@ function normalizeSectionsMap(raw, context) {
 function migrateSectionsFromChapterText(chapterText, context, targetWords) {
   const migrated = {};
   if (!String(chapterText || '').trim()) return migrated;
+  const parsedSections = parseSubsectionsFromChapterText(chapterText, context);
   for (const subsection of context.subsections) {
-    const extracted = extractSubsectionText(chapterText, context, subsection);
+    const extracted = parsedSections[subsection.code] || extractSubsectionText(chapterText, context, subsection);
     const valid = validateChapterSection(extracted, targetWords);
     migrated[subsection.code] = {
       title: subsection.title,
@@ -1135,6 +1136,10 @@ function isLikelySubsectionComplete(sectionText, targetWords) {
 function extractSubsectionText(chapterText, context, subsection) {
   const text = String(chapterText || '');
   if (!text) return '';
+  const parsed = parseSubsectionsFromChapterText(text, context);
+  const extracted = parsed[subsection.code];
+  if (extracted) return postProcessChapterSectionText(extracted, subsection);
+
   const heading = `${subsection.code} ${subsection.title}`;
   const start = text.indexOf(heading);
   if (start < 0) return '';
@@ -1611,10 +1616,29 @@ function postProcessChapterText(text, context) {
     .trim();
 
   const chapterHeading = cleanChapterHeading(context.chapterHeading || `Capitolo ${context.currentChapterNumber}`, context.currentChapterNumber);
-  if (!cleaned.startsWith(chapterHeading)) {
+  if (!startsWithNormalizedHeading(cleaned, chapterHeading)) {
     cleaned = `${chapterHeading}\n\n${cleaned}`;
   }
   return cleaned;
+}
+
+function startsWithNormalizedHeading(text, heading) {
+  const normalizedText = normalizeHeadingForComparison(text);
+  const normalizedHeading = normalizeHeadingForComparison(heading);
+  if (!normalizedHeading) return true;
+  return normalizedText.startsWith(normalizedHeading);
+}
+
+function normalizeHeadingForComparison(text) {
+  return String(text || '')
+    .normalize('NFKC')
+    .replace(/^[#\s]+/, '')
+    .replace(/\*\*/g, '')
+    .replace(/[‐‑‒–—−]/g, '-')
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 }
 
 function needsMoreSectionText(sectionText, targetWords) {
@@ -1718,6 +1742,56 @@ function removeSubsectionHeading(text, subsection) {
   return String(text || '')
     .replace(new RegExp(`^${escapeRegex(subsection.code)}\\s+${escapeRegex(subsection.title)}\\s*\\n*`, 'i'), '')
     .trim();
+}
+
+function parseSubsectionsFromChapterText(chapterText, context) {
+  const source = String(chapterText || '').replace(/\r/g, '');
+  if (!source.trim()) return {};
+  const lines = source.split('\n');
+  const matches = [];
+
+  for (let idx = 0; idx < lines.length; idx += 1) {
+    const line = lines[idx];
+    const matched = context.subsections.find((subsection) => isMatchingSubsectionHeadingLine(line, subsection));
+    if (!matched) continue;
+    matches.push({ lineIndex: idx, code: matched.code, subsection: matched });
+  }
+
+  if (!matches.length) return {};
+  const result = {};
+  for (let i = 0; i < matches.length; i += 1) {
+    const current = matches[i];
+    if (result[current.code]) continue;
+    const next = matches[i + 1];
+    const chunk = lines
+      .slice(current.lineIndex, next ? next.lineIndex : lines.length)
+      .join('\n')
+      .trim();
+    if (!chunk) continue;
+    result[current.code] = postProcessChapterSectionText(chunk, current.subsection);
+  }
+  return result;
+}
+
+function isMatchingSubsectionHeadingLine(line, subsection) {
+  const parsed = parseSubsectionHeadingLine(line);
+  if (!parsed || parsed.code !== subsection.code) return false;
+  const parsedTitle = normalizeHeadingForComparison(parsed.title);
+  const expectedTitle = normalizeHeadingForComparison(subsection.title);
+  if (!parsedTitle || !expectedTitle) return false;
+  return parsedTitle === expectedTitle
+    || parsedTitle.startsWith(expectedTitle)
+    || expectedTitle.startsWith(parsedTitle);
+}
+
+function parseSubsectionHeadingLine(line) {
+  const cleaned = String(line || '')
+    .replace(/^#+\s*/, '')
+    .replace(/\*\*/g, '')
+    .trim();
+  const match = cleaned.match(/^(\d+\.\d+)\s*[—\-:.]?\s+(.+)$/);
+  if (!match) return null;
+  return { code: match[1], title: match[2].trim() };
 }
 
 function normalizeForComparison(text) {
