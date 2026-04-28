@@ -916,7 +916,7 @@ async function initializeChapterSectionsState({ input, context, existingChapterC
   for (const subsection of context.subsections) {
     const preferred = fromInput[subsection.code];
     const fallback = migrated[subsection.code];
-    const picked = preferred || fallback || { title: subsection.title, text: '', status: 'pending', locked: false };
+    const picked = chooseSectionSeed({ preferred, fallback, targetWords }) || { title: subsection.title, text: '', status: 'pending', locked: false };
     sections[subsection.code] = {
       title: subsection.title,
       text: String(picked.text || ''),
@@ -934,14 +934,35 @@ async function initializeChapterSectionsState({ input, context, existingChapterC
 
 function generateFallbackChapterOpening(context) {
   const heading = String(context?.chapterHeading || '').trim() || `Capitolo ${context?.currentChapterNumber || ''}`.trim();
-  const subsections = Array.isArray(context?.subsections) ? context.subsections : [];
-  if (!subsections.length) {
-    return `Questo capitolo introduce il quadro concettuale e operativo di riferimento, chiarendo obiettivi analitici, criteri interpretativi e limiti dell'argomentazione che guideranno lo sviluppo delle sezioni successive.`;
-  }
-  const labels = subsections.map((s) => `${s.code} ${s.title}`).filter(Boolean);
-  const preview = labels.slice(0, 3).join('; ');
-  const tail = labels.length > 3 ? '; e i passaggi conclusivi della trattazione' : '';
-  return `Il capitolo ${heading.replace(/^Capitolo\s+\d+\s*[—-]?\s*/i, '').trim() || 'corrente'} definisce la cornice teorico-metodologica e orienta l'analisi in modo progressivo: ${preview}${tail}. Nel complesso, le sottosezioni costruiscono un percorso coerente che collega definizioni, snodi critici e implicazioni interpretative utili alla discussione della tesi.`;
+  const topic = heading.replace(/^Capitolo\s+\d+\s*[—-]?\s*/i, '').trim() || 'in oggetto';
+  return [
+    `Questo capitolo colloca il tema ${topic} nel quadro complessivo della tesi, chiarendo il perimetro teorico e metodologico entro cui si sviluppa l'analisi.`,
+    `L'obiettivo non è anticipare conclusioni, ma costruire una cornice interpretativa robusta: vengono definiti i concetti operativi, esplicitati i criteri con cui leggere i fenomeni e rese trasparenti le scelte argomentative che orientano la discussione.`,
+    `In questa prospettiva, il capitolo connette il problema di ricerca alla letteratura di riferimento, evidenzia i nodi critici che richiedono approfondimento e prepara il passaggio ai segmenti successivi della trattazione con una progressione logica, cumulativa e verificabile.`,
+    `Ne risulta un'introduzione sostanziale, coerente con il profilo accademico dell'elaborato, utile a guidare la lettura e a sostenere la tenuta complessiva dell'impianto della tesi senza ricorrere a elenchi o anticipazioni schematiche delle sottosezioni.`,
+  ].join(' ');
+}
+
+function chooseSectionSeed({ preferred, fallback, targetWords }) {
+  if (!preferred) return fallback || null;
+  if (!fallback) return preferred;
+  const preferredScore = scoreSectionSeed(preferred, targetWords);
+  const fallbackScore = scoreSectionSeed(fallback, targetWords);
+  return fallbackScore > preferredScore ? fallback : preferred;
+}
+
+function scoreSectionSeed(entry, targetWords) {
+  if (!entry || typeof entry !== 'object') return 0;
+  const text = String(entry.text || '').trim();
+  if (!text) return 0;
+  let score = Math.min(1200, wordCount(text));
+  const normalizedStatus = normalizeSectionStatus(entry.status, 'pending');
+  if (normalizedStatus === 'done') score += 2400;
+  if (entry.locked) score += 1800;
+  const detailed = validateChapterSectionDetailed(text, targetWords);
+  if (detailed.ok) score += 4200;
+  score += Math.min(280, text.length / 16);
+  return score;
 }
 
 function normalizeSectionsMap(raw, context) {
@@ -1832,16 +1853,29 @@ function parseSubsectionsFromChapterText(chapterText, context) {
 
   if (!matches.length) return {};
   const result = {};
+  const candidatesByCode = {};
   for (let i = 0; i < matches.length; i += 1) {
     const current = matches[i];
-    if (result[current.code]) continue;
     const next = matches[i + 1];
     const chunk = lines
       .slice(current.lineIndex, next ? next.lineIndex : lines.length)
       .join('\n')
       .trim();
     if (!chunk) continue;
-    result[current.code] = postProcessChapterSectionText(chunk, current.subsection);
+    const normalizedChunk = postProcessChapterSectionText(chunk, current.subsection);
+    if (!normalizedChunk) continue;
+    if (!Array.isArray(candidatesByCode[current.code])) candidatesByCode[current.code] = [];
+    candidatesByCode[current.code].push(normalizedChunk);
+  }
+
+  for (const subsection of context.subsections) {
+    const candidates = candidatesByCode[subsection.code] || [];
+    if (!candidates.length) continue;
+    const best = candidates
+      .map((candidate) => ({ candidate, score: scoreParsedSubsectionCandidate(candidate, subsection) }))
+      .sort((a, b) => b.score - a.score)[0];
+    if (!best?.candidate) continue;
+    result[subsection.code] = best.candidate;
   }
   return result;
 }
@@ -1862,9 +1896,25 @@ function parseSubsectionHeadingLine(line) {
     .replace(/^#+\s*/, '')
     .replace(/\*\*/g, '')
     .trim();
-  const match = cleaned.match(/^(\d+\.\d+)\s*[—\-:.]?\s+(.+)$/);
+  const match = cleaned.match(/^(\d+\.\d+)\s*[—\-:.]?\s*(.+)$/);
   if (!match) return null;
+  if (/\b\d+\.\d+\b.*\b\d+\.\d+\b/.test(cleaned)) return null;
+  if (/[;|]/.test(cleaned) && /\b\d+\.\d+\b/.test(cleaned.split(/[;|]/).slice(1).join(' '))) return null;
   return { code: match[1], title: match[2].trim() };
+}
+
+function scoreParsedSubsectionCandidate(text, subsection) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return 0;
+  const body = removeSubsectionHeading(normalized, subsection);
+  const bodyWordCount = wordCount(body);
+  const paragraphCount = body.split(/\n\s*\n/).filter(Boolean).length;
+  const sentenceCount = body.split(/[.!?]+/).map((x) => x.trim()).filter(Boolean).length;
+  const hasBulletListBias = /(^|\n)\s*(?:[-*•]|\d+\)|\d+\.)\s+\S/m.test(body) && paragraphCount <= 2;
+  let score = bodyWordCount * 10 + Math.min(paragraphCount, 8) * 40 + Math.min(sentenceCount, 20) * 12;
+  if (hasBulletListBias) score -= 220;
+  if (bodyWordCount < 45) score -= 450;
+  return score;
 }
 
 function normalizeForComparison(text) {
