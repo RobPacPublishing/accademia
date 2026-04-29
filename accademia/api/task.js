@@ -658,11 +658,19 @@ function resolveChapterLockScope(input) {
 }
 
 async function generateText(task, input) {
+  const chapterOpeningRequestedInPrompt = hasPromptTask(input, 'chapter_opening');
   if (task === 'chapter_subsection' || task === 'chapter_opening') {
     const obj = input && typeof input === 'object' ? input : {};
     const directPrompt = obj.prompt || '';
     const system = buildSystemPrompt('chapter_draft', input);
     return await generateWithProviders({ prompt: directPrompt, system, maxTokens: 1400, primaryTimeoutMs: 60_000, fallbackTimeoutMs: 45_000, openaiTimeoutMs: 50_000 });
+  }
+  if ((task === 'chapter_draft' || task === 'chapter_resume') && chapterOpeningRequestedInPrompt) {
+    const obj = input && typeof input === 'object' ? input : {};
+    const directPrompt = String(obj.prompt || '');
+    const system = buildSystemPrompt('chapter_draft', input);
+    const text = await generateWithProviders({ prompt: directPrompt, system, maxTokens: 1400, primaryTimeoutMs: 60_000, fallbackTimeoutMs: 45_000, openaiTimeoutMs: 50_000 });
+    return { text, done: true };
   }
   if (task === 'chapter_draft' || task === 'chapter_resume') {
     return await generateChapterDraftStructured(input, task === 'chapter_resume' ? 'resume' : 'fresh');
@@ -672,6 +680,16 @@ async function generateText(task, input) {
   const system = buildSystemPrompt(task, input);
   const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 6000 : 2600));
   return await generateWithProviders({ prompt, system, maxTokens });
+}
+
+function hasPromptTask(input, taskName) {
+  const obj = input && typeof input === 'object' ? input : {};
+  const prompt = String(obj.prompt || '');
+  if (!prompt || !taskName) return false;
+  const escapedTask = String(taskName).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!escapedTask) return false;
+  const pattern = new RegExp(`(^|\\n)\\s*TASK\\s*:\\s*${escapedTask}\\s*(\\n|$)`, 'i');
+  return pattern.test(prompt);
 }
 
 async function generateWithProviders({
