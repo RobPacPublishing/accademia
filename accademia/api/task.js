@@ -198,6 +198,7 @@ export default async function handler(req, res) {
       case 'chapter_draft':
       case 'chapter_resume':
       case 'chapter_review':
+      case 'thesis_final_sections':
       case 'chapter_subsection':
       case 'chapter_opening':
       case 'tutor_revision':
@@ -626,6 +627,8 @@ function normalizeGenerationTask(task) {
     case 'tutor_revision':
     case 'revisione_relatore':
       return 'tutor_revision';
+    case 'thesis_final_sections':
+      return 'thesis_final_sections';
     default:
       return String(task || '').trim();
   }
@@ -678,7 +681,7 @@ async function generateText(task, input) {
 
   const prompt = buildProviderPrompt(task, input);
   const system = buildSystemPrompt(task, input);
-  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 6000 : 2600));
+  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'thesis_final_sections' ? 6000 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 6000 : 2600)));
   return await generateWithProviders({ prompt, system, maxTokens });
 }
 
@@ -1996,10 +1999,23 @@ function buildProviderPrompt(task, input) {
   const disciplinaryGuidance = buildDisciplinaryWritingGuidance(obj);
   const isChapterReviewTask = task === 'chapter_review' || task === 'revisione_capitolo';
   const isTutorRevisionTask = task === 'tutor_revision' || task === 'revisione_relatore';
+  const isFinalSectionsTask = task === 'thesis_final_sections';
   const isRevisionTask = isChapterReviewTask || isTutorRevisionTask;
   const sections = [];
   sections.push(`TASK: ${task}`);
-  if (obj.prompt) sections.push(`RICHIESTA\n${clip(String(obj.prompt), 14000)}`);
+  if (obj.prompt) sections.push(`RICHIESTA\n${clip(String(obj.prompt), isFinalSectionsTask ? 30000 : 14000)}`);
+  if (isFinalSectionsTask) {
+    sections.push([
+      'REGOLE FASE FINALE TESI',
+      '- Genera esclusivamente la fase finale della tesi di laurea.',
+      '- Non generare nuovi capitoli, non continuare l’indice e non creare un capitolo successivo.',
+      '- Produci Conclusioni sostanziali e Bibliografia/riferimenti bibliografici sostanziali.',
+      '- Inserisci Riferimenti normativi solo se pertinenti e desumibili dal testo.',
+      '- Inserisci Sitografia solo se realmente usata o chiaramente ricavabile dal materiale fornito.',
+      '- Non inventare fonti, DOI, URL, sentenze, articoli, pagine o riferimenti non verificabili.',
+      '- Restituisci testo piano con titoli di sezione, senza commenti tecnici o note admin.'
+    ].join('\n'));
+  }
   if (isRevisionTask) {
     sections.push([
       'REGOLE DI REVISIONE ACCADEMICA',
@@ -2040,7 +2056,7 @@ function buildProviderPrompt(task, input) {
   if (obj.approvedOutline) sections.push(`INDICE APPROVATO\n${clip(String(obj.approvedOutline), 7000)}`);
   if (obj.approvedAbstract) sections.push(`ABSTRACT APPROVATO\n${clip(String(obj.approvedAbstract), 4000)}`);
   if (Array.isArray(obj.chapterTitles) && obj.chapterTitles.length) sections.push(`TITOLI CAPITOLI\n${clip(obj.chapterTitles.join('\n'), 2500)}`);
-  if (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex)) {
+  if (!isFinalSectionsTask && (obj.currentChapterTitle || Number.isFinite(obj.currentChapterIndex))) {
     sections.push(`CAPITOLO CORRENTE\nIndice: ${Number(obj.currentChapterIndex || 0) + 1}\nTitolo: ${clip(String(obj.currentChapterTitle || ''), 500)}`);
   }
   if (obj.previousChapters) sections.push(`CAPITOLI PRECEDENTI (SINTESI)\n${clip(String(obj.previousChapters), 6000)}`);
@@ -2062,7 +2078,9 @@ function buildSystemPrompt(task, input) {
     'Mantieni continuità logica, rigore terminologico e pertinenza disciplinare.',
     'Non usare chiuse standardizzate come "questo capitolo", "nel prossimo capitolo" o riepiloghi scolastici intercambiabili.',
   ];
-  if (task === 'outline_draft') {
+  if (task === 'thesis_final_sections') {
+    base.push('Genera esclusivamente Conclusioni, Bibliografia/riferimenti bibliografici, eventuali Riferimenti normativi e eventuale Sitografia per una tesi di laurea. Non scrivere nuovi capitoli. Non trattare il testo come un libro. Le conclusioni devono essere argomentative e sostanziali. I riferimenti devono essere prudenti e non inventati.');
+  } else if (task === 'outline_draft') {
     base.push('Genera un indice universitario plausibile, ben strutturato, con capitoli e sottosezioni coerenti con il tema e la metodologia.');
   } else {
     base.push('Produci testo di capitolo o revisione teorica sostanziale, con forte coerenza interna e visibilità dei cambiamenti richiesti.');
