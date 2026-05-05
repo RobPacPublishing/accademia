@@ -5571,14 +5571,12 @@ function downloadFormattedThesisDoc(){
   }
 
   function getExpectedChapterCount(){
-    const candidates=[
-      Number(thesis?.chapterCount),
-      Number(thesis?.numChapters),
-      Number(thesis?.capitoli),
-      Array.isArray(thesis?.chapterTitles)?thesis.chapterTitles.length:0,
-      Array.isArray(thesis?.chapters)?thesis.chapters.length:0
-    ].filter(n=>Number.isFinite(n)&&n>0);
-    return candidates.length?Math.max(...candidates):0;
+    const fromIndex=String(thesis?.indice||'').trim()?extractChapterTitles(thesis.indice):[];
+    if(fromIndex.length) return fromIndex.length;
+    if(Array.isArray(thesis?.chapterTitles) && thesis.chapterTitles.length) return thesis.chapterTitles.length;
+    if(Array.isArray(thesis?.chapters) && thesis.chapters.length) return thesis.chapters.length;
+    const candidates=[Number(thesis?.chapterCount),Number(thesis?.numChapters),Number(thesis?.capitoli)].filter(n=>Number.isFinite(n)&&n>0);
+    return candidates.length?candidates[0]:0;
   }
 
   function areChaptersReadyForFinal(){
@@ -6323,7 +6321,26 @@ async function callClaudeWithSearch(userPrompt, taskName='chapter_draft', extra=
 // HELPERS
 // ══════════════════════════════════════════════
 function tipoLaureaLabel(t){return t==='magistrale_2'?'Magistrale (2 anni post-triennale)':t==='magistrale_5'?'Magistrale a ciclo unico (5 anni)':t==='triennale'?'Triennale (3 anni)':'';}
-function extractChapterTitles(indice){const l=indice.split('\n'),t=[];for(const ln of l){const m=ln.match(/^(\d+)\.\s+(.+)/);if(m)t.push(m[2].trim());}return t.length>0?t:['Capitolo 1','Capitolo 2','Capitolo 3'];}
+function extractChapterTitles(indice){
+  const lines=String(indice||'').split('\n');
+  const titles=[];
+  for(const raw of lines){
+    const line=String(raw||'').trim().replace(/\*\*/g,'');
+    if(!line) continue;
+    if(/^\d+\.\d+\b/.test(line)) continue;
+    let m=line.match(/^Capitolo\s+(\d+)\s*[—\-:.]?\s*(.*)$/i);
+    if(m){
+      const title=String(m[2]||'').trim();
+      titles.push(title || `Capitolo ${m[1]}`);
+      continue;
+    }
+    m=line.match(/^(\d+)\s*[.)]\s+(.+)$/);
+    if(m){
+      titles.push(String(m[2]||'').trim() || `Capitolo ${m[1]}`);
+    }
+  }
+  return titles.length>0?titles:['Capitolo 1','Capitolo 2','Capitolo 3'];
+}
 function streamText(elId,text,onDone){
   const el=document.getElementById(elId);
   if(!el){if(onDone) onDone();return;}
