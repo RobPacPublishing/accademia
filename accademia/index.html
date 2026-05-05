@@ -1050,7 +1050,7 @@
             </article>
             <article class="compat-list-box partial">
               <h3>Adatto con limiti</h3>
-              <p>Solo per tesi teoriche, review, comparative o caso studio, senza raccolta dati originale.</p>
+              <p>Solo per tesi teorico-bibliografiche, revisioni della letteratura, comparative o casi studio documentali basati su fonti già disponibili, senza raccolta dati originale.</p>
               <ul class="compat-list">
                 <li><strong>Agraria e Scienze Forestali</strong></li>
                 <li><strong>Architettura</strong></li>
@@ -1124,7 +1124,7 @@
             <label>Conferma richiesta</label>
             <div class="check-row">
               <input type="checkbox" id="compatAcknowledge">
-              <span>Ho compreso che, per questa facoltà, AccademIA è adatta solo a tesi teoriche, review, comparative o caso studio, e non a elaborati clinici, sperimentali, di laboratorio o con analisi dati originali.</span>
+              <span>Ho compreso che, per questa area, AccademIA è adatta solo a tesi teorico-bibliografiche, revisioni della letteratura, comparative o casi studio documentali su fonti fornite/pubbliche verificabili, e non a elaborati clinici, sperimentali, di laboratorio o con raccolta dati originale.</span>
             </div>
           </div>
           <div id="compatResult" class="compat-result">
@@ -1332,7 +1332,7 @@
 
           <article class="faq-item">
             <strong class="faq-question">AccademIA è adatta a tesi empiriche con raccolta dati originale?</strong>
-            <p class="faq-answer">No. AccademIA non è progettata per gestire raccolta dati reale, somministrazione di questionari, interviste, campionamenti, analisi statistiche proprietarie o validazione metodologica di risultati originali. È pensata soprattutto per tesi teoriche, compilative, comparative, casi studio e percorsi di scrittura e revisione strutturata.</p>
+            <p class="faq-answer">No. AccademIA non è progettata per gestire raccolta dati reale, somministrazione di questionari, interviste, campionamenti, analisi statistiche proprietarie o validazione metodologica di risultati originali. È pensata soprattutto per tesi teorico-bibliografiche, revisioni della letteratura, comparative, documentali, giuridico-normative e casi studio documentali fondati su fonti fornite o pubbliche verificabili.</p>
           </article>
 
           <article class="faq-item">
@@ -1383,7 +1383,7 @@
           <label>Conferma richiesta</label>
           <div class="check-row">
             <input type="checkbox" id="compatModalAcknowledge">
-            <span>Ho compreso che, per questa facoltà, AccademIA è adatta solo a tesi teoriche, review, comparative o caso studio, e non a elaborati clinici, sperimentali, di laboratorio o con analisi dati originali.</span>
+            <span>Ho compreso che, per questa area, AccademIA è adatta solo a tesi teorico-bibliografiche, revisioni della letteratura, comparative o casi studio documentali su fonti fornite/pubbliche verificabili, e non a elaborati clinici, sperimentali, di laboratorio o con raccolta dati originale.</span>
           </div>
         </div>
         <div id="compatModalResult" class="compat-result compat-modal-result">
@@ -1448,7 +1448,7 @@
     const partial = new Set([
       'Agraria e Scienze Forestali','Architettura','Design','Ingegneria Gestionale','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari'
     ]);
-    const supportedTypes = new Set(['teorica','review','comparativa','casostudio']);
+    const supportedTypes = new Set(['teorico_bibliografica','storico_critica','ermeneutica_testuale','review','comparativa','giuridico_normativa','documentale','casostudio']);
 
     function hasAccessKey(){
       try{
@@ -1593,7 +1593,7 @@
       if (partial.has(faculty)) {
         compatModalConsentWrap.classList.add('active');
         if (compatModalConsentEl.checked) {
-          setModalResult('partial', 'Compatibile con limiti', 'Presa visione confermata. Puoi procedere ai piani standard solo per un percorso teorico, review, comparativo o caso studio.', {showPlans:true, showHasKey:true, planEnabled:true});
+          setModalResult('partial', 'Compatibile con limiti', 'Presa visione confermata. Puoi procedere ai piani standard solo per un percorso teorico-bibliografico, di revisione della letteratura, comparativo, documentale, giuridico-normativo o di caso studio documentale su fonti fornite.', {showPlans:true, showHasKey:true, planEnabled:true});
         } else {
           setModalResult('partial', 'Compatibile con limiti', 'Per questa facoltà devi confermare la presa visione prima di procedere ai piani standard.', {showPlans:false, showHasKey:true});
         }
@@ -1641,7 +1641,7 @@
 
       if (partial.has(faculty)) {
         consentWrap.classList.add('active');
-        setResult('partial', 'Compatibile con limiti', 'Per questa facoltà AccademIA è utilizzabile solo per tesi teoriche, review, comparative o caso studio. Conferma la presa visione per sbloccare i piani.', {showPlans:false, showHasKey:true});
+        setResult('partial', 'Compatibile con limiti', 'Per questa area AccademIA è utilizzabile solo per tesi teorico-bibliografiche, revisioni della letteratura, comparative, documentali, giuridico-normative o casi studio documentali su fonti fornite. Conferma la presa visione per sbloccare i piani.', {showPlans:false, showHasKey:true});
         return;
       }
 
@@ -1662,7 +1662,7 @@
     consentEl?.addEventListener('change', function(){
       if (consentEl.checked && partial.has(facultyEl.value.trim()) && supportedTypes.has(thesisEl.value)) {
         unlockPlans();
-        setResult('partial', 'Compatibile con limiti', 'Compatibilità confermata con presa visione. Puoi procedere ai piani standard solo per un percorso teorico, review, comparativo o caso studio. Dopo l’acquisto riceverai la chiave di accesso via email.', {showPlans:true, showHasKey:true, planEnabled:true});
+        setResult('partial', 'Compatibile con limiti', 'Compatibilità confermata con presa visione. Puoi procedere ai piani standard solo per un percorso teorico-bibliografico, di revisione della letteratura, comparativo, documentale, giuridico-normativo o di caso studio documentale su fonti fornite. Dopo l’acquisto riceverai la chiave di accesso via email.', {showPlans:true, showHasKey:true, planEnabled:true});
       } else {
         lockPlans();
         setResult('partial', 'Compatibile con limiti', 'Per questa facoltà devi confermare la presa visione prima di procedere ai piani standard.', {showPlans:false, showHasKey:true});
