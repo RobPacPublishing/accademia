@@ -5721,8 +5721,10 @@ function downloadFormattedThesisDoc(){
       card=document.createElement('div');
       card.id='finalWorkflowCard';
       card.className='final-workflow-card';
-      const anchor=document.getElementById('nextPhaseArea') || document.querySelector('.next-phase-area') || document.querySelector('.download-bar.progressive') || document.querySelector('.container');
-      if(anchor?.parentNode) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+      const exportBar=document.querySelector('.download-bar.progressive');
+      const container=document.querySelector('.container');
+      if(exportBar?.parentNode) exportBar.parentNode.insertBefore(card, exportBar);
+      else if(container) container.appendChild(card);
       else document.body.appendChild(card);
     }
     const ready=areChaptersReadyForFinal();
