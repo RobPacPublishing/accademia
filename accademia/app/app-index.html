@@ -5771,17 +5771,34 @@ function downloadFormattedThesisDoc(){
     return blocks.join('\\n\\n');
   }
 
+  function cleanFinalSectionForExport(def,value){
+    let text=String(value||'').replace(/\\r/g,'').trim();
+    const lines=text.split('\\n');
+    while(lines.length && !String(lines[0]||'').trim()) lines.shift();
+    if(lines.length){
+      const first=String(lines[0]||'').trim();
+      const normalized=normalizeHeadingLabel(first);
+      const label=String(def?.label||'').trim().toLowerCase();
+      if(first.startsWith('#') || normalized===label || detectFinalSectionKey(first)===def.key){
+        lines.shift();
+      }
+    }
+    return lines.join('\\n').trim();
+  }
+
   function finalSectionsAsHtml(){
     const text=finalSectionsAsPlainText();
     if(!text) return '';
+    const pageBreakHtml='<div style="display:block; height:0; line-height:0; page-break-before: always; break-before: page; mso-page-break-before: always;">&nbsp;</div>';
     const blocks=[];
     FINAL_SECTION_DEFS.forEach(def=>{
-      const value=String(thesis.finalSections?.[def.key]||'').trim();
+      const value=cleanFinalSectionForExport(def,String(thesis.finalSections?.[def.key]||'').trim());
       if(!value) return;
       const safe=typeof escHtml==='function'?escHtml(value):value.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-      blocks.push(`<section class="doc-section" style="page-break-before: always; break-before: page; mso-page-break-before: always;"><h1>${def.label}</h1><div>${safe.replace(/\\n{2,}/g,'</p><p>').replace(/\\n/g,'<br>')}</div></section>`);
+      const bodyHtml=`<p>${safe.replace(/\\n{2,}/g,'</p><p>').replace(/\\n/g,'<br>')}</p>`;
+      blocks.push(`${pageBreakHtml}<section class="doc-section" style="page-break-before: always; break-before: page; mso-page-break-before: always;"><h1>${def.label}</h1><div>${bodyHtml}</div></section>`);
     });
-    return blocks.join('\\n');
+    return blocks.join('\n');
   }
 
   function saveFinalEditorValues(){
