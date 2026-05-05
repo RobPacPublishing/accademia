@@ -690,7 +690,7 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn-download" onclick="copyWorkInProgress()">📋 Copia lavoro completo finora</button>
       <button class="btn-download" onclick="downloadWorkInProgressTxt()">📝 Scarica lavoro completo finora</button>
-      <button class="btn-download" onclick="downloadFormattedThesisDoc()">🧾 Scarica bozza tesi formattata</button>
+      <button class="btn-download" onclick="downloadFormattedThesisDoc()">🧾 ${hasAnyFinalSection&&hasAnyFinalSection()?'Scarica tesi formattata':'Scarica bozza tesi formattata'}</button>
     </div>
   </div>
 
@@ -5937,7 +5937,7 @@ function downloadFormattedThesisDoc(){
         <div class="final-actions">
           <button class="btn-approve" id="btnGenerateFinalSections" onclick="generateFinalSections()" ${(ready&&!isGenerating)?'':'disabled'}>${isGenerating?'Generazione in corso…':(generated?'Rigenera fase finale':'Genera conclusioni e riferimenti')}</button>
           <button class="btn-redo" onclick="saveFinalSectionsManual()" ${isGenerating?'disabled':''}>Salva testi finali</button>
-          <button class="btn-download" onclick="downloadFormattedThesisDoc()" ${isGenerating?'disabled':''}>🧾 Scarica tesi formattata</button>
+
         </div>
         <div class="final-sections-grid">${sectionsHtml}</div>
       </div>`;
