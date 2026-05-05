@@ -5567,7 +5567,7 @@ function downloadFormattedThesisDoc(){
     if(!text) return false;
     if(ch?.approved===true || ch?.approvedAt) return true;
     if(ch?.generationState==='complete' || ch?.state==='complete' || ch?.done===true) return true;
-    return text.split(/\\s+/).filter(Boolean).length>500;
+    return text.split(/\s+/).filter(Boolean).length>500;
   }
 
   function getExpectedChapterCount(){
@@ -5607,12 +5607,20 @@ function downloadFormattedThesisDoc(){
     const chapters=collectChaptersForFinalPrompt();
     return [
       'TASK: thesis_final_sections',
-      'Genera la fase finale della tesi, separata dai capitoli.',
-      'Produci quattro sezioni con questi titoli esatti: Conclusioni; Bibliografia; Riferimenti normativi; Sitografia.',
-      'Le Conclusioni devono essere argomentative, sostanziali e coerenti con indice, abstract e capitoli già sviluppati.',
-      'La Bibliografia deve essere prudente: usa solo riferimenti presenti, indicati o chiaramente ricavabili dal materiale. Non inventare DOI, URL, pagine, sentenze o fonti non verificabili.',
-      'I Riferimenti normativi vanno compilati solo se pertinenti; altrimenti scrivi una breve indicazione prudente di non applicabilità o di verifica con il relatore.',
-      'La Sitografia va compilata solo se sono presenti fonti online o materiali web indicati; altrimenti resta minimale e prudente.',
+      'Genera SOLO la fase finale della tesi. Non continuare i capitoli.',
+      'Usa obbligatoriamente questi quattro titoli, esattamente come scritti:',
+      '# CONCLUSIONI',
+      '# BIBLIOGRAFIA',
+      '# RIFERIMENTI NORMATIVI',
+      '# SITOGRAFIA',
+      '',
+      'REGOLE OBBLIGATORIE',
+      '- Le Conclusioni devono essere complete, non troncate, tra 450 e 700 parole.',
+      '- La Bibliografia deve contenere solo fonti indicate, presenti o chiaramente ricavabili. Non inventare DOI, URL, edizioni, pagine o dati bibliografici non verificabili.',
+      '- Se i Riferimenti normativi non sono pertinenti, scrivi esattamente: Non pertinente per questa tesi teorico-filosofica.',
+      '- Se la Sitografia non è necessaria, scrivi esattamente: Non necessaria: le fonti usate sono bibliografiche e non sitografiche.',
+      '- Non lasciare sezioni vuote.',
+      '- Non chiudere con frasi sospese.',
       '',
       `TITOLO TESI: ${String(thesis.argomento||'').trim()}`,
       `TIPO LAUREA: ${String(typeof tipoLaureaLabel==='function'?tipoLaureaLabel(thesis.tipo):thesis.tipo||'').trim()}`,
@@ -5631,7 +5639,7 @@ function downloadFormattedThesisDoc(){
       '',
       'CAPITOLI GIÀ SVILUPPATI',
       chapters
-    ].join('\\n');
+    ].join('\n');
   }
 
   function normalizeHeadingLabel(line){
@@ -5656,20 +5664,43 @@ function downloadFormattedThesisDoc(){
 
   function splitFinalSectionsFromText(text){
     const output={conclusions:'',bibliography:'',legalReferences:'',sitography:''};
-    const lines=String(text||'').replace(/\\r/g,'').split('\\n');
+    const lines=String(text||'').replace(/\r/g,'').split('\n');
     let current='';
     for(const line of lines){
       const key=detectFinalSectionKey(line);
       if(key){current=key;continue;}
       if(!current){
-        if(line.trim()) output.conclusions += `${line}\\n`;
+        if(line.trim()) output.conclusions += `${line}\n`;
         continue;
       }
-      output[current] += `${line}\\n`;
+      output[current] += `${line}\n`;
     }
     Object.keys(output).forEach(k=>{output[k]=String(output[k]||'').trim();});
     if(!Object.values(output).some(Boolean) && String(text||'').trim()) output.conclusions=String(text||'').trim();
     return output;
+  }
+
+  function looksLikeTruncatedFinalText(text){
+    const t=String(text||'').trim();
+    if(!t) return true;
+    if(/[,:;—-]\s*$/.test(t)) return true;
+    if(/\b(?:di|del|della|dell|che|e|o|un|una|il|la|lo|nel|nella|per|con|da|a)$/i.test(t)) return true;
+    return false;
+  }
+
+  function validateGeneratedFinalSections(sections){
+    const issues=[];
+    const missing=[];
+    FINAL_SECTION_DEFS.forEach(def=>{
+      if(!String(sections?.[def.key]||'').trim()) missing.push(def.label);
+    });
+    if(missing.length) issues.push(`sezioni mancanti: ${missing.join(', ')}`);
+    const conclusions=String(sections?.conclusions||'').trim();
+    const bibliography=String(sections?.bibliography||'').trim();
+    if(countWords(conclusions)<280) issues.push('conclusioni troppo brevi');
+    if(looksLikeTruncatedFinalText(conclusions)) issues.push('conclusioni probabilmente troncate');
+    if(countWords(bibliography)<18) issues.push('bibliografia assente o troppo breve');
+    return {ok:issues.length===0,message:issues.join('; ')};
   }
 
   function finalSectionsAsPlainText(){
@@ -5709,7 +5740,7 @@ function downloadFormattedThesisDoc(){
     if(typeof saveProgress==='function') saveProgress();
   }
 
-  function countWords(text){return String(text||'').trim().split(/\\s+/).filter(Boolean).length;}
+  function countWords(text){return String(text||'').trim().split(/\s+/).filter(Boolean).length;}
 
   window.renderFinalSectionsPanel=function renderFinalSectionsPanel(){
     if(typeof thesis==='undefined' || !thesis) return;
@@ -5727,7 +5758,8 @@ function downloadFormattedThesisDoc(){
     }
     const ready=areChaptersReadyForFinal();
     const generated=hasAnyFinalSection();
-    const status=generated?'Fase finale generata':(ready?'Pronta per la fase finale':'In attesa dei capitoli');
+    const isGenerating=thesis.finalWorkflowState==='generating';
+    const status=isGenerating?'Generazione fase finale in corso':(generated?'Fase finale generata':(ready?'Pronta per la fase finale':'In attesa dei capitoli'));
     const sectionsHtml=FINAL_SECTION_DEFS.map(def=>{
       const value=String(thesis.finalSections?.[def.key]||'');
       const words=countWords(value);
@@ -5751,9 +5783,9 @@ function downloadFormattedThesisDoc(){
         </div>
         <div class="final-workflow-note">${ready?'I capitoli risultano sufficientemente pronti per generare la fase finale.':'La fase finale va generata dopo il completamento dei capitoli. Il campo materiali può essere compilato anche prima.'}</div>
         <div class="final-actions">
-          <button class="btn-approve" id="btnGenerateFinalSections" onclick="generateFinalSections()" ${ready?'':'disabled'}>${generated?'Rigenera fase finale':'Genera conclusioni e riferimenti'}</button>
-          <button class="btn-redo" onclick="saveFinalSectionsManual()">Salva testi finali</button>
-          <button class="btn-download" onclick="downloadFormattedThesisDoc()">🧾 Scarica tesi formattata</button>
+          <button class="btn-approve" id="btnGenerateFinalSections" onclick="generateFinalSections()" ${(ready&&!isGenerating)?'':'disabled'}>${isGenerating?'Generazione in corso…':(generated?'Rigenera fase finale':'Genera conclusioni e riferimenti')}</button>
+          <button class="btn-redo" onclick="saveFinalSectionsManual()" ${isGenerating?'disabled':''}>Salva testi finali</button>
+          <button class="btn-download" onclick="downloadFormattedThesisDoc()" ${isGenerating?'disabled':''}>🧾 Scarica tesi formattata</button>
         </div>
         <div class="final-sections-grid">${sectionsHtml}</div>
       </div>`;
@@ -5773,6 +5805,7 @@ function downloadFormattedThesisDoc(){
     const btn=document.getElementById('btnGenerateFinalSections');
     if(btn){btn.disabled=true;btn.textContent='Generazione in corso…';}
     thesis.finalWorkflowState='generating';
+    renderFinalSectionsPanel();
     try{
       const input={
         prompt:buildFinalSectionsPrompt(),
@@ -5793,7 +5826,12 @@ function downloadFormattedThesisDoc(){
       if(!resp.ok) throw new Error(data?.details||data?.error||`HTTP ${resp.status}`);
       const raw=String(data?.text||'').trim();
       if(!raw) throw new Error('Il provider non ha restituito testo per la fase finale.');
-      thesis.finalSections=splitFinalSectionsFromText(raw);
+      const parsedFinalSections=splitFinalSectionsFromText(raw);
+      const finalValidation=validateGeneratedFinalSections(parsedFinalSections);
+      if(!finalValidation.ok){
+        throw new Error(`Fase finale incompleta: ${finalValidation.message}. Rigenera la fase finale.`);
+      }
+      thesis.finalSections=parsedFinalSections;
       thesis.finalWorkflowState='complete';
       thesis.finalGeneratedAt=new Date().toISOString();
       if(typeof saveProgress==='function') saveProgress();
