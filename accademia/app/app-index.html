@@ -6774,6 +6774,89 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 
   renderRevisionHistory();
 })();
+
+(function(){
+  if(window.__accademiaChapterCountReconcilePatch) return;
+  window.__accademiaChapterCountReconcilePatch=true;
+
+  function getRealChapterTitlesFromApprovedIndex(){
+    try{
+      if(!thesis || !String(thesis.indice||'').trim()) return [];
+      if(typeof extractChapterTitles!=='function') return [];
+      const titles=extractChapterTitles(String(thesis.indice||''))
+        .map(t=>String(t||'').trim())
+        .filter(Boolean);
+      return titles;
+    }catch(_){
+      return [];
+    }
+  }
+
+  function isGenericChapterTitle(title,idx){
+    return new RegExp('^capitolo\\s+'+(idx+1)+'$','i').test(String(title||'').trim());
+  }
+
+  window.reconcileChapterCountWithApprovedIndex=function reconcileChapterCountWithApprovedIndex(){
+    if(typeof thesis==='undefined' || !thesis) return 0;
+    const titles=getRealChapterTitlesFromApprovedIndex();
+    if(!titles.length) return Array.isArray(thesis.chapterTitles)?thesis.chapterTitles.length:0;
+
+    const oldTitles=Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[];
+    const mustAlign=oldTitles.length!==titles.length || titles.some((t,i)=>String(oldTitles[i]||'').trim()!==t);
+    if(mustAlign){
+      thesis.chapterTitles=titles.slice();
+      thesis.chapters=Array.isArray(thesis.chapters)?thesis.chapters.slice(0,titles.length):[];
+      thesis.approvedChapters=Array.isArray(thesis.approvedChapters)?thesis.approvedChapters.slice(0,titles.length):[];
+      thesis.currentChapterIdx=Math.min(Number(thesis.currentChapterIdx)||0,Math.max(0,titles.length-1));
+
+      thesis.chapters.forEach((ch,i)=>{
+        if(!ch) return;
+        if(!String(ch.title||'').trim() || isGenericChapterTitle(ch.title,i)) ch.title=titles[i]||`Capitolo ${i+1}`;
+      });
+
+      if(typeof initRevState==='function') initRevState(titles.length);
+      if(typeof saveProgress==='function') saveProgress();
+    }
+    return titles.length;
+  };
+
+  const previousUpdateChapterProgressBar=typeof updateChapterProgressBar==='function'?updateChapterProgressBar:null;
+  if(previousUpdateChapterProgressBar){
+    updateChapterProgressBar=function(current,total,markDone){
+      const realTotal=window.reconcileChapterCountWithApprovedIndex() || total;
+      return previousUpdateChapterProgressBar.call(this,Math.min(current||0,Math.max(0,realTotal-1)),realTotal,markDone);
+    };
+  }
+
+  const previousRenderNextChapterLauncher=typeof renderNextChapterLauncher==='function'?renderNextChapterLauncher:null;
+  if(previousRenderNextChapterLauncher){
+    renderNextChapterLauncher=function(){
+      const realTotal=window.reconcileChapterCountWithApprovedIndex();
+      const approved=(thesis?.approvedChapters||[]).slice(0,realTotal).filter(Boolean).length;
+      if(realTotal && approved>=realTotal){
+        const nc=document.getElementById('nextChapters');
+        if(nc){nc.classList.remove('visible');nc.innerHTML='';}
+        try{if(typeof renderFinalSectionsPanel==='function') renderFinalSectionsPanel();}catch(_){}
+        return;
+      }
+      return previousRenderNextChapterLauncher.apply(this,arguments);
+    };
+  }
+
+  function refreshChapterCountUi(){
+    const realTotal=window.reconcileChapterCountWithApprovedIndex();
+    if(!realTotal) return;
+    const approved=(thesis?.approvedChapters||[]).slice(0,realTotal).filter(Boolean).length;
+    const label=document.getElementById('chProgressLabel');
+    if(label) label.textContent=`Capitoli approvati: ${approved} / ${realTotal}`;
+    const nc=document.getElementById('nextChapters');
+    if(nc && approved>=realTotal){nc.classList.remove('visible');nc.innerHTML='';}
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(refreshChapterCountUi,400));
+  setTimeout(refreshChapterCountUi,700);
+})();
+
 </script>
 </body>
 </html>
