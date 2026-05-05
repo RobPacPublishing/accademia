@@ -5772,18 +5772,44 @@ function downloadFormattedThesisDoc(){
   }
 
   function cleanFinalSectionForExport(def,value){
-    let text=String(value||'').replace(/\\r/g,'').trim();
-    const lines=text.split('\\n');
+    let text=String(value||'').replace(/\\r/g,'').replace(/\\\\n/g,'\n').trim();
+    const lines=text.split('\n');
     while(lines.length && !String(lines[0]||'').trim()) lines.shift();
-    if(lines.length){
+    while(lines.length){
       const first=String(lines[0]||'').trim();
       const normalized=normalizeHeadingLabel(first);
       const label=String(def?.label||'').trim().toLowerCase();
       if(first.startsWith('#') || normalized===label || detectFinalSectionKey(first)===def.key){
         lines.shift();
+        continue;
       }
+      break;
     }
-    return lines.join('\\n').trim();
+    text=lines.join('\n').replace(/\*/g,'').trim();
+    return text;
+  }
+
+  function paragraphizeFinalSectionHtml(def,value){
+    const cleaned=cleanFinalSectionForExport(def,value);
+    if(!cleaned) return '';
+    const safe=typeof escHtml==='function'
+      ? escHtml(cleaned)
+      : cleaned.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    if(def.key==='bibliography'){
+      const entries=safe
+        .split(/\n+/)
+        .map(x=>x.trim())
+        .filter(Boolean);
+      return entries.map(entry=>`<p style="margin:0 0 10pt; text-align:left; line-height:1.55">${entry}</p>`).join('');
+    }
+
+    return safe
+      .split(/\n{2,}/)
+      .map(par=>par.trim())
+      .filter(Boolean)
+      .map(par=>`<p>${par.replace(/\n/g,'<br>')}</p>`)
+      .join('');
   }
 
   function finalSectionsAsHtml(){
@@ -5792,14 +5818,14 @@ function downloadFormattedThesisDoc(){
     const pageBreakHtml='<div style="display:block; height:0; line-height:0; page-break-before: always; break-before: page; mso-page-break-before: always;">&nbsp;</div>';
     const blocks=[];
     FINAL_SECTION_DEFS.forEach(def=>{
-      const value=cleanFinalSectionForExport(def,String(thesis.finalSections?.[def.key]||'').trim());
-      if(!value) return;
-      const safe=typeof escHtml==='function'?escHtml(value):value.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-      const bodyHtml=`<p>${safe.replace(/\\n{2,}/g,'</p><p>').replace(/\\n/g,'<br>')}</p>`;
+      const value=String(thesis.finalSections?.[def.key]||'').trim();
+      const bodyHtml=paragraphizeFinalSectionHtml(def,value);
+      if(!bodyHtml) return;
       blocks.push(`${pageBreakHtml}<section class="doc-section" style="page-break-before: always; break-before: page; mso-page-break-before: always;"><h1>${def.label}</h1><div>${bodyHtml}</div></section>`);
     });
     return blocks.join('\n');
   }
+
 
   function saveFinalEditorValues(){
     if(typeof thesis==='undefined' || !thesis) return;
