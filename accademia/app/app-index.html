@@ -529,21 +529,40 @@
         <label>Facoltà</label>
         <select id="facolta" onchange="handleProjectStructureChange()">
           <option value="">— Seleziona —</option>
-          <option>Agraria e Scienze Forestali</option><option>Architettura</option>
-          <option>Beni Culturali e Turismo</option><option>Design</option>
-          <option>Economia e Management</option><option>Economia Aziendale</option>
-          <option>Filosofia</option><option>Giurisprudenza</option>
-          <option>Informatica e Ingegneria Informatica</option>
-          <option>Ingegneria Civile e Ambientale</option>
-          <option>Ingegneria Gestionale</option><option>Lettere e Filosofia</option>
-          <option>Lingue e Letterature Straniere</option><option>Medicina e Chirurgia</option>
-          <option>Psicologia</option><option>Scienze della Comunicazione</option>
-          <option>Scienze dell’Educazione e della Formazione</option>
-          <option>Scienze Motorie e Sportive</option>
-          <option>Scienze Politiche e Relazioni Internazionali</option>
-          <option>Scienze Sociali e Sociologia</option>
-          <option>Scienze e Tecnologie Alimentari</option><option>Sociologia</option>
-          <option>Storia</option><option>Teologia</option>
+          <optgroup label="Supportate pienamente">
+            <option>Beni Culturali e Turismo</option>
+            <option>Economia e Management</option>
+            <option>Economia Aziendale</option>
+            <option>Giurisprudenza</option>
+            <option>Lettere e Filosofia</option>
+            <option>Lingue e Letterature Straniere</option>
+            <option>Psicologia</option>
+            <option>Scienze della Comunicazione</option>
+            <option>Scienze dell’Educazione e della Formazione</option>
+            <option>Scienze Politiche e Relazioni Internazionali</option>
+            <option>Scienze Sociali e Sociologia</option>
+            <option>Storia</option>
+            <option>Teologia</option>
+          </optgroup>
+          <optgroup label="Supportate con cautela">
+            <option>Agraria e Scienze Forestali</option>
+            <option>Architettura</option>
+            <option>Design</option>
+            <option>Informatica e Ingegneria Informatica</option>
+            <option>Ingegneria Civile e Ambientale</option>
+            <option>Ingegneria Gestionale</option>
+            <option>Medicina e Chirurgia</option>
+            <option>Scienze Motorie e Sportive</option>
+            <option>Scienze e Tecnologie Alimentari</option>
+          </optgroup>
+          <optgroup label="Non supportate per generazione completa">
+            <option>Biologia sperimentale</option>
+            <option>Chimica</option>
+            <option>Fisica</option>
+            <option>Ingegneria industriale tecnica</option>
+            <option>Matematica e Statistica applicata</option>
+            <option>Medicina clinico-sperimentale</option>
+          </optgroup>
         </select>
       </div>
       <div class="form-group full">
@@ -553,12 +572,18 @@
       <div class="form-group full">
         <label>Approccio metodologico</label>
         <div class="metod-row" id="metodRow">
-          <div class="metod-chip" onclick="setMetod(this,'teorica')">Teorica</div>
-          <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio</div>
-          <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
+          <div class="metod-chip" onclick="setMetod(this,'teorico_bibliografica')">Teorico-bibliografica</div>
+          <div class="metod-chip" onclick="setMetod(this,'storico_critica')">Storico-critica</div>
+          <div class="metod-chip" onclick="setMetod(this,'ermeneutica_testuale')">Analisi testuale / ermeneutica</div>
+          <div class="metod-chip" onclick="setMetod(this,'revisione_letteratura')">Revisione della letteratura</div>
           <div class="metod-chip" onclick="setMetod(this,'comparativa')">Comparativa</div>
+          <div class="metod-chip" onclick="setMetod(this,'giuridico_normativa')">Giuridico-normativa</div>
+          <div class="metod-chip" onclick="setMetod(this,'documentale')">Documentale</div>
+          <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio</div>
+          <div class="metod-chip" onclick="setMetod(this,'progettuale_applicativa')">Progettuale / applicativa</div>
+          <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
         </div>
-        <div style="margin-top:10px;font-size:12px;color:var(--text3)">AccademIA è pensata soprattutto per tesi teoriche, comparative, di caso studio e revisioni sistematiche. Non è progettata per raccolta dati originali o analisi statistiche proprietarie.</div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3)">Scegli l’approccio più vicino alla tesi reale. AccademIA privilegia tesi teoriche, bibliografiche, storico-critiche, documentali, comparative e di caso studio non sperimentale; non è progettata per raccolta dati originali, calcoli tecnici o analisi statistiche proprietarie.</div>
         <div id="compatibilityNotice" style="display:none;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;line-height:1.65"></div>
         <label id="compatibilityAckWrap" style="display:none;margin-top:10px;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,215,102,.18);background:rgba(255,215,102,.06);font-size:12px;line-height:1.6;color:var(--text)">
           <input type="checkbox" id="compatibilityAck" onchange="handleCompatibilityAck()" style="margin-top:3px">
@@ -977,23 +1002,24 @@ let snapshotCache=[];
 let recoveryCache={local:null,sync:null,account:null,newest:null};
 const ADMIN_DASH_KEY_STORAGE='accademia_admin_dash_key_v1';
 const FACULTY_COMPATIBILITY={
-  veryGood:['Psicologia','Giurisprudenza','Scienze Politiche e Relazioni Internazionali'],
-  good:['Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Filosofia','Lettere e Filosofia','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Sociologia','Storia','Teologia'],
+  veryGood:['Giurisprudenza','Lettere e Filosofia','Psicologia','Scienze Politiche e Relazioni Internazionali'],
+  good:['Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Storia','Teologia'],
   partial:['Agraria e Scienze Forestali','Architettura','Design','Informatica e Ingegneria Informatica','Ingegneria Civile e Ambientale','Ingegneria Gestionale','Medicina e Chirurgia','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari']
 };
 
 const FACULTY_GOOD_GUIDANCE={
-  'Beni Culturali e Turismo':{focus:'inquadramento storico-critico, valorizzazione, fruizione e sostenibilità', avoid:'taglio promozionale o turistico-commerciale non accademico'},
+  'Beni Culturali e Turismo':{focus:'inquadramento storico-critico, valorizzazione del patrimonio, fruizione culturale e sostenibilità', avoid:'taglio promozionale o turistico-commerciale non accademico'},
   'Economia e Management':{focus:'quadro teorico solido, modelli di management, assetti organizzativi e implicazioni strategiche', avoid:'linguaggio consulenziale o aziendalistico generico'},
   'Economia Aziendale':{focus:'governance, organizzazione, controllo, performance e ricadute operative', avoid:'impostazioni troppo descrittive o prive di cornice teorica'},
-  'Filosofia':{focus:'ricostruzione teorica, confronto tra autori, precisione concettuale e rigore argomentativo', avoid:'tono divulgativo o eccessivamente assertivo'},
-  'Lettere e Filosofia':{focus:'inquadramento storico-critico, uso controllato delle categorie interpretative e analisi testuale coerente', avoid:'generalizzazioni o giudizi impressionistici'},
-  'Lingue e Letterature Straniere':{focus:'cornice storico-letteraria, analisi del testo, confronto critico e contestualizzazione culturale', avoid:'parafrasi semplice o taglio scolastico'},
-  'Scienze della Comunicazione':{focus:'teorie della comunicazione, media framing, discorso pubblico e impatto sociale', avoid:'taglio giornalistico o marketing puro se non motivato'},
+  'Giurisprudenza':{focus:'fonti del diritto, dottrina, giurisprudenza, principi normativi e argomentazione tecnico-giuridica prudente', avoid:'affermazioni normative non fondate o riferimenti inventati'},
+  'Lettere e Filosofia':{focus:'inquadramento storico-critico, analisi teorico-bibliografica, ermeneutica dei testi, confronto tra autori e precisione concettuale', avoid:'generalizzazioni, tono divulgativo, giudizi impressionistici o lessico non disciplinare'},
+  'Lingue e Letterature Straniere':{focus:'cornice storico-letteraria, analisi del testo, confronto critico e contestualizzazione linguistica/culturale', avoid:'parafrasi semplice o taglio scolastico'},
+  'Psicologia':{focus:'teorie psicologiche, letteratura scientifica, costrutti, modelli interpretativi e prudenza su clinica/dati', avoid:'diagnosi, protocolli clinici o risultati sperimentali non verificati'},
+  'Scienze della Comunicazione':{focus:'teorie della comunicazione, media framing, discorso pubblico, processi culturali e impatto sociale', avoid:'taglio giornalistico o marketing puro se non motivato'},
   'Scienze dell’Educazione e della Formazione':{focus:'fondamenti pedagogici, processi educativi, modelli formativi e implicazioni didattiche', avoid:'manualismo pratico senza quadro teorico'},
-  'Scienze Sociali e Sociologia':{focus:'concetti sociologici chiari, processi sociali, letteratura di riferimento e lettura strutturale', avoid:'psicologizzazione impropria dei fenomeni'},
-  'Sociologia':{focus:'categorie sociologiche, attori, strutture, istituzioni e mutamento sociale', avoid:'analisi moralistiche o puramente opinionistiche'},
-  'Storia':{focus:'periodizzazione, contesto, fonti secondarie affidabili e nesso causale argomentato', avoid:'narrazione cronachistica senza problema storiografico'},
+  'Scienze Politiche e Relazioni Internazionali':{focus:'istituzioni, politiche pubbliche, relazioni internazionali, governance e cornici teorico-politologiche', avoid:'commento giornalistico o opinione politica non argomentata'},
+  'Scienze Sociali e Sociologia':{focus:'concetti sociologici chiari, processi sociali, attori, istituzioni, strutture e mutamento sociale', avoid:'psicologizzazione impropria o analisi moralistiche'},
+  'Storia':{focus:'periodizzazione, contesto, fonti secondarie affidabili, storiografia e nesso causale argomentato', avoid:'narrazione cronachistica senza problema storiografico'},
   'Teologia':{focus:'fondamenti teologici, rigore ermeneutico, tradizione, magistero e ricadute pastorali quando pertinenti', avoid:'tono devozionale non accademico'}
 };
 
@@ -3857,6 +3883,23 @@ function getPartialFacultyGuidance(facolta){
   return FACULTY_PARTIAL_GUIDANCE[facolta]||null;
 }
 
+function methodologyPromptGuidance(method){
+  const m=String(method||'').trim();
+  const map={
+    teorico_bibliografica:'Guida metodologica: imposta il lavoro come tesi teorico-bibliografica. Ricostruisci criticamente la letteratura, confronta autori e concetti, evita dati empirici originali, statistiche proprietarie, questionari o risultati sperimentali.',
+    storico_critica:'Guida metodologica: imposta il lavoro come analisi storico-critica. Cura contesto, periodizzazione, sviluppo del problema, trasformazioni concettuali, dibattito storiografico o critico e uso prudente delle fonti.',
+    ermeneutica_testuale:'Guida metodologica: imposta il lavoro come analisi testuale/ermeneutica. Privilegia interpretazione dei testi, lessico degli autori, passaggi argomentativi, categorie concettuali e coerenza interna delle opere.',
+    revisione_letteratura:'Guida metodologica: imposta il lavoro come revisione della letteratura non necessariamente sistematica. Organizza fonti e posizioni teoriche, individua convergenze, divergenze, limiti e lacune interpretative.',
+    comparativa:'Guida metodologica: imposta il lavoro come confronto comparativo. Definisci criteri di confronto espliciti, evita parallelismi superficiali e mostra differenze, analogie, limiti e implicazioni teoriche.',
+    giuridico_normativa:'Guida metodologica: imposta il lavoro come analisi giuridico-normativa. Cura gerarchia delle fonti, dottrina, giurisprudenza, principi, riferimenti normativi verificabili e prudenza terminologica.',
+    documentale:'Guida metodologica: imposta il lavoro come analisi documentale. Usa materiali, documenti, testi ufficiali o fonti secondarie come corpus interpretativo; non inventare dati o fonti non disponibili.',
+    caso_studio:'Guida metodologica: imposta il lavoro come caso studio documentale/non sperimentale. Definisci il caso, il perimetro, le fonti disponibili e il valore interpretativo, evitando raccolte dati originali non validate.',
+    progettuale_applicativa:'Guida metodologica: imposta il lavoro come proposta progettuale/applicativa solo se compatibile con la facoltà. Mantieni quadro teorico, criteri, limiti, fattibilità e non produrre calcoli o validazioni tecniche specialistiche.',
+    revisione_sistematica:'Guida metodologica: usa la revisione sistematica solo se davvero pertinente. Specifica criteri di inclusione/esclusione e limiti, ma non inventare database, stringhe di ricerca, campioni o risultati quantitativi non forniti.'
+  };
+  return map[m]||'Guida metodologica: mantieni coerenza con l’approccio scelto, chiarendo metodo, limiti e tipo di fonti usate.';
+}
+
 function facultyPromptGuidance(facolta,corso,approccio){
   const kind=getFacultyCompatibility(facolta);
   const method=(approccio||'').trim();
@@ -3884,7 +3927,8 @@ function facultyPromptGuidance(facolta,corso,approccio){
     lines.push(`Ancoraggio al corso di laurea: mantieni sempre esplicita la pertinenza con ${corso}.`);
   }
   if(method){
-    lines.push(`Approccio metodologico vincolante: mantieni coerenza piena con l’impostazione ${method.replace(/_/g,' ')}.`);
+    lines.push(`Approccio metodologico vincolante: ${method.replace(/_/g,' ')}.`);
+    lines.push(methodologyPromptGuidance(method));
   }
   return lines.join(' ');
 }
