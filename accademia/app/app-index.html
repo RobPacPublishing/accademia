@@ -5848,6 +5848,14 @@ function downloadFormattedThesisDoc(){
       .join('');
   }
 
+  function shouldOmitFinalSectionInFormattedExport(def,value){
+    const cleaned=cleanFinalSectionForExport(def,value).toLowerCase().replace(/\s+/g,' ').trim();
+    if(!cleaned) return true;
+    if(def.key==='legalReferences' && (cleaned.startsWith('non pertinente') || cleaned.includes('non pertinente per questa tesi'))) return true;
+    if(def.key==='sitography' && (cleaned.startsWith('non necessaria') || cleaned.startsWith('non necessario') || cleaned.includes('fonti usate sono bibliografiche'))) return true;
+    return false;
+  }
+
   function finalSectionsAsHtml(){
     const text=finalSectionsAsPlainText();
     if(!text) return '';
@@ -5855,6 +5863,7 @@ function downloadFormattedThesisDoc(){
     const blocks=[];
     FINAL_SECTION_DEFS.forEach(def=>{
       const value=String(thesis.finalSections?.[def.key]||'').trim();
+      if(shouldOmitFinalSectionInFormattedExport(def,value)) return;
       const bodyHtml=paragraphizeFinalSectionHtml(def,value);
       if(!bodyHtml) return;
       blocks.push(`${pageBreakHtml}<section class="doc-section" style="page-break-before: always; break-before: page; mso-page-break-before: always;"><h1>${def.label}</h1><div>${bodyHtml}</div></section>`);
@@ -6640,6 +6649,48 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
       }
 
       html=html.replace(/\\n/g,'');
+      return html;
+    };
+  }
+})();
+
+
+(function(){
+  if(window.__accademiaRemoveDuplicateChapterLeadPatch) return;
+  window.__accademiaRemoveDuplicateChapterLeadPatch=true;
+
+  function escapeRegexText(text){
+    return String(text||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  }
+
+  function htmlTextToPattern(text){
+    const escaped=escapeRegexText(String(text||'').trim());
+    return escaped.replace(/\s+/g,'\\s+');
+  }
+
+  function getExportChapterTitleFromIndex(idx){
+    try{
+      const titles=typeof extractChapterTitles==='function' ? extractChapterTitles(String(thesis?.indice||'')) : [];
+      return String(titles?.[idx]||'').trim();
+    }catch(_){
+      return '';
+    }
+  }
+
+  if(typeof buildFormattedThesisDocHtml==='function'){
+    const previousBuildFormattedThesisDocHtmlForDuplicateLead=buildFormattedThesisDocHtml;
+    buildFormattedThesisDocHtml=function(){
+      let html=String(previousBuildFormattedThesisDocHtmlForDuplicateLead.apply(this,arguments)||'');
+      const chapters=Array.isArray(thesis?.chapters)?thesis.chapters:[];
+      chapters.forEach((_,idx)=>{
+        const n=idx+1;
+        const title=getExportChapterTitleFromIndex(idx);
+        if(!title) return;
+        const fullTitle=`Capitolo ${n} — ${title}`;
+        const titlePattern=htmlTextToPattern(fullTitle);
+        const duplicateParagraph=new RegExp(`<p[^>]*>\\s*${titlePattern}\\s*</p>\\s*(?:<br\\s*/?>)?`,'i');
+        html=html.replace(duplicateParagraph,'');
+      });
       return html;
     };
   }
