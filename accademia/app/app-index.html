@@ -5162,6 +5162,7 @@ function resetChapterUiAfterError(idx,message){
 // CHAPTER PROGRESS BAR
 // ══════════════════════════════════════════════
 function updateChapterProgressBar(current,total,markDone){
+  total=(typeof getExpectedChapterCount==='function'?getExpectedChapterCount():total)||total;
   let wrap=document.getElementById('chapterProgressWrap');
   if(!wrap){
     wrap=document.createElement('div');wrap.id='chapterProgressWrap';wrap.className='chapter-progress-wrap';
@@ -5544,7 +5545,7 @@ function downloadFormattedThesisDoc(){
     });
     if(typeof thesis.finalSupervisorMaterials!=='string') thesis.finalSupervisorMaterials='';
     if(!thesis.finalWorkflowState){
-      thesis.finalWorkflowState=hasAnyFinalSection()?'complete':'pending';
+      if(thesis.finalWorkflowState!=='generating') thesis.finalWorkflowState=hasAnyFinalSection()?'complete':'pending';
     }
     return thesis.finalSections;
   }
@@ -5603,52 +5604,16 @@ function downloadFormattedThesisDoc(){
   }
 
   function buildFinalSectionsPrompt(){
-    const materials=String(thesis.finalSupervisorMaterials||'').trim();
-    const chapters=collectChaptersForFinalPrompt();
-    return [
-      'TASK: thesis_final_sections',
-      'Genera SOLO la fase finale della tesi. Non continuare i capitoli.',
-      'Usa obbligatoriamente questi quattro titoli, esattamente come scritti:',
-      '# CONCLUSIONI',
-      '# BIBLIOGRAFIA',
-      '# RIFERIMENTI NORMATIVI',
-      '# SITOGRAFIA',
-      '',
-      'REGOLE OBBLIGATORIE',
-      '- Le Conclusioni devono essere complete, non troncate, tra 450 e 700 parole.',
-      '- La Bibliografia deve contenere solo fonti indicate, presenti o chiaramente ricavabili. Non inventare DOI, URL, edizioni, pagine o dati bibliografici non verificabili.',
-      '- Se i Riferimenti normativi non sono pertinenti, scrivi esattamente: Non pertinente per questa tesi teorico-filosofica.',
-      '- Se la Sitografia non è necessaria, scrivi esattamente: Non necessaria: le fonti usate sono bibliografiche e non sitografiche.',
-      '- Non lasciare sezioni vuote.',
-      '- Non chiudere con frasi sospese.',
-      '',
-      `TITOLO TESI: ${String(thesis.argomento||'').trim()}`,
-      `TIPO LAUREA: ${String(typeof tipoLaureaLabel==='function'?tipoLaureaLabel(thesis.tipo):thesis.tipo||'').trim()}`,
-      `FACOLTÀ: ${String(thesis.facolta||'').trim()}`,
-      `CORSO: ${String(thesis.corso||'').trim()}`,
-      `METODOLOGIA: ${String(thesis.metodologia||'').trim()}`,
-      '',
-      'INDICE APPROVATO',
-      String(thesis.indice||'').trim(),
-      '',
-      'ABSTRACT APPROVATO',
-      String(thesis.abstract||'').trim(),
-      '',
-      'MATERIALI E FONTI INDICATE DAL RELATORE',
-      materials || 'Nessun materiale aggiuntivo indicato dal relatore.',
-      '',
-      'CAPITOLI GIÀ SVILUPPATI',
-      chapters
-    ].join('\n');
+    return buildSingleFinalSectionPrompt({key:'conclusions',label:'Conclusioni'});
   }
 
   function normalizeHeadingLabel(line){
     return String(line||'')
       .normalize('NFKC')
-      .replace(/^#+\\s*/,'')
-      .replace(/^[\\s*•-]+/,'')
-      .replace(/[:：]+\\s*$/,'')
-      .replace(/\\*\\*/g,'')
+      .replace(/^#+\s*/,'')
+      .replace(/^[\s*•-]+/,'')
+      .replace(/[:：]+\s*$/,'')
+      .replace(/\*\*/g,'')
       .trim()
       .toLowerCase();
   }
@@ -5680,6 +5645,20 @@ function downloadFormattedThesisDoc(){
     return output;
   }
 
+  function stripFinalSectionHeading(text,def){
+    const lines=String(text||'').replace(/\r/g,'').split('\n');
+    while(lines.length && !String(lines[0]||'').trim()) lines.shift();
+    if(lines.length && detectFinalSectionKey(lines[0])===def.key) lines.shift();
+    return lines.join('\n').trim();
+  }
+
+  function normalizeSingleFinalSectionOutput(raw,def){
+    const parsed=splitFinalSectionsFromText(raw);
+    const direct=String(parsed?.[def.key]||'').trim();
+    if(direct) return direct;
+    return stripFinalSectionHeading(raw,def);
+  }
+
   function looksLikeTruncatedFinalText(text){
     const t=String(text||'').trim();
     if(!t) return true;
@@ -5688,19 +5667,97 @@ function downloadFormattedThesisDoc(){
     return false;
   }
 
+  function validateSingleFinalSection(def,value){
+    const text=String(value||'').trim();
+    const words=countWords(text);
+    if(!text) return {ok:false,message:`${def.label} vuota`};
+    if(looksLikeTruncatedFinalText(text)) return {ok:false,message:`${def.label} probabilmente troncata`};
+    if(def.key==='conclusions' && words<280) return {ok:false,message:'Conclusioni troppo brevi'};
+    if(def.key==='bibliography' && words<18) return {ok:false,message:'Bibliografia assente o troppo breve'};
+    if((def.key==='legalReferences' || def.key==='sitography') && words<4) return {ok:false,message:`${def.label} troppo breve`};
+    return {ok:true,message:''};
+  }
+
   function validateGeneratedFinalSections(sections){
     const issues=[];
-    const missing=[];
     FINAL_SECTION_DEFS.forEach(def=>{
-      if(!String(sections?.[def.key]||'').trim()) missing.push(def.label);
+      const result=validateSingleFinalSection(def,String(sections?.[def.key]||''));
+      if(!result.ok) issues.push(result.message);
     });
-    if(missing.length) issues.push(`sezioni mancanti: ${missing.join(', ')}`);
-    const conclusions=String(sections?.conclusions||'').trim();
-    const bibliography=String(sections?.bibliography||'').trim();
-    if(countWords(conclusions)<280) issues.push('conclusioni troppo brevi');
-    if(looksLikeTruncatedFinalText(conclusions)) issues.push('conclusioni probabilmente troncate');
-    if(countWords(bibliography)<18) issues.push('bibliografia assente o troppo breve');
     return {ok:issues.length===0,message:issues.join('; ')};
+  }
+
+  function buildSingleFinalSectionPrompt(def){
+    const materials=String(thesis.finalSupervisorMaterials||'').trim();
+    const chapters=collectChaptersForFinalPrompt();
+    const common=[
+      'TASK: thesis_final_sections',
+      `Genera SOLO la sezione finale: # ${String(def.label||'').toUpperCase()}.`,
+      'Non generare altri capitoli. Non generare altre sezioni finali.',
+      'Usa il titolo richiesto come prima riga e poi il testo della sezione.',
+      'Non chiudere con frasi sospese. Non inventare fonti o dati non verificabili.',
+      '',
+      `TITOLO TESI: ${String(thesis.argomento||'').trim()}`,
+      `TIPO LAUREA: ${String(typeof tipoLaureaLabel==='function'?tipoLaureaLabel(thesis.tipo):thesis.tipo||'').trim()}`,
+      `FACOLTÀ: ${String(thesis.facolta||'').trim()}`,
+      `CORSO: ${String(thesis.corso||'').trim()}`,
+      `METODOLOGIA: ${String(thesis.metodologia||'').trim()}`,
+      '',
+      'INDICE APPROVATO',
+      String(thesis.indice||'').trim(),
+      '',
+      'ABSTRACT APPROVATO',
+      String(thesis.abstract||'').trim(),
+      '',
+      'MATERIALI E FONTI INDICATE DAL RELATORE',
+      materials || 'Nessun materiale aggiuntivo indicato dal relatore.',
+      '',
+      'CAPITOLI GIÀ SVILUPPATI',
+      chapters
+    ];
+    const specific={
+      conclusions:[
+        'ISTRUZIONI SPECIFICHE CONCLUSIONI',
+        'Scrivi conclusioni complete, argomentative e non riassuntive, tra 450 e 700 parole.',
+        'Valorizza risultati, limiti teorici e possibile sviluppo della ricerca.'
+      ],
+      bibliography:[
+        'ISTRUZIONI SPECIFICHE BIBLIOGRAFIA',
+        'Elenca solo fonti indicate o chiaramente ricavabili: Locke, Bergson, Ricoeur, Parfit, Taylor se pertinenti al materiale.',
+        'Non inventare editore, anno, DOI, URL o pagine se non presenti.',
+        'Formato essenziale accademico, una fonte per riga.'
+      ],
+      legalReferences:[
+        'ISTRUZIONI SPECIFICHE RIFERIMENTI NORMATIVI',
+        'Se la tesi non richiede riferimenti normativi, scrivi esattamente: Non pertinente per questa tesi teorico-filosofica.',
+        'Non inventare leggi, sentenze o articoli normativi.'
+      ],
+      sitography:[
+        'ISTRUZIONI SPECIFICHE SITOGRAFIA',
+        'Se non sono state usate fonti web, scrivi esattamente: Non necessaria: le fonti usate sono bibliografiche e non sitografiche.',
+        'Non inventare URL.'
+      ]
+    }[def.key]||[];
+    return [...common,'',...specific].join('\n');
+  }
+
+  function buildFinalSectionInput(def){
+    return {
+      prompt:buildSingleFinalSectionPrompt(def),
+      finalSectionKey:def.key,
+      finalSectionLabel:def.label,
+      thesisTitle:String(thesis.argomento||''),
+      degreeType:thesis.tipo||'',
+      faculty:thesis.facolta||'',
+      course:thesis.corso||'',
+      methodology:thesis.metodologia||'',
+      approvedOutline:String(thesis.indice||''),
+      approvedAbstract:String(thesis.abstract||''),
+      chapterTitles:Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[],
+      previousChapters:collectChaptersForFinalPrompt(),
+      supervisorMaterials:String(thesis.finalSupervisorMaterials||''),
+      constraints:thesis.constraints||{}
+    };
   }
 
   function finalSectionsAsPlainText(){
@@ -5759,7 +5816,12 @@ function downloadFormattedThesisDoc(){
     const ready=areChaptersReadyForFinal();
     const generated=hasAnyFinalSection();
     const isGenerating=thesis.finalWorkflowState==='generating';
-    const status=isGenerating?'Generazione fase finale in corso':(generated?'Fase finale generata':(ready?'Pronta per la fase finale':'In attesa dei capitoli'));
+    const isError=thesis.finalWorkflowState==='error';
+    const status=isGenerating?'Generazione fase finale in corso':(isError?'Errore fase finale':(generated?'Fase finale generata':(ready?'Pronta per la fase finale':'In attesa dei capitoli')));
+    const finalError=String(thesis.finalWorkflowError||'').trim();
+    const finalStep=String(thesis.finalWorkflowStep||'').trim();
+    const progressHtml=isGenerating&&finalStep?`<div class="final-workflow-note" style="border-color:rgba(201,168,76,.38);color:var(--gold)">⏳ ${typeof escHtml==='function'?escHtml(finalStep):finalStep}</div>`:'';
+    const errorHtml=finalError?`<div class="final-workflow-note" style="border-color:rgba(224,85,85,.45);background:rgba(224,85,85,.08);color:#ffb3b3"><strong>Errore fase finale</strong><br>${typeof escHtml==='function'?escHtml(finalError):finalError}<br><button class="btn-redo" style="margin-top:10px" onclick="clearFinalWorkflowError()">OK, ho capito</button></div>`:'';
     const sectionsHtml=FINAL_SECTION_DEFS.map(def=>{
       const value=String(thesis.finalSections?.[def.key]||'');
       const words=countWords(value);
@@ -5782,6 +5844,8 @@ function downloadFormattedThesisDoc(){
           <textarea id="finalSupervisorMaterials" oninput="saveFinalEditorValues()" placeholder="Inserisci qui note, fonti, libri, articoli, normative, indicazioni bibliografiche o richieste finali del relatore.">${typeof escHtml==='function'?escHtml(thesis.finalSupervisorMaterials||''):String(thesis.finalSupervisorMaterials||'')}</textarea>
         </div>
         <div class="final-workflow-note">${ready?'I capitoli risultano sufficientemente pronti per generare la fase finale.':'La fase finale va generata dopo il completamento dei capitoli. Il campo materiali può essere compilato anche prima.'}</div>
+        ${progressHtml}
+        ${errorHtml}
         <div class="final-actions">
           <button class="btn-approve" id="btnGenerateFinalSections" onclick="generateFinalSections()" ${(ready&&!isGenerating)?'':'disabled'}>${isGenerating?'Generazione in corso…':(generated?'Rigenera fase finale':'Genera conclusioni e riferimenti')}</button>
           <button class="btn-redo" onclick="saveFinalSectionsManual()" ${isGenerating?'disabled':''}>Salva testi finali</button>
@@ -5798,41 +5862,47 @@ function downloadFormattedThesisDoc(){
     renderFinalSectionsPanel();
   };
 
+  window.clearFinalWorkflowError=function clearFinalWorkflowError(){
+    if(typeof thesis==='undefined' || !thesis) return;
+    thesis.finalWorkflowError='';
+    if(thesis.finalWorkflowState==='error') thesis.finalWorkflowState=hasAnyFinalSection()?'complete':'pending';
+    if(typeof saveProgress==='function') saveProgress();
+    renderFinalSectionsPanel();
+  };
+
   window.generateFinalSections=async function generateFinalSections(){
     if(typeof thesis==='undefined' || !thesis) return;
     ensureFinalWorkflowState();
     saveFinalEditorValues();
-    const btn=document.getElementById('btnGenerateFinalSections');
-    if(btn){btn.disabled=true;btn.textContent='Generazione in corso…';}
     thesis.finalWorkflowState='generating';
+    thesis.finalWorkflowError='';
+    thesis.finalWorkflowStep='Preparazione fase finale';
+    thesis.finalSections={conclusions:'',bibliography:'',legalReferences:'',sitography:''};
+    if(typeof saveProgress==='function') saveProgress();
     renderFinalSectionsPanel();
     try{
-      const input={
-        prompt:buildFinalSectionsPrompt(),
-        thesisTitle:String(thesis.argomento||''),
-        degreeType:thesis.tipo||'',
-        faculty:thesis.facolta||'',
-        course:thesis.corso||'',
-        methodology:thesis.metodologia||'',
-        approvedOutline:String(thesis.indice||''),
-        approvedAbstract:String(thesis.abstract||''),
-        chapterTitles:Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[],
-        previousChapters:collectChaptersForFinalPrompt(),
-        supervisorMaterials:String(thesis.finalSupervisorMaterials||''),
-        constraints:thesis.constraints||{}
-      };
-      const resp=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'thesis_final_sections',input})});
-      const data=await resp.json().catch(()=>({}));
-      if(!resp.ok) throw new Error(data?.details||data?.error||`HTTP ${resp.status}`);
-      const raw=String(data?.text||'').trim();
-      if(!raw) throw new Error('Il provider non ha restituito testo per la fase finale.');
-      const parsedFinalSections=splitFinalSectionsFromText(raw);
-      const finalValidation=validateGeneratedFinalSections(parsedFinalSections);
-      if(!finalValidation.ok){
-        throw new Error(`Fase finale incompleta: ${finalValidation.message}. Rigenera la fase finale.`);
+      for(const def of FINAL_SECTION_DEFS){
+        thesis.finalWorkflowStep=`Generazione ${def.label}`;
+        if(typeof saveProgress==='function') saveProgress();
+        renderFinalSectionsPanel();
+        const input=buildFinalSectionInput(def);
+        const resp=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'thesis_final_sections',input})});
+        const data=await resp.json().catch(()=>({}));
+        if(!resp.ok) throw new Error(data?.details||data?.error||`HTTP ${resp.status}`);
+        const raw=String(data?.text||'').trim();
+        if(!raw) throw new Error(`${def.label}: il provider non ha restituito testo.`);
+        const value=normalizeSingleFinalSectionOutput(raw,def);
+        const validation=validateSingleFinalSection(def,value);
+        if(!validation.ok) throw new Error(validation.message);
+        thesis.finalSections[def.key]=value;
+        if(typeof saveProgress==='function') saveProgress();
+        renderFinalSectionsPanel();
       }
-      thesis.finalSections=parsedFinalSections;
+      const finalValidation=validateGeneratedFinalSections(thesis.finalSections);
+      if(!finalValidation.ok) throw new Error(`Fase finale incompleta: ${finalValidation.message}.`);
       thesis.finalWorkflowState='complete';
+      thesis.finalWorkflowStep='';
+      thesis.finalWorkflowError='';
       thesis.finalGeneratedAt=new Date().toISOString();
       if(typeof saveProgress==='function') saveProgress();
       renderFinalSectionsPanel();
@@ -5840,10 +5910,13 @@ function downloadFormattedThesisDoc(){
       document.getElementById('finalWorkflowCard')?.scrollIntoView({behavior:'smooth',block:'start'});
     }catch(err){
       thesis.finalWorkflowState='error';
-      if(typeof showToast==='function') showToast(`Errore fase finale: ${err.message||err}`,true);
+      thesis.finalWorkflowStep='';
+      thesis.finalWorkflowError=String(err?.message||err||'Errore sconosciuto durante la fase finale.');
+      if(typeof saveProgress==='function') saveProgress();
       renderFinalSectionsPanel();
     }
   };
+
 
   function appendFinalPlainText(base){
     const finalText=finalSectionsAsPlainText();
