@@ -548,20 +548,9 @@
             <option>Agraria e Scienze Forestali</option>
             <option>Architettura</option>
             <option>Design</option>
-            <option>Informatica e Ingegneria Informatica</option>
-            <option>Ingegneria Civile e Ambientale</option>
             <option>Ingegneria Gestionale</option>
-            <option>Medicina e Chirurgia</option>
             <option>Scienze Motorie e Sportive</option>
             <option>Scienze e Tecnologie Alimentari</option>
-          </optgroup>
-          <optgroup label="Non supportate per generazione completa">
-            <option>Biologia sperimentale</option>
-            <option>Chimica</option>
-            <option>Fisica</option>
-            <option>Ingegneria industriale tecnica</option>
-            <option>Matematica e Statistica applicata</option>
-            <option>Medicina clinico-sperimentale</option>
           </optgroup>
         </select>
       </div>
@@ -579,11 +568,9 @@
           <div class="metod-chip" onclick="setMetod(this,'comparativa')">Comparativa</div>
           <div class="metod-chip" onclick="setMetod(this,'giuridico_normativa')">Giuridico-normativa</div>
           <div class="metod-chip" onclick="setMetod(this,'documentale')">Documentale</div>
-          <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio</div>
-          <div class="metod-chip" onclick="setMetod(this,'progettuale_applicativa')">Progettuale / applicativa</div>
-          <div class="metod-chip" onclick="setMetod(this,'revisione_sistematica')">Revisione sistematica</div>
+          <div class="metod-chip" onclick="setMetod(this,'caso_studio')">Caso studio documentale su fonti fornite</div>
         </div>
-        <div style="margin-top:10px;font-size:12px;color:var(--text3)">Scegli l’approccio più vicino alla tesi reale. AccademIA privilegia tesi teoriche, bibliografiche, storico-critiche, documentali, comparative e di caso studio non sperimentale; non è progettata per raccolta dati originali, calcoli tecnici o analisi statistiche proprietarie.</div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3)">Scegli l’approccio più vicino alla tesi reale. Nel menu compaiono solo tipologie gestibili dal piano standard: teorico-bibliografiche, storico-critiche, ermeneutiche/testuali, revisioni della letteratura, comparative, giuridico-normative, documentali e casi studio fondati su fonti fornite. Non sono previste tesi con raccolta dati originale, cliniche, sperimentali, statistiche proprietarie o progettuali tecniche specialistiche.</div>
         <div id="compatibilityNotice" style="display:none;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:12px;line-height:1.65"></div>
         <label id="compatibilityAckWrap" style="display:none;margin-top:10px;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,215,102,.18);background:rgba(255,215,102,.06);font-size:12px;line-height:1.6;color:var(--text)">
           <input type="checkbox" id="compatibilityAck" onchange="handleCompatibilityAck()" style="margin-top:3px">
@@ -1004,7 +991,7 @@ const ADMIN_DASH_KEY_STORAGE='accademia_admin_dash_key_v1';
 const FACULTY_COMPATIBILITY={
   veryGood:['Giurisprudenza','Lettere e Filosofia','Psicologia','Scienze Politiche e Relazioni Internazionali'],
   good:['Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Storia','Teologia'],
-  partial:['Agraria e Scienze Forestali','Architettura','Design','Informatica e Ingegneria Informatica','Ingegneria Civile e Ambientale','Ingegneria Gestionale','Medicina e Chirurgia','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari']
+  partial:['Agraria e Scienze Forestali','Architettura','Design','Ingegneria Gestionale','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari']
 };
 
 const FACULTY_GOOD_GUIDANCE={
@@ -3893,7 +3880,7 @@ function methodologyPromptGuidance(method){
     comparativa:'Guida metodologica: imposta il lavoro come confronto comparativo. Definisci criteri di confronto espliciti, evita parallelismi superficiali e mostra differenze, analogie, limiti e implicazioni teoriche.',
     giuridico_normativa:'Guida metodologica: imposta il lavoro come analisi giuridico-normativa. Cura gerarchia delle fonti, dottrina, giurisprudenza, principi, riferimenti normativi verificabili e prudenza terminologica.',
     documentale:'Guida metodologica: imposta il lavoro come analisi documentale. Usa materiali, documenti, testi ufficiali o fonti secondarie come corpus interpretativo; non inventare dati o fonti non disponibili.',
-    caso_studio:'Guida metodologica: imposta il lavoro come caso studio documentale/non sperimentale. Definisci il caso, il perimetro, le fonti disponibili e il valore interpretativo, evitando raccolte dati originali non validate.',
+    caso_studio:'Guida metodologica: imposta il lavoro come caso studio documentale su fonti fornite. Non inventare mai aziende, enti, scuole, pazienti, interviste, bilanci, dati, scenari o risultati. Usa esclusivamente materiali forniti dall’utente o fonti pubbliche verificabili. Se le fonti non bastano, produci solo struttura, metodo e fabbisogno documentale, segnalando che la redazione completa richiede materiali verificabili.',
     progettuale_applicativa:'Guida metodologica: imposta il lavoro come proposta progettuale/applicativa solo se compatibile con la facoltà. Mantieni quadro teorico, criteri, limiti, fattibilità e non produrre calcoli o validazioni tecniche specialistiche.',
     revisione_sistematica:'Guida metodologica: usa la revisione sistematica solo se davvero pertinente. Specifica criteri di inclusione/esclusione e limiti, ma non inventare database, stringhe di ricerca, campioni o risultati quantitativi non forniti.'
   };
