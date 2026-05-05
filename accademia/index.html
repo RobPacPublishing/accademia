@@ -1091,13 +1091,11 @@
               <option>Beni Culturali e Turismo</option>
               <option>Economia e Management</option>
               <option>Economia Aziendale</option>
-              <option>Filosofia</option>
               <option>Lettere e Filosofia</option>
               <option>Lingue e Letterature Straniere</option>
               <option>Scienze della Comunicazione</option>
               <option>Scienze dell’Educazione e della Formazione</option>
               <option>Scienze Sociali e Sociologia</option>
-              <option>Sociologia</option>
               <option>Storia</option>
               <option>Teologia</option>
               <option>Agraria e Scienze Forestali</option>
@@ -1128,9 +1126,13 @@
             <label for="compatThesis">Tipologia di tesi</label>
             <select id="compatThesis" class="compat-select">
               <option value="">Seleziona la tipologia</option>
-              <option value="teorica">Tesi teorica / compilativa</option>
-              <option value="review">Review / revisione della letteratura</option>
+              <option value="teorico_bibliografica">Teorico-bibliografica</option>
+              <option value="storico_critica">Storico-critica</option>
+              <option value="ermeneutica_testuale">Analisi testuale / ermeneutica</option>
+              <option value="review">Revisione della letteratura</option>
               <option value="comparativa">Comparativa</option>
+              <option value="giuridico_normativa">Giuridico-normativa</option>
+              <option value="documentale">Documentale</option>
               <option value="casostudio">Caso studio</option>
               <option value="empirica">Empirica con raccolta dati originale</option>
               <option value="clinica">Clinica / laboratorio / sperimentale</option>
@@ -1461,7 +1463,7 @@
     const gatedLinks = Array.from(document.querySelectorAll('[data-plan-link="1"]'));
 
     const full = new Set([
-      'Psicologia','Giurisprudenza','Scienze Politiche e Relazioni Internazionali','Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Filosofia','Lettere e Filosofia','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Sociologia','Storia','Teologia'
+      'Psicologia','Giurisprudenza','Scienze Politiche e Relazioni Internazionali','Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Lettere e Filosofia','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Storia','Teologia'
     ]);
     const partial = new Set([
       'Agraria e Scienze Forestali','Architettura','Design','Ingegneria Gestionale','Scienze Motorie e Sportive','Scienze e Tecnologie Alimentari'
