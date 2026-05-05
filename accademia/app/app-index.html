@@ -343,6 +343,26 @@
     .header-actions{min-width:0;justify-content:flex-start;}
     .header-actions > span{text-align:left;}
   }
+
+  ${cssMarker}
+  .final-workflow-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;margin:22px 0;padding:0;overflow:hidden;animation:fadeUp .35s ease;}
+  .final-workflow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 26px;border-bottom:1px solid var(--border);background:var(--bg3);}
+  .final-workflow-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);line-height:1.3;}
+  .final-workflow-subtitle{font-size:12px;color:var(--text3);line-height:1.6;margin-top:5px;max-width:620px;}
+  .final-workflow-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;border:1px solid rgba(201,168,76,.28);background:var(--gold-dim2);color:var(--gold);border-radius:20px;padding:5px 11px;white-space:nowrap;}
+  .final-workflow-body{padding:24px 26px;display:flex;flex-direction:column;gap:16px;}
+  .final-workflow-note{font-size:12px;color:var(--text3);line-height:1.65;border:1px solid var(--border2);background:rgba(255,255,255,.02);border-radius:12px;padding:12px 14px;}
+  .final-materials-box{display:flex;flex-direction:column;gap:7px;}
+  .final-materials-box textarea{min-height:112px;}
+  .final-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .final-sections-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+  .final-section-editor{background:rgba(255,255,255,.018);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .final-section-editor label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .final-section-editor textarea{min-height:150px;line-height:1.7;}
+  .final-section-meta{font-size:11px;color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;white-space:nowrap;}
+  .final-section-tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+  @media(max-width:640px){.final-workflow-head,.final-workflow-body{padding-left:18px;padding-right:18px}.final-actions .btn-download,.final-actions .btn-approve,.final-actions .btn-redo{width:100%;justify-content:center}.final-section-meta{white-space:normal}}
+
 </style>
 </head>
 <body>
@@ -5506,6 +5526,335 @@ function downloadFormattedThesisDoc(){
   downloadBlob(safeDocName('Bozza_tesi_formattata'), buildFormattedThesisDocHtml());
   showToast('Download bozza tesi formattata avviato ✓');
 }
+
+
+(function(){
+  const FINAL_SECTION_DEFS=[
+    {key:'conclusions',label:'Conclusioni',aliases:['conclusioni','conclusione']},
+    {key:'bibliography',label:'Bibliografia',aliases:['bibliografia','riferimenti bibliografici','bibliografia essenziale','riferimenti']},
+    {key:'legalReferences',label:'Riferimenti normativi',aliases:['riferimenti normativi','fonti normative','normativa','riferimenti giuridici']},
+    {key:'sitography',label:'Sitografia',aliases:['sitografia','webgrafia','risorse online','fonti online']}
+  ];
+
+  function ensureFinalWorkflowState(){
+    if(typeof thesis==='undefined' || !thesis) return null;
+    if(!thesis.finalSections || typeof thesis.finalSections!=='object') thesis.finalSections={};
+    FINAL_SECTION_DEFS.forEach(def=>{
+      if(typeof thesis.finalSections[def.key]!=='string') thesis.finalSections[def.key]='';
+    });
+    if(typeof thesis.finalSupervisorMaterials!=='string') thesis.finalSupervisorMaterials='';
+    if(!thesis.finalWorkflowState){
+      thesis.finalWorkflowState=hasAnyFinalSection()?'complete':'pending';
+    }
+    return thesis.finalSections;
+  }
+
+  function hasAnyFinalSection(){
+    const fs=thesis?.finalSections||{};
+    return FINAL_SECTION_DEFS.some(def=>String(fs[def.key]||'').trim());
+  }
+
+  function getChapterTextForFinal(idx){
+    if(typeof getCanonicalChapterContentLocal==='function'){
+      return String(getCanonicalChapterContentLocal(idx,{persist:true})||'').trim();
+    }
+    const ch=(thesis?.chapters||[])[idx]||{};
+    return String(ch.content||ch.text||'').trim();
+  }
+
+  function isChapterReadyForFinal(ch,idx){
+    const text=getChapterTextForFinal(idx);
+    if(!text) return false;
+    if(ch?.approved===true || ch?.approvedAt) return true;
+    if(ch?.generationState==='complete' || ch?.state==='complete' || ch?.done===true) return true;
+    return text.split(/\\s+/).filter(Boolean).length>500;
+  }
+
+  function getExpectedChapterCount(){
+    const candidates=[
+      Number(thesis?.chapterCount),
+      Number(thesis?.numChapters),
+      Number(thesis?.capitoli),
+      Array.isArray(thesis?.chapterTitles)?thesis.chapterTitles.length:0,
+      Array.isArray(thesis?.chapters)?thesis.chapters.length:0
+    ].filter(n=>Number.isFinite(n)&&n>0);
+    return candidates.length?Math.max(...candidates):0;
+  }
+
+  function areChaptersReadyForFinal(){
+    if(typeof thesis==='undefined' || !thesis) return false;
+    const total=getExpectedChapterCount();
+    if(!total) return false;
+    const chapters=Array.isArray(thesis.chapters)?thesis.chapters:[];
+    for(let i=0;i<total;i+=1){
+      if(!isChapterReadyForFinal(chapters[i]||{},i)) return false;
+    }
+    return true;
+  }
+
+  function collectChaptersForFinalPrompt(){
+    const total=getExpectedChapterCount();
+    const parts=[];
+    for(let i=0;i<total;i+=1){
+      const title=String(thesis?.chapterTitles?.[i] || thesis?.chapters?.[i]?.title || `Capitolo ${i+1}`).trim();
+      const text=getChapterTextForFinal(i);
+      if(!text) continue;
+      parts.push(`CAPITOLO ${i+1}${title?` — ${title}`:''}\\n${text}`);
+    }
+    return parts.join('\\n\\n---\\n\\n');
+  }
+
+  function buildFinalSectionsPrompt(){
+    const materials=String(thesis.finalSupervisorMaterials||'').trim();
+    const chapters=collectChaptersForFinalPrompt();
+    return [
+      'TASK: thesis_final_sections',
+      'Genera la fase finale della tesi, separata dai capitoli.',
+      'Produci quattro sezioni con questi titoli esatti: Conclusioni; Bibliografia; Riferimenti normativi; Sitografia.',
+      'Le Conclusioni devono essere argomentative, sostanziali e coerenti con indice, abstract e capitoli già sviluppati.',
+      'La Bibliografia deve essere prudente: usa solo riferimenti presenti, indicati o chiaramente ricavabili dal materiale. Non inventare DOI, URL, pagine, sentenze o fonti non verificabili.',
+      'I Riferimenti normativi vanno compilati solo se pertinenti; altrimenti scrivi una breve indicazione prudente di non applicabilità o di verifica con il relatore.',
+      'La Sitografia va compilata solo se sono presenti fonti online o materiali web indicati; altrimenti resta minimale e prudente.',
+      '',
+      `TITOLO TESI: ${String(thesis.argomento||'').trim()}`,
+      `TIPO LAUREA: ${String(typeof tipoLaureaLabel==='function'?tipoLaureaLabel(thesis.tipo):thesis.tipo||'').trim()}`,
+      `FACOLTÀ: ${String(thesis.facolta||'').trim()}`,
+      `CORSO: ${String(thesis.corso||'').trim()}`,
+      `METODOLOGIA: ${String(thesis.metodologia||'').trim()}`,
+      '',
+      'INDICE APPROVATO',
+      String(thesis.indice||'').trim(),
+      '',
+      'ABSTRACT APPROVATO',
+      String(thesis.abstract||'').trim(),
+      '',
+      'MATERIALI E FONTI INDICATE DAL RELATORE',
+      materials || 'Nessun materiale aggiuntivo indicato dal relatore.',
+      '',
+      'CAPITOLI GIÀ SVILUPPATI',
+      chapters
+    ].join('\\n');
+  }
+
+  function normalizeHeadingLabel(line){
+    return String(line||'')
+      .normalize('NFKC')
+      .replace(/^#+\\s*/,'')
+      .replace(/^[\\s*•-]+/,'')
+      .replace(/[:：]+\\s*$/,'')
+      .replace(/\\*\\*/g,'')
+      .trim()
+      .toLowerCase();
+  }
+
+  function detectFinalSectionKey(line){
+    const normalized=normalizeHeadingLabel(line);
+    if(!normalized) return '';
+    for(const def of FINAL_SECTION_DEFS){
+      if(def.aliases.some(alias=>normalized===alias || normalized.startsWith(alias+' ') || normalized.startsWith(alias+' —') || normalized.startsWith(alias+' -'))) return def.key;
+    }
+    return '';
+  }
+
+  function splitFinalSectionsFromText(text){
+    const output={conclusions:'',bibliography:'',legalReferences:'',sitography:''};
+    const lines=String(text||'').replace(/\\r/g,'').split('\\n');
+    let current='';
+    for(const line of lines){
+      const key=detectFinalSectionKey(line);
+      if(key){current=key;continue;}
+      if(!current){
+        if(line.trim()) output.conclusions += `${line}\\n`;
+        continue;
+      }
+      output[current] += `${line}\\n`;
+    }
+    Object.keys(output).forEach(k=>{output[k]=String(output[k]||'').trim();});
+    if(!Object.values(output).some(Boolean) && String(text||'').trim()) output.conclusions=String(text||'').trim();
+    return output;
+  }
+
+  function finalSectionsAsPlainText(){
+    if(typeof thesis==='undefined' || !thesis) return '';
+    ensureFinalWorkflowState();
+    const blocks=[];
+    FINAL_SECTION_DEFS.forEach(def=>{
+      const value=String(thesis.finalSections?.[def.key]||'').trim();
+      if(value) blocks.push(`${def.label}\\n\\n${value}`);
+    });
+    return blocks.join('\\n\\n');
+  }
+
+  function finalSectionsAsHtml(){
+    const text=finalSectionsAsPlainText();
+    if(!text) return '';
+    const blocks=[];
+    FINAL_SECTION_DEFS.forEach(def=>{
+      const value=String(thesis.finalSections?.[def.key]||'').trim();
+      if(!value) return;
+      const safe=typeof escHtml==='function'?escHtml(value):value.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      blocks.push(`<section class="doc-section" style="page-break-before: always; break-before: page; mso-page-break-before: always;"><h1>${def.label}</h1><div>${safe.replace(/\\n{2,}/g,'</p><p>').replace(/\\n/g,'<br>')}</div></section>`);
+    });
+    return blocks.join('\\n');
+  }
+
+  function saveFinalEditorValues(){
+    if(typeof thesis==='undefined' || !thesis) return;
+    ensureFinalWorkflowState();
+    const materials=document.getElementById('finalSupervisorMaterials');
+    if(materials) thesis.finalSupervisorMaterials=materials.value;
+    FINAL_SECTION_DEFS.forEach(def=>{
+      const el=document.getElementById(`finalSection_${def.key}`);
+      if(el) thesis.finalSections[def.key]=el.value;
+    });
+    thesis.finalWorkflowState=hasAnyFinalSection()?'complete':'pending';
+    if(typeof saveProgress==='function') saveProgress();
+  }
+
+  function countWords(text){return String(text||'').trim().split(/\\s+/).filter(Boolean).length;}
+
+  window.renderFinalSectionsPanel=function renderFinalSectionsPanel(){
+    if(typeof thesis==='undefined' || !thesis) return;
+    ensureFinalWorkflowState();
+    let card=document.getElementById('finalWorkflowCard');
+    if(!card){
+      card=document.createElement('div');
+      card.id='finalWorkflowCard';
+      card.className='final-workflow-card';
+      const anchor=document.getElementById('nextPhaseArea') || document.querySelector('.next-phase-area') || document.querySelector('.download-bar.progressive') || document.querySelector('.container');
+      if(anchor?.parentNode) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+      else document.body.appendChild(card);
+    }
+    const ready=areChaptersReadyForFinal();
+    const generated=hasAnyFinalSection();
+    const status=generated?'Fase finale generata':(ready?'Pronta per la fase finale':'In attesa dei capitoli');
+    const sectionsHtml=FINAL_SECTION_DEFS.map(def=>{
+      const value=String(thesis.finalSections?.[def.key]||'');
+      const words=countWords(value);
+      return `<div class="final-section-editor">
+        <label for="finalSection_${def.key}"><span>${def.label}</span><span class="final-section-meta">${words} parole</span></label>
+        <textarea id="finalSection_${def.key}" oninput="saveFinalEditorValues()">${typeof escHtml==='function'?escHtml(value):value}</textarea>
+      </div>`;
+    }).join('');
+    card.innerHTML=`
+      <div class="final-workflow-head">
+        <div>
+          <div class="final-workflow-title">Fase finale della tesi</div>
+          <div class="final-workflow-subtitle">Conclusioni, Bibliografia, Riferimenti normativi e Sitografia restano separati dai capitoli, come apparato finale dell’elaborato.</div>
+        </div>
+        <span class="final-workflow-status">${status}</span>
+      </div>
+      <div class="final-workflow-body">
+        <div class="final-materials-box">
+          <label for="finalSupervisorMaterials">Materiali e fonti indicate dal relatore</label>
+          <textarea id="finalSupervisorMaterials" oninput="saveFinalEditorValues()" placeholder="Inserisci qui note, fonti, libri, articoli, normative, indicazioni bibliografiche o richieste finali del relatore.">${typeof escHtml==='function'?escHtml(thesis.finalSupervisorMaterials||''):String(thesis.finalSupervisorMaterials||'')}</textarea>
+        </div>
+        <div class="final-workflow-note">${ready?'I capitoli risultano sufficientemente pronti per generare la fase finale.':'La fase finale va generata dopo il completamento dei capitoli. Il campo materiali può essere compilato anche prima.'}</div>
+        <div class="final-actions">
+          <button class="btn-approve" id="btnGenerateFinalSections" onclick="generateFinalSections()" ${ready?'':'disabled'}>${generated?'Rigenera fase finale':'Genera conclusioni e riferimenti'}</button>
+          <button class="btn-redo" onclick="saveFinalSectionsManual()">Salva testi finali</button>
+          <button class="btn-download" onclick="downloadFormattedThesisDoc()">🧾 Scarica tesi formattata</button>
+        </div>
+        <div class="final-sections-grid">${sectionsHtml}</div>
+      </div>`;
+  };
+
+  window.saveFinalEditorValues=saveFinalEditorValues;
+  window.saveFinalSectionsManual=function saveFinalSectionsManual(){
+    saveFinalEditorValues();
+    if(typeof showToast==='function') showToast('Fase finale salvata ✓');
+    renderFinalSectionsPanel();
+  };
+
+  window.generateFinalSections=async function generateFinalSections(){
+    if(typeof thesis==='undefined' || !thesis) return;
+    ensureFinalWorkflowState();
+    saveFinalEditorValues();
+    const btn=document.getElementById('btnGenerateFinalSections');
+    if(btn){btn.disabled=true;btn.textContent='Generazione in corso…';}
+    thesis.finalWorkflowState='generating';
+    try{
+      const input={
+        prompt:buildFinalSectionsPrompt(),
+        thesisTitle:String(thesis.argomento||''),
+        degreeType:thesis.tipo||'',
+        faculty:thesis.facolta||'',
+        course:thesis.corso||'',
+        methodology:thesis.metodologia||'',
+        approvedOutline:String(thesis.indice||''),
+        approvedAbstract:String(thesis.abstract||''),
+        chapterTitles:Array.isArray(thesis.chapterTitles)?thesis.chapterTitles:[],
+        previousChapters:collectChaptersForFinalPrompt(),
+        supervisorMaterials:String(thesis.finalSupervisorMaterials||''),
+        constraints:thesis.constraints||{}
+      };
+      const resp=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'thesis_final_sections',input})});
+      const data=await resp.json().catch(()=>({}));
+      if(!resp.ok) throw new Error(data?.details||data?.error||`HTTP ${resp.status}`);
+      const raw=String(data?.text||'').trim();
+      if(!raw) throw new Error('Il provider non ha restituito testo per la fase finale.');
+      thesis.finalSections=splitFinalSectionsFromText(raw);
+      thesis.finalWorkflowState='complete';
+      thesis.finalGeneratedAt=new Date().toISOString();
+      if(typeof saveProgress==='function') saveProgress();
+      renderFinalSectionsPanel();
+      if(typeof showToast==='function') showToast('Fase finale generata ✓');
+      document.getElementById('finalWorkflowCard')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }catch(err){
+      thesis.finalWorkflowState='error';
+      if(typeof showToast==='function') showToast(`Errore fase finale: ${err.message||err}`,true);
+      renderFinalSectionsPanel();
+    }
+  };
+
+  function appendFinalPlainText(base){
+    const finalText=finalSectionsAsPlainText();
+    if(!finalText) return base;
+    return `${String(base||'').trim()}\\n\\n${finalText}`.trim();
+  }
+
+  if(typeof buildFullPlainText==='function'){
+    const originalBuildFullPlainText=buildFullPlainText;
+    buildFullPlainText=function(){return appendFinalPlainText(originalBuildFullPlainText());};
+  }
+
+  if(typeof buildFormattedThesisDocHtml==='function'){
+    const originalBuildFormattedThesisDocHtml=buildFormattedThesisDocHtml;
+    buildFormattedThesisDocHtml=function(){
+      const html=originalBuildFormattedThesisDocHtml();
+      const finalHtml=finalSectionsAsHtml();
+      if(!finalHtml) return html;
+      return String(html||'').replace('</body>',`${finalHtml}\\n</body>`);
+    };
+  }
+
+  if(typeof buildWordHTML==='function'){
+    const originalBuildWordHTML=buildWordHTML;
+    buildWordHTML=function(){
+      const html=originalBuildWordHTML();
+      const finalText=finalSectionsAsPlainText();
+      if(!finalText) return html;
+      const safe=typeof escHtml==='function'?escHtml(finalText):finalText.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      return `${html}<div style="page-break-before:always"></div><pre>${safe}</pre>`;
+    };
+  }
+
+  if(typeof renderNextChapterLauncher==='function'){
+    const originalRenderNextChapterLauncher=renderNextChapterLauncher;
+    renderNextChapterLauncher=function(){
+      const result=originalRenderNextChapterLauncher.apply(this,arguments);
+      try{renderFinalSectionsPanel();}catch(_){ }
+      return result;
+    };
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{try{renderFinalSectionsPanel();}catch(_){ }},250));
+  }else{
+    setTimeout(()=>{try{renderFinalSectionsPanel();}catch(_){ }},250);
+  }
+})();
+
 
 function buildWordHTML(){
   const tl=tipoLaureaLabel(thesis.tipo);
