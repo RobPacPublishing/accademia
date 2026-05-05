@@ -681,7 +681,20 @@ async function generateText(task, input) {
 
   const prompt = buildProviderPrompt(task, input);
   const system = buildSystemPrompt(task, input);
-  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'thesis_final_sections' ? 6000 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 6000 : 2600)));
+  if (task === 'thesis_final_sections') {
+    return await generateWithProviders({
+      prompt,
+      system,
+      maxTokens: 5000,
+      primaryTimeoutMs: 95_000,
+      fallbackTimeoutMs: 85_000,
+      openaiTimeoutMs: 90_000,
+      fallbackMaxTokens: 5000,
+      openaiMaxTokens: 5000,
+    });
+  }
+
+  const maxTokens = task === 'outline_draft' ? 1400 : (task === 'abstract_draft' ? 1200 : (task === 'tutor_revision' || task === 'revisione_relatore' || task === 'chapter_review' || task === 'revisione_capitolo' ? 6000 : 2600));
   return await generateWithProviders({ prompt, system, maxTokens });
 }
 
