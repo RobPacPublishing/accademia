@@ -5772,7 +5772,7 @@ function downloadFormattedThesisDoc(){
   }
 
   function cleanFinalSectionForExport(def,value){
-    let text=String(value||'').replace(/\\r/g,'').replace(/\\\\n/g,'\n').trim();
+    let text=String(value||'').replace(/\\r/g,'').replace(/\\n/g,'\n').trim();
     const lines=text.split('\n');
     while(lines.length && !String(lines[0]||'').trim()) lines.shift();
     while(lines.length){
