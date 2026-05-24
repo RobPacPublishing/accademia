@@ -394,7 +394,7 @@
     }
     .plans {
       display:grid;
-      grid-template-columns:repeat(3,1fr);
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:18px;
       align-items:stretch;
     }
@@ -427,11 +427,13 @@
       margin:14px 0 18px;
     }
     .old-price {
+      display:none;
       color:var(--text-3);
       text-decoration:line-through;
       font-size:20px;
     }
     .new-price {
+      display:block;
       font-size:42px;
       line-height:1;
       font-family:'Playfair Display',serif;
@@ -808,6 +810,14 @@
       font-size:13px;
       color:var(--muted);
     }
+    .upgrade-selector {
+      display:grid;
+      gap:12px;
+      margin-top:6px;
+    }
+    .upgrade-selector select {
+      width:min(100%, 460px);
+    }
     .plan-gate-note {
       margin:0 0 18px;
       padding:14px 16px;
@@ -820,7 +830,6 @@
     .gate-link[aria-disabled="true"] {
       opacity:.48;
       filter:saturate(.6);
-      pointer-events:none;
       cursor:not-allowed;
     }
     .gate-link.is-ready {
@@ -932,6 +941,112 @@
       }
     }
 
+  
+    .plans .plan.featured .badge {
+      position:static !important;
+      display:flex !important;
+      width:max-content;
+      margin:0 auto 18px auto !important;
+      white-space:nowrap;
+      justify-content:center;
+      align-items:center;
+    }
+
+  
+    /* CTA refinement: rende più evidente il percorso commerciale */
+    .nav-cta {
+      background:linear-gradient(135deg,#f2d46b,#c9a84c) !important;
+      color:#080704 !important;
+      border:1px solid rgba(255,226,126,.75) !important;
+      box-shadow:0 10px 28px rgba(201,168,76,.28), inset 0 1px 0 rgba(255,255,255,.35) !important;
+      font-weight:800 !important;
+      letter-spacing:.01em;
+    }
+
+    .hero-actions {
+      display:flex;
+      flex-wrap:wrap;
+      gap:16px;
+      margin-top:28px;
+    }
+
+    .hero-actions .btn {
+      min-width:190px;
+      justify-content:center;
+      font-weight:800;
+      border-radius:18px;
+      padding:15px 22px;
+      font-size:15px;
+      box-shadow:0 12px 30px rgba(0,0,0,.28);
+    }
+
+    .hero-actions .btn-primary {
+      background:linear-gradient(135deg,#f2d46b,#c9a84c) !important;
+      color:#080704 !important;
+      border:1px solid rgba(255,226,126,.8) !important;
+      box-shadow:0 14px 36px rgba(201,168,76,.30), inset 0 1px 0 rgba(255,255,255,.35) !important;
+    }
+
+    .hero-actions .btn-secondary {
+      background:rgba(255,255,255,.075) !important;
+      border:1px solid rgba(245,240,232,.28) !important;
+      color:#f5f0e8 !important;
+    }
+
+    .hero-actions .btn-secondary:hover,
+    .nav a:hover {
+      border-color:rgba(242,212,107,.65) !important;
+      color:#f2d46b !important;
+    }
+
+    .plans .btn,
+    .extra-card .btn {
+      font-weight:800;
+      border-color:rgba(242,212,107,.35);
+    }
+
+  
+    /* Hero CTA differenziate: compatibilità, piani, spiegazione */
+    .hero-actions .btn:nth-child(1) {
+      background:linear-gradient(135deg,#f2d46b,#c9a84c) !important;
+      color:#080704 !important;
+      border:1px solid rgba(255,226,126,.85) !important;
+      box-shadow:0 16px 38px rgba(201,168,76,.34), inset 0 1px 0 rgba(255,255,255,.38) !important;
+    }
+
+    .hero-actions .btn:nth-child(2) {
+      background:linear-gradient(135deg,#8a6a2d,#3d2f16) !important;
+      color:#fff7df !important;
+      border:1px solid rgba(201,168,76,.72) !important;
+      box-shadow:0 14px 34px rgba(138,106,45,.30), inset 0 1px 0 rgba(255,255,255,.14) !important;
+    }
+
+    .hero-actions .btn:nth-child(3) {
+      background:linear-gradient(135deg,rgba(245,240,232,.16),rgba(245,240,232,.055)) !important;
+      color:#f5f0e8 !important;
+      border:1px solid rgba(245,240,232,.42) !important;
+      box-shadow:0 12px 28px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.10) !important;
+    }
+
+    .hero-actions .btn:nth-child(1):hover,
+    .hero-actions .btn:nth-child(2):hover,
+    .hero-actions .btn:nth-child(3):hover {
+      transform:translateY(-2px);
+      filter:brightness(1.08);
+    }
+
+    .nav a:not(.nav-cta) {
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid transparent;
+    }
+
+    .nav a:not(.nav-cta):hover {
+      background:rgba(201,168,76,.09);
+      border-color:rgba(201,168,76,.24);
+      color:#f2d46b !important;
+    }
+
   </style>
 </head>
 <body>
@@ -948,7 +1063,7 @@
         <a class="nav-link" href="#vantaggi">Vantaggi</a>
         <a class="nav-link" href="#piani">Piani</a>
         <a class="nav-link" href="#faq">FAQ</a>
-        <a class="nav-cta" href="/app/app-index.html" data-app-link="1">Accedi all'app</a>
+        <a class="nav-cta" href="#compatibilita">Verifica compatibilità</a>
       </div>
     </div>
   </header>
@@ -967,7 +1082,7 @@
             <li>Riduci tempi morti, dispersione e blocchi nella fase di scrittura e revisione.</li>
           </ul>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Accedi all'app</a>
+            <a class="btn btn-primary" href="#compatibilita">Verifica compatibilità</a>
             <a class="btn btn-secondary" href="#piani">Scegli il piano</a>
             <a class="btn btn-secondary" href="#come-funziona">Come funziona</a>
           </div>
@@ -1135,7 +1250,7 @@
               <a id="compatHasKeyBtn" class="btn btn-secondary" href="/app/app-index.html">Ho già una chiave</a>
             </div>
           </div>
-          <div class="compat-actions-note">I pulsanti dei piani restano bloccati finché la compatibilità non risulta valida.</div>
+          <div class="compat-actions-note">La selezione del piano non modifica la tesi già salvata. Potrai sempre passare a un piano superiore mantenendo il lavoro svolto.</div>
         </div>
       </div>
     </section>
@@ -1213,57 +1328,74 @@
 
         <div class="plan-gate-note"><strong>Accesso ai piani:</strong> prima di procedere è necessario completare il test di compatibilità sopra. Se la tua facoltà o la tua tipologia di tesi non rientrano nel perimetro previsto, l'acquisto standard resta disabilitato.</div>
 
+        <div class="plan-warning"><strong>Standard metodologico:</strong> tutti i pacchetti seguono lo standard metodologico AccademIA. I piani superiori ampliano il numero di fasi coperte, le revisioni disponibili e il livello di verifica finale.</div>
+
         <div class="plans">
           <article class="plan">
-            <h3>Start</h3>
+            <h3>Starter</h3>
             <div class="price-row">
-              <span class="old-price">79 €</span>
-              <span class="new-price">59 €</span>
+              <span class="new-price">da €79</span>
             </div>
-            <div class="plan-sub">Per iniziare con una base chiara e un primo supporto concreto.</div>
+            <div class="plan-sub">Per iniziare con titolo, indice, abstract e impostazione metodologica.</div>
             <ul class="plan-list">
-              <li>Accesso all'app AccademIA</li>
-              <li>Strutturazione di indice, abstract e capitoli</li>
-              <li>1 revisione indice inclusa</li>
-              <li>2 revisioni incluse</li>
-              <li>Ripresa del lavoro dopo accesso con chiave</li>
+              <li>Impostazione iniziale della tesi</li>
+              <li>Dati, tema e titolo provvisorio</li>
+              <li>Generazione indice</li>
+              <li>Generazione abstract</li>
+              <li>Orientamento metodologico</li>
+              <li>Upgrade disponibile senza perdere il lavoro salvato</li>
             </ul>
-            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="start">Scegli il piano</a>
+            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="starter">Scegli il piano</a>
           </article>
 
           <article class="plan featured">
             <span class="badge">Più scelto</span>
-            <h3>Pro</h3>
+            <h3>Percorso Tesi</h3>
             <div class="price-row">
-              <span class="old-price">119 €</span>
-              <span class="new-price">89 €</span>
+              <span class="new-price">da €149</span>
             </div>
-            <div class="plan-sub">Per chi vuole un supporto più ampio lungo una parte importante del percorso.</div>
+            <div class="plan-sub">Per costruire la bozza completa della tesi con metodo guidato.</div>
             <ul class="plan-list">
-              <li>Accesso all'app AccademIA</li>
-              <li>Strutturazione di indice, abstract e capitoli</li>
-              <li>1 revisione indice inclusa</li>
-              <li>5 revisioni incluse</li>
-              <li>Maggiore continuità tra sviluppo e correzioni</li>
+              <li>Tutto Starter</li>
+              <li>Sviluppo guidato dei capitoli</li>
+              <li>Generazione progressiva per sezioni</li>
+              <li>Revisioni incluse</li>
+              <li>Export della bozza</li>
+              <li>Continuità tra sviluppo e correzioni</li>
             </ul>
-            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="pro">Scegli il piano</a>
+            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="percorso">Scegli il piano</a>
           </article>
 
           <article class="plan">
-            <h3>Premium</h3>
+            <h3>Completa</h3>
             <div class="price-row">
-              <span class="old-price">179 €</span>
-              <span class="new-price">129 €</span>
+              <span class="new-price">da €229</span>
             </div>
-            <div class="plan-sub">Per chi vuole il massimo supporto previsto e la possibilità di attivare pacchetti aggiuntivi in seguito.</div>
+            <div class="plan-sub">Per chi vuole una bozza più rifinita, ordinata e coerente.</div>
             <ul class="plan-list">
-              <li>Accesso all'app AccademIA</li>
-              <li>Strutturazione di indice, abstract e capitoli</li>
-              <li>1 revisione indice inclusa</li>
-              <li>15 revisioni incluse</li>
-              <li>Possibilità di attivare pacchetti aggiuntivi in seguito</li>
+              <li>Tutto Percorso Tesi</li>
+              <li>Maggior numero di revisioni</li>
+              <li>Maggiore disponibilità per integrare osservazioni del relatore</li>
+              <li>Gestione più ampia delle parti finali</li>
+              <li>Export finale/formattato secondo quanto previsto dall'app</li>
             </ul>
-            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="premium">Scegli il piano</a>
+            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="completa">Scegli il piano</a>
+          </article>
+
+          <article class="plan">
+            <h3>Avanzata</h3>
+            <div class="price-row">
+              <span class="new-price">da €329</span>
+            </div>
+            <div class="plan-sub">Per chi desidera un percorso più solido fino al controllo finale.</div>
+            <ul class="plan-list">
+              <li>Tutto Completa</li>
+              <li>Controllo finale esteso</li>
+              <li>Verifica complessiva della bozza</li>
+              <li>Preparazione più accurata alla consegna</li>
+              <li>Supporto rafforzato sulle ultime correzioni</li>
+            </ul>
+            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="avanzata">Scegli il piano</a>
           </article>
         </div>
       </div>
@@ -1280,22 +1412,21 @@
         <div class="extras-grid">
           <article class="extra-card">
             <h3>Revisioni aggiuntive</h3>
-            <p>Aggiungi revisioni extra quando ne hai bisogno.</p>
+            <p>Aggiungi revisioni extra su un capitolo quando quelle incluse non bastano.</p>
             <div class="extra-price">
-              <span class="old-price">39 €</span>
-              <span class="new-price">29 €</span>
+              <span class="new-price">da €29</span>
             </div>
             <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="extra-revisioni">Scegli il piano</a>
           </article>
 
           <article class="extra-card">
             <h3>Upgrade di piano</h3>
-            <p>Passa al piano superiore pagando solo la differenza.</p>
+            <p>Gli upgrade sono disponibili dopo l’acquisto di un piano e l’accesso all’app con la chiave ricevuta.</p>
             <div class="extra-price">
-              <span class="new-price">Da 30 €</span>
+              <span class="new-price">Disponibile dall’app</span>
             </div>
-            <div class="extra-note">Da Start a Pro: 30 € · da Pro a Premium: 40 € · da Start a Premium: 70 €</div>
-            <a class="btn btn-primary" href="#compatibilita" data-plan-link="1" data-plan="upgrade">Scegli il piano</a>
+            <div class="extra-note">Potrai passare a un piano superiore mantenendo stato tesi e contenuti già salvati. Il costo dipenderà dal piano di partenza e dal piano di destinazione.</div>
+            <a class="btn btn-secondary" href="/app/app-index.html">Accedi per gestire upgrade</a>
           </article>
         </div>
       </div>
@@ -1349,7 +1480,7 @@
           <h2>Inizia a lavorare sulla tua tesi con più ordine e continuità.</h2>
           <p>Scegli il piano più adatto e inizia subito a lavorare sulla tua tesi in modo più semplice ed efficace.</p>
           <div class="final-actions">
-            <a class="btn btn-primary" href="/app/app-index.html" data-app-link="1">Accedi all'app</a>
+            <a class="btn btn-primary" href="#piani">Scopri i piani</a>
             <a class="btn btn-secondary" href="#piani">Scegli il piano</a>
           </div>
           <div class="legal-note"><strong>Avvertenza essenziale:</strong> AccademIA fornisce supporto strutturato al percorso di tesi, ma non sostituisce relatore, università o verifica accademica finale. Il servizio non include raccolta dati originali o analisi statistiche proprietarie. Ogni contenuto deve essere controllato, rielaborato e validato dall'utente prima di qualsiasi utilizzo.</div>
@@ -1420,10 +1551,11 @@
     const ACCESS_KEY_CACHE = 'accademia_has_access_key_v1';
     const ACCESS_SESSION_KEY = '_td_gate_v12';
     const CHECKOUT_URLS = {
-      start: '',
-      pro: '',
-      premium: '',
-      'extra-revisioni': '',
+      starter: 'https://buy.stripe.com/14AdR9ffE04yb0n2Z76Ri01',
+      percorso: 'https://buy.stripe.com/4gMfZh7NcbNg6K72Z76Ri02',
+      completa: 'https://buy.stripe.com/3cI28r0kKg3w5G38jr6Ri03',
+      avanzata: 'https://buy.stripe.com/8x228rc3s6sWb0narz6Ri04',
+      'extra-revisioni': 'https://buy.stripe.com/7sYaEX9Vk6sWecz1V36Ri05',
       upgrade: ''
     };
 
@@ -1504,25 +1636,26 @@
       });
     }
 
+
     function planNavigate(event){
       event.preventDefault();
       event.stopPropagation();
       const plan = event.currentTarget.dataset.plan || '';
       const url = CHECKOUT_URLS[plan] || '';
-      const faculty = facultyEl?.value?.trim() || '';
-      const thesis = thesisEl?.value || '';
       if (url) {
         window.location.assign(url);
         return;
       }
-      const subject = encodeURIComponent('AccademIA - richiesta piano ' + (plan || 'standard'));
-      const body = encodeURIComponent(
-        'Piano richiesto: ' + (plan || 'standard') + '\\n' +
-        'Facoltà: ' + faculty + '\\n' +
-        'Tipologia tesi: ' + thesis + '\\n\\n' +
-        'Nota: collega qui il checkout definitivo oppure usa questa mail come fallback temporaneo.'
-      );
-      window.location.href = 'mailto:accademia-tesi@gmail.com?subject=' + subject + '&body=' + body;
+      scrollToCompatibility();
+      if (resultEl) {
+        resultEl.className = 'compat-result is-good';
+        resultEl.style.display = 'grid';
+        resultEl.innerHTML =
+          '<strong>Piano selezionato</strong>' +
+          '<p>Compatibilità confermata. Il piano è stato selezionato per la richiesta di attivazione. Dopo l’acquisto riceverai una chiave di accesso associata al piano scelto: sarà quella chiave ad attivare le funzioni corrispondenti nell’app.</p>' +
+          '<div class="compat-action-row"><a class="btn btn-secondary" href="' + APP_URL + '">Ho già una chiave / Accedi all’app</a></div>' +
+          '<p>La selezione del piano non attiva ancora funzioni nell’app: l’attivazione avviene tramite la chiave di accesso associata al piano acquistato.</p>';
+      }
     }
 
     function unlockPlans(){
@@ -1607,6 +1740,14 @@
       event.preventDefault();
       event.stopPropagation();
       scrollToCompatibility();
+      if (resultEl) {
+        resultEl.className = 'compat-result is-partial';
+        resultEl.style.display = 'grid';
+        resultEl.innerHTML =
+          '<strong>Completa prima il test di compatibilità</strong>' +
+          '<p>Prima di scegliere un piano devi ottenere una compatibilità valida. Se la facoltà è supportata con cautela, conferma anche la presa visione del perimetro limitato.</p>' +
+          '<div class="compat-action-row"><a class="btn btn-secondary" href="' + APP_URL + '">Ho già una chiave</a></div>';
+      }
     }
 
     function setResult(kind, title, message, options){

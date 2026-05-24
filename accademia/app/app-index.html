@@ -314,6 +314,7 @@
   .unlock-panel{display:none;}
   .unlock-panel.active{display:block;}
   .unlock-price-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+  #unlockUpgradeOptions{flex:2 1 260px;margin-bottom:0;}
   .unlock-price-card{flex:1;min-width:120px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px;text-align:center;cursor:pointer;transition:all .2s;}
   .unlock-price-card:hover,.unlock-price-card.selected{border-color:var(--gold);background:var(--gold-dim2);}
   .unlock-price-card .price{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold);}
@@ -482,7 +483,7 @@
         </div>
       </div>
       <div class="guide-note">
-        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> (+10 revisioni totali aggiuntive sulla tesi rispetto al budget base). Il codice viene inviato via email dopo l’attivazione.<br><br><strong>Licenza standard:</strong> una licenza resta associata a una sola tesi. La cancellazione dei contenuti non libera la licenza per una tesi diversa.<br><br>
+        <strong>⚠ Pacchetti aggiuntivi:</strong> Se esaurisci le revisioni disponibili, puoi attivare un <strong>Pacchetto Revisioni aggiuntive</strong> (+3 revisioni su un capitolo) oppure un <strong>Upgrade di piano</strong> coerente con il piano attivo. Dopo il pagamento ricevi una nuova chiave che attiva il piano superiore mantenendo lo stato della tesi.<br><br><strong>Licenza standard:</strong> una licenza resta associata a una sola tesi. La cancellazione dei contenuti non libera la licenza per una tesi diversa.<br><br>
         <strong>🔍 Fonti:</strong> AccademIA usa web search per trovare fonti reali, ma <strong>verifica sempre ogni citazione</strong> prima della consegna. Alcune fonti potrebbero richiedere accesso istituzionale (JSTOR, Scopus, ecc.).
       </div>
     </div>
@@ -585,7 +586,7 @@
         </label>
       </div>
       <div class="form-group full">
-        <label>Argomento della tesi</label>
+        <label>Titolo e argomento della tesi</label>
         <textarea id="argomento" placeholder="Es: L’impatto dell’intelligenza artificiale sul mercato del lavoro in Italia" rows="2" oninput="handleArgomentoInput()"></textarea>
         <div id="titleSuggestWrap" style="display:none;margin-top:12px;padding:12px 14px;border:1px solid rgba(255,215,102,.18);border-radius:14px;background:rgba(255,255,255,.02)">
           <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Suggerimenti titolo</div>
@@ -718,11 +719,11 @@
 <div class="modal-overlay" id="unlockModal">
   <div class="modal modal-wide">
     <button class="modal-close" onclick="closeModal('unlockModal')">✕</button>
-    <h2>🔓 Revisioni esaurite</h2>
+    <h2 id="unlockModalTitle">🔓 Revisioni esaurite</h2>
     <p id="unlockModalSub">Hai utilizzato tutte le revisioni disponibili. Attiva un pacchetto aggiuntivo oppure inserisci un codice già acquistato.</p>
     <div class="unlock-tabs">
       <button class="unlock-tab active" onclick="setUnlockTab('buy')">🛒 Attiva pacchetto</button>
-      <button class="unlock-tab" onclick="setUnlockTab('enter')">🔑 Inserisci codice</button>
+      <button class="unlock-tab" onclick="setUnlockTab('enter')">🔑 Inserisci codice o chiave</button>
     </div>
 
     <div class="unlock-panel active" id="unlockPanelBuy">
@@ -731,19 +732,16 @@
           <div class="price">0€</div>
           <div class="desc"><strong>Rinnovo revisioni</strong><br>+3 revisioni su<br>1 capitolo a scelta</div>
         </div>
-        <div class="unlock-price-card" id="cardPremium" onclick="selectUnlockPlan('premium')">
-          <div class="price">+10</div>
-          <div class="desc"><strong>Upgrade di piano</strong><br>+10 revisioni totali<br>su tutta la tesi</div>
-        </div>
+        <div id="unlockUpgradeOptions" class="unlock-price-row"></div>
       </div>
       <button class="phase-btn" id="btnGoToPurchase" onclick="goToPurchase()" style="margin-top:4px" disabled>Prosegui →</button>
       <div class="unlock-note" id="unlockBuyNote">Seleziona un’opzione per continuare.</div>
     </div>
 
     <div class="unlock-panel" id="unlockPanelEnter">
-      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Inserisci il codice ricevuto via email dopo l’attivazione del pacchetto.</p>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:10px;">Inserisci il codice revisioni già acquistato oppure la nuova chiave piano ricevuta dopo il pagamento Stripe.</p>
       <div class="unlock-code-row">
-        <input type="text" id="unlockCodeInput" placeholder="TESIA-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px;">
+        <input type="text" id="unlockCodeInput" placeholder="CODICE O CHIAVE" style="text-transform:uppercase;letter-spacing:2px;">
         <button class="btn-unlock" onclick="applyUnlockCode()">Applica</button>
       </div>
       <div class="unlock-note" id="unlockCodeMsg"></div>
@@ -831,7 +829,7 @@
       <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-text"><strong>Dati del progetto</strong><span>Compila tipo di laurea, facoltà, corso, approccio metodologico e poi argomento. Se hai già un indice del relatore, seleziona "Ho già un indice".</span></div></div>
       <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-text"><strong>Indice e Abstract</strong><span>AccademIA genera struttura e abstract ottimizzati per la tua disciplina. Le revisioni di indice e abstract sono <strong>illimitate e gratuite</strong> — non consumano il tuo budget.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-text"><strong>Capitoli con Web Search</strong><span>Ogni capitolo è scritto dopo ricerca web in tempo reale. Il contatore mostra le revisioni disponibili: <strong>3 per capitolo</strong>, con <strong>budget base fisso di 10 revisioni totali incluse</strong>.</span></div></div>
-      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade di piano</strong> (+10 rev. totali sulla tesi). Inserisci poi il codice per sbloccare.</span></div></div>
+      <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-text"><strong>Pacchetti aggiuntivi</strong><span>Se esaurisci i crediti, puoi attivare <strong>Revisioni aggiuntive</strong> (+3 rev. su 1 capitolo) oppure un <strong>Upgrade di piano</strong>. Inserisci poi la nuova chiave o il codice per sbloccare.</span></div></div>
       <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-text"><strong>Download DOCX</strong><span>Scarica la tesi completa in formato Word, formattata con margini accademici e pronta per la revisione del relatore.</span></div></div>
     </div>
     <div class="guide-note" style="margin-top:16px"><strong>⚠ Verifica sempre le fonti</strong> prima della consegna. AccademIA usa web search reale, ma alcune citazioni potrebbero richiedere accesso istituzionale (JSTOR, Scopus, PubMed).</div>
@@ -978,9 +976,27 @@ let thesis={
 
 let currentStep=0;
 const STORAGE_KEY='accademia_workflow_v2';
+const PLAN_STORAGE_KEY='accademia_active_plan_v1';
+const PLAN_DEFS={
+  starter:{label:'Starter',revisionBudget:0,chapters:false,progressiveExport:false,finalWorkflow:false,fullExport:false},
+  thesis:{label:'Percorso Tesi',revisionBudget:10,chapters:true,progressiveExport:true,finalWorkflow:false,fullExport:false},
+  complete:{label:'Completa',revisionBudget:15,chapters:true,progressiveExport:true,finalWorkflow:true,fullExport:true},
+  advanced:{label:'Avanzata',revisionBudget:20,chapters:true,progressiveExport:true,finalWorkflow:true,fullExport:true}
+};
+const PLAN_ALIASES={start:'starter',starter:'starter',base:'starter',pro:'thesis',percorso:'thesis','percorso-tesi':'thesis',thesis:'thesis',completa:'complete',complete:'complete',premium:'advanced',avanzata:'advanced',advanced:'advanced'};
+const PLAN_RANK={starter:0,thesis:1,complete:2,advanced:3};
+const UPGRADE_CHECKOUT_URLS={
+  'starter-percorso':'https://buy.stripe.com/dRmcN5gjIeZs2tR6bj6Ri07',
+  'starter-completa':'https://buy.stripe.com/5kQcN53wW4kOfgD6bj6Ri08',
+  'starter-avanzata':'https://buy.stripe.com/5kQ28rd7w6sW6K78jr6Ri09',
+  'percorso-completa':'https://buy.stripe.com/fZu6oH0kKbNg6K7arz6Ri0a',
+  'percorso-avanzata':'https://buy.stripe.com/bJebJ1c3seZs2tR57f6Ri0b',
+  'completa-avanzata':'https://buy.stripe.com/28E9AT7Nc2cG3xV0QZ6Ri0c'
+};
 const SYNC_KEY_STORAGE='accademia_sync_key_v1';
 const ACCOUNT_SESSION_STORAGE='accademia_account_session_v1';
 const ACCOUNT_EMAIL_STORAGE='accademia_account_email_v1';
+const ACCESS_PLAN_SESSION_KEY='accademia_access_plan_v1';
 const RECOVERY_LOCAL_KEY='accademia_last_valid_v1';
 const SNAPSHOT_LOCAL_KEY='accademia_snapshots_v1';
 const SNAPSHOT_LIMIT=15;
@@ -988,6 +1004,7 @@ let syncSaveTimer=null;
 let snapshotCache=[];
 let recoveryCache={local:null,sync:null,account:null,newest:null};
 const ADMIN_DASH_KEY_STORAGE='accademia_admin_dash_key_v1';
+let activePlan='starter';
 const FACULTY_COMPATIBILITY={
   veryGood:['Giurisprudenza','Lettere e Filosofia','Psicologia','Scienze Politiche e Relazioni Internazionali'],
   good:['Beni Culturali e Turismo','Economia e Management','Economia Aziendale','Lingue e Letterature Straniere','Scienze della Comunicazione','Scienze dell’Educazione e della Formazione','Scienze Sociali e Sociologia','Storia','Teologia'],
@@ -1227,6 +1244,7 @@ function buildProgressPayload(){
   return {
     thesis:deepClone(thesis),
     revState:deepClone(revState),
+    activePlan,
     currentStep,
     indiceMode,
     abstractMode,
@@ -1237,6 +1255,82 @@ function buildProgressPayload(){
     form:deepClone(captureFormState()),
     savedAt:new Date().toISOString()
   };
+}
+
+function normalizePlan(plan){
+  const key=String(plan||'').trim().toLowerCase().replace(/\s+/g,'-');
+  return PLAN_ALIASES[key] || (PLAN_DEFS[key] ? key : 'starter');
+}
+
+function getActivePlanDef(){
+  return PLAN_DEFS[normalizePlan(activePlan)] || PLAN_DEFS.starter;
+}
+
+function loadStoredPlan(){
+  try{return normalizePlan(localStorage.getItem(PLAN_STORAGE_KEY)||activePlan);}catch(_){return normalizePlan(activePlan);}
+}
+
+function loadSessionAccessPlan(){
+  try{return sessionStorage.getItem(ACCESS_PLAN_SESSION_KEY) ? normalizePlan(sessionStorage.getItem(ACCESS_PLAN_SESSION_KEY)) : '';}catch(_){return '';}
+}
+
+function setActivePlan(plan,{persist=true,toast=false}={}){
+  const previous=normalizePlan(activePlan);
+  activePlan=normalizePlan(plan);
+  const def=getActivePlanDef();
+  if(persist){
+    try{localStorage.setItem(PLAN_STORAGE_KEY,activePlan);}catch(_){ }
+  }
+  if(revState && Number(def.revisionBudget)>Number(revState.totalBudget||0)){
+    revState.totalBudget=Number(def.revisionBudget);
+  }
+  renderWorkflowHud();
+  syncPlanGatesUI();
+  if(toast && previous!==activePlan) showToast(`Piano attivo: ${def.label}`);
+  return activePlan;
+}
+
+function chooseHigherPlan(a,b){
+  const pa=normalizePlan(a);
+  const pb=normalizePlan(b);
+  return (PLAN_RANK[pb]||0)>(PLAN_RANK[pa]||0) ? pb : pa;
+}
+
+function isHigherPlan(candidate,current=activePlan){
+  const next=normalizePlan(candidate);
+  const currentPlan=normalizePlan(current);
+  return (PLAN_RANK[next]||0)>(PLAN_RANK[currentPlan]||0);
+}
+
+function planAllows(feature){
+  return !!getActivePlanDef()[feature];
+}
+
+function openPlanUpgradeBlock(feature='chapters'){
+  unlockContext='upgrade';
+  const labels={
+    chapters:'Capitoli disponibili dal piano Percorso Tesi.',
+    progressiveExport:'Export progressivo disponibile dal piano Percorso Tesi.',
+    finalWorkflow:'Fase finale disponibile nel piano Completa o Avanzata.',
+    fullExport:'Export finale completo disponibile nel piano Completa o Avanzata.',
+    upgrade:'Puoi passare a un piano superiore mantenendo lo stato della tesi già salvato.'
+  };
+  const message=labels[feature] || 'Funzione non inclusa nel piano attivo.';
+  const title=document.getElementById('unlockModalTitle');
+  if(title) title.textContent='🔓 Upgrade di piano';
+  const sub=document.getElementById('unlockModalSub');
+  if(sub) sub.textContent=`${message} Piano attivo: ${getActivePlanDef().label}. Puoi fare upgrade senza perdere lo stato della tesi già salvato. Dopo il pagamento riceverai una nuova chiave di accesso associata al piano superiore.`;
+  revState.unlockTargetChapter=null;
+  unlockPlan='';
+  refreshUnlockPlansUI();
+  setUnlockTab('buy');
+  openModal('unlockModal');
+}
+
+function requirePlanFeature(feature){
+  if(planAllows(feature)) return true;
+  openPlanUpgradeBlock(feature);
+  return false;
 }
 
 async function verifyAndConsumeCode(code) {
@@ -1568,6 +1662,8 @@ function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   thesis=deepClone(saved.thesis);
   if(thesis && (thesis.metodologia==='empirica' || thesis.metodologia==='teorica')) thesis.metodologia='teorico_bibliografica';
   normalizeApprovalState();
+  activePlan=normalizePlan(loadSessionAccessPlan() || saved.activePlan || loadStoredPlan());
+  try{localStorage.setItem(PLAN_STORAGE_KEY,activePlan);}catch(_){ }
   revState=normalizeRevState(deepClone(saved.revState));
   currentStep=Number.isFinite(saved.currentStep)?saved.currentStep:0;
   normalizeWorkflowConsistency();
@@ -1583,6 +1679,7 @@ function applySavedState(saved,toastMessage='Sessione ripristinata ✓'){
   renderWorkflowHud();
   refreshCompatibilityModalContent();
   updateGoBottomButton();
+  syncPlanGatesUI();
   window.__restoringState=false;
   try{localStorage.setItem(STORAGE_KEY, JSON.stringify(deepClone(saved)));}catch(_){ }
   if(toastMessage) showToast(toastMessage);
@@ -1761,14 +1858,15 @@ function normalizeRevState(state){
   next.perChapter = next.perChapter && typeof next.perChapter==='object' ? next.perChapter : {};
   const summedUsed = Object.values(next.perChapter).reduce((acc,val)=>acc+(Number(val)||0),0);
   next.totalUsed = Math.max(summedUsed, Number(next.totalUsed)||0);
-  next.totalBudget = Math.max(BASE_TOTAL_REV_BUDGET, Number(next.totalBudget)||0);
+  const planBudget=Number(getActivePlanDef?.().revisionBudget ?? BASE_TOTAL_REV_BUDGET);
+  next.totalBudget = Math.max(planBudget, Number(next.totalBudget)||0);
   next.premiumUnlocked = false;
   next.unlockTargetChapter = Number.isFinite(next.unlockTargetChapter) ? next.unlockTargetChapter : null;
   return next;
 }
 
 function initRevState(_nChapters){
-  revState.totalBudget = BASE_TOTAL_REV_BUDGET;
+  revState.totalBudget = Number(getActivePlanDef().revisionBudget)||0;
   revState.perChapter = {};
   revState.totalUsed = 0;
   revState.premiumUnlocked = false;
@@ -2255,6 +2353,7 @@ function getCurrentStepLabel(){
 
 function getWorkflowPills(){
   const pills=[];
+  pills.push({label:`Piano: ${getActivePlanDef().label}`, cls:activePlan==='starter'?'warn':'ok'});
   pills.push({label: thesis.indice ? 'Indice pronto' : 'Indice mancante', cls: thesis.indice ? 'ok' : 'warn'});
   pills.push({label: thesis.abstract ? 'Abstract pronto' : 'Abstract mancante', cls: thesis.abstract ? 'ok' : 'warn'});
   const chapterCount=(thesis.chapters||[]).filter(Boolean).length;
@@ -2287,8 +2386,43 @@ function renderWorkflowHud(){
     : (accountEmail
       ? '<strong>Non necessaria</strong><br><span style="color:var(--text3)">account già primario</span>'
       : '<strong>Non attiva</strong><br><span style="color:var(--text3)">chiave assente</span>');
-  revEl.innerHTML=`<strong>${remaining} / ${revState.totalBudget||0}</strong><br><span style="color:var(--text3)">budget residuo</span>`;
+  if(!planAllows('chapters') || !Number(getActivePlanDef().revisionBudget)){
+    revEl.innerHTML='<strong>Non incluse</strong><br><span style="color:var(--text3)">piano Starter</span>';
+  } else {
+    revEl.innerHTML=`<strong>${remaining} / ${revState.totalBudget||0}</strong><br><span style="color:var(--text3)">budget residuo</span>`;
+  }
   pillsEl.innerHTML=getWorkflowPills().map(p=>`<span class="workflow-pill ${p.cls}">${escHtml(p.label)}</span>`).join('');
+}
+
+function ensurePlanUpgradeFloatingButton(){
+  let btn=document.getElementById('planUpgradeFloatingBtn');
+  if(normalizePlan(activePlan)==='advanced'){
+    if(btn) btn.remove();
+    return;
+  }
+
+  const bar=document.getElementById('progressiveExportBar');
+  if(!bar) return;
+
+  if(!btn){
+    btn=document.createElement('button');
+    btn.id='planUpgradeFloatingBtn';
+    btn.type='button';
+    btn.textContent='⬆ Upgrade piano';
+    btn.onclick=()=>openPlanUpgradeBlock('upgrade');
+    btn.style.cssText='position:static;margin-top:10px;padding:11px 16px;border-radius:12px;border:1px solid rgba(201,168,76,.55);background:rgba(201,168,76,.12);color:#e6c85c;font-weight:700;cursor:pointer;';
+  }
+
+  if(btn.parentNode!==bar) bar.appendChild(btn);
+}
+
+function syncPlanGatesUI(){
+  ensurePlanUpgradeFloatingButton();
+  const progressive=document.getElementById('progressiveExportBar');
+  if(progressive) progressive.style.display=planAllows('progressiveExport') ? 'flex' : 'none';
+  if(typeof window.renderFinalSectionsPanel === 'function'){
+    window.renderFinalSectionsPanel();
+  }
 }
 
 function recordEntitlement(kind,source,extra={}){
@@ -2507,7 +2641,8 @@ async function acceptDisclaimer(){
   }
   sessionStorage.setItem(ACCESS_SESSION_KEY,'1');
   sessionStorage.setItem('_td_accepted','1');
-  sessionStorage.setItem(OWNER_FREE_RENEWAL_SESSION_KEY,'1');
+  sessionStorage.setItem(ACCESS_PLAN_SESSION_KEY, normalizePlan(access.plan || 'starter'));
+  setActivePlan(access.plan || 'starter',{persist:true});
   applyAccessState(true);
   restoreProgressOnLoad(false).finally(()=>{setTimeout(()=>maybeOpenCompatibilityModal(true),220);});
 }
@@ -2516,6 +2651,7 @@ function logoutAccess(){
   sessionStorage.removeItem(ACCESS_SESSION_KEY);
   sessionStorage.removeItem('_td_accepted');
   sessionStorage.removeItem(OWNER_FREE_RENEWAL_SESSION_KEY);
+  sessionStorage.removeItem(ACCESS_PLAN_SESSION_KEY);
   sessionStorage.removeItem(COMPAT_MODAL_SESSION_KEY);
   applyAccessState(false);
 }
@@ -2550,6 +2686,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   if(facoltaEl) facoltaEl.addEventListener('change',()=>{renderCompatibilityNotice();refreshCompatibilityModalContent();});
 
   const unlocked = sessionStorage.getItem(ACCESS_SESSION_KEY) === '1';
+  setActivePlan(loadSessionAccessPlan() || loadStoredPlan(),{persist:true});
   applyAccessState(unlocked);
   checkDisclaimer();
   await restoreProgressOnLoad(false);
@@ -2573,6 +2710,7 @@ function toggleGuide(){
 
 // ── UNLOCK MODAL ──
 let unlockPlan='';
+let unlockContext='revision';
 function openUnlockModal(chapIdx){
   revState.unlockTargetChapter=chapIdx;
   const total=thesis.chapterTitles.length;
@@ -2583,7 +2721,6 @@ function openUnlockModal(chapIdx){
       : `Hai esaurito il budget totale di revisioni (${revState.totalBudget}). Attiva un Upgrade di piano per continuare.`;
   unlockPlan='';
   document.getElementById('cardBase').classList.remove('selected');
-  document.getElementById('cardPremium').classList.remove('selected');
   document.getElementById('btnGoToPurchase').disabled=true;
   document.getElementById('btnGoToPurchase').textContent='Prosegui →';
   document.getElementById('unlockBuyNote').textContent="Seleziona un’opzione per continuare.";
@@ -2605,14 +2742,47 @@ function isPersonalFreeRenewalEnabled(){
   return sessionStorage.getItem(OWNER_FREE_RENEWAL_SESSION_KEY)==='1';
 }
 
+function getAvailablePlanUpgrades(){
+  const current=normalizePlan(activePlan);
+  const upgrades={
+    starter:[
+      {key:'starter-percorso',from:'Starter',to:'Percorso Tesi',target:'thesis',price:'€70'},
+      {key:'starter-completa',from:'Starter',to:'Completa',target:'complete',price:'€150'},
+      {key:'starter-avanzata',from:'Starter',to:'Avanzata',target:'advanced',price:'€250'}
+    ],
+    thesis:[
+      {key:'percorso-completa',from:'Percorso Tesi',to:'Completa',target:'complete',price:'€80'},
+      {key:'percorso-avanzata',from:'Percorso Tesi',to:'Avanzata',target:'advanced',price:'€180'}
+    ],
+    complete:[
+      {key:'completa-avanzata',from:'Completa',to:'Avanzata',target:'advanced',price:'€100'}
+    ],
+    advanced:[]
+  };
+  return upgrades[current] || upgrades.starter;
+}
+
 function refreshUnlockPlansUI(){
   const baseCard=document.getElementById('cardBase');
-  const premiumCard=document.getElementById('cardPremium');
+  const upgradeWrap=document.getElementById('unlockUpgradeOptions');
   const note=document.getElementById('unlockBuyNote');
-  if(baseCard) baseCard.style.display = isPersonalFreeRenewalEnabled() ? '' : 'none';
-  if(unlockPlan==='base' && !isPersonalFreeRenewalEnabled()) unlockPlan='';
+  const currentDef=getActivePlanDef();
+  const upgrades=getAvailablePlanUpgrades();
+  const allowBaseRenewal = unlockContext==='revision' && isPersonalFreeRenewalEnabled();
+  if(baseCard) baseCard.style.display = allowBaseRenewal ? '' : 'none';
+  if(unlockPlan==='base' && !allowBaseRenewal) unlockPlan='';
+  if(unlockPlan && unlockPlan!=='base' && !upgrades.some(upgrade=>upgrade.key===unlockPlan)) unlockPlan='';
   if(baseCard) baseCard.classList.toggle('selected',unlockPlan==='base');
-  if(premiumCard) premiumCard.classList.toggle('selected',unlockPlan==='premium');
+  if(upgradeWrap){
+    upgradeWrap.innerHTML = upgrades.length
+      ? upgrades.map(upgrade=>`
+        <div class="unlock-price-card ${unlockPlan===upgrade.key?'selected':''}" onclick="selectUnlockPlan('${upgrade.key}')">
+          <div class="price">${upgrade.price}</div>
+          <div class="desc"><strong>${upgrade.from} → ${upgrade.to}</strong><br>Nuova chiave piano<br>stato tesi mantenuto</div>
+        </div>
+      `).join('')
+      : '<div class="unlock-note">Hai già il piano più alto disponibile.</div>';
+  }
   const btn=document.getElementById('btnGoToPurchase');
   if(btn){
     btn.disabled=!unlockPlan;
@@ -2623,6 +2793,14 @@ function refreshUnlockPlansUI(){
       ? 'Rinnovo gratuito personale: +3 revisioni sul capitolo selezionato. Disponibile solo sul tuo accesso autorizzato.'
       : "Dopo l’attivazione ricevi il codice via email. Torna qui e inserisci il codice nel tab 'Inserisci codice' per sbloccare le revisioni aggiuntive.";
   }
+  if(btn && unlockPlan!=='base'){
+    btn.textContent = "Procedi al pagamento Stripe →";
+  }
+  if(note && unlockPlan!=='base'){
+    note.textContent = upgrades.length
+      ? `Piano attivo: ${currentDef.label}. Dopo il pagamento riceverai una nuova chiave di accesso: inseriscila qui per attivare il piano superiore senza perdere lo stato della tesi.`
+      : 'Piano attivo: Avanzata. Non sono disponibili ulteriori upgrade di piano.';
+  }
 }
 
 function selectUnlockPlan(plan){
@@ -2630,11 +2808,13 @@ function selectUnlockPlan(plan){
     showToast('Rinnovo gratuito non disponibile su questo profilo', true);
     return;
   }
+  if(plan!=='base' && !getAvailablePlanUpgrades().some(upgrade=>upgrade.key===plan)){
+    showToast('Upgrade non disponibile per il piano attivo', true);
+    return;
+  }
   unlockPlan=plan;
   refreshUnlockPlansUI();
 }
-
-const GUMROAD_PREMIUM_URL='https://gumroad.com/l/TESIA-PREMIUM';
 
 function grantFreeBaseRenewal(){
   if(!isPersonalFreeRenewalEnabled()){
@@ -2668,16 +2848,39 @@ function goToPurchase(){
     grantFreeBaseRenewal();
     return;
   }
-  window.open(GUMROAD_PREMIUM_URL,'_blank');
+  const url=UPGRADE_CHECKOUT_URLS[unlockPlan];
+  if(!url){
+    showToast('Seleziona un upgrade disponibile', true);
+    return;
+  }
+  window.open(url,'_blank');
   setUnlockTab('enter');
 }
 
 async function applyUnlockCode(){
-  const raw=document.getElementById('unlockCodeInput').value.trim().toUpperCase();
+  const rawInput=document.getElementById('unlockCodeInput').value.trim();
+  const raw=rawInput.toUpperCase();
   if(!raw){showToast('Inserisci un codice',true);return;}
   const msgEl=document.getElementById('unlockCodeMsg');
   msgEl.style.color='var(--text3)';
   msgEl.textContent='⏳ Verifica in corso...';
+
+  const access = await apiTask('__verify_access_key',{accessKey:rawInput}).catch(()=>({valid:false,reason:'error'}));
+  if(access?.valid && access.plan){
+    const nextPlan=normalizePlan(access.plan);
+    const currentPlan=normalizePlan(activePlan);
+    if(!isHigherPlan(nextPlan,currentPlan)){
+      msgEl.style.color='var(--red)';
+      msgEl.textContent=`Questa chiave corrisponde al piano ${PLAN_DEFS[nextPlan]?.label || nextPlan}, che non è superiore al piano attivo (${getActivePlanDef().label}). Il piano non è stato modificato.`;
+      return;
+    }
+    try{sessionStorage.setItem(ACCESS_PLAN_SESSION_KEY,nextPlan);}catch(_){ }
+    setActivePlan(nextPlan,{persist:true,toast:true});
+    saveProgress();
+    closeModal('unlockModal');
+    showToast(`Piano ${getActivePlanDef().label} attivato. Lo stato della tesi è stato mantenuto.`);
+    return;
+  }
 
   let result;
   try{
@@ -2697,13 +2900,8 @@ async function applyUnlockCode(){
   }
 
   if(result.type==='premium'){
-    revState.totalBudget = revState.totalBudget + 10;
-    thesis.chapters.forEach((_,i)=>renderRevCounter(i));
-    renderGlobalCounter();
-    recordEntitlement('premium','code',{code:raw});
-    saveProgress();
-    closeModal('unlockModal');
-    showToast('✦ Upgrade di piano attivato — +10 revisioni aggiunte!');
+    msgEl.style.color='var(--red)';
+    msgEl.textContent='Gli upgrade di piano ora si attivano con una nuova chiave di accesso piano. Inserisci la chiave ricevuta dopo il pagamento Stripe.';
     return;
   }
   if(result.type==='base'){
@@ -3242,6 +3440,12 @@ function scheduleChapterFlowAutoScroll(idx=thesis.currentChapterIdx){
 function renderNextChapterLauncher(){
   const nc=document.getElementById('nextChapters');
   if(!nc) return;
+  if(!planAllows('chapters')){
+    nc.innerHTML=`<button class="phase-btn" id="btnChapterAction" onclick="openPlanUpgradeBlock('chapters')">🔓 Sblocca capitoli</button>`;
+    nc.classList.add('visible');
+    relocateChapterFlowBlocks();
+    return;
+  }
   if(!thesis.chapterTitles?.length || thesis.currentChapterIdx>=thesis.chapterTitles.length){
     nc.classList.remove('visible');
     nc.innerHTML='';
@@ -3267,6 +3471,7 @@ function removeChapterDomFrom(startIdx){
 
 function skipAbstractAndGoToChapters(){
   if(!ensureCompatibilityGuard()) return;
+  if(!requirePlanFeature('chapters')) return;
   if(!thesis.indice){showToast("Genera e approva prima l’indice",true);return;}
   if(!thesis.chapterTitles?.length) thesis.chapterTitles=extractChapterTitles(thesis.indice);
   thesis.currentChapterIdx=Math.max(0,Math.min(Number(thesis.currentChapterIdx)||0,thesis.chapters.length||0));
@@ -3580,6 +3785,7 @@ function goToNextChapterFromApproved(idx){
 }
 
 function focusFinalTools(){
+  if(!requirePlanFeature('fullExport')) return;
   const bar=document.getElementById('downloadBar');
   if(bar){
     bar.style.display='flex';
@@ -3770,10 +3976,11 @@ function restoreProgressUI(savedForm=null){
     refreshRevisionUi();
   }
   if(currentStep>=4){
-    document.getElementById('downloadBar').style.display='flex';
+    document.getElementById('downloadBar').style.display=planAllows('fullExport')?'flex':'none';
     updateWordCount();
   }
   setStep(currentStep||0);
+  syncPlanGatesUI();
 }
 
 async function restoreProgressOnLoad(showToastOnSuccess=true){
@@ -4892,11 +5099,13 @@ async function runChapterGeneration(idx,opts={}){
 }
 
 async function generateNextChapter(){
+  if(!requirePlanFeature('chapters')) return;
   scheduleChapterFlowAutoScroll(thesis.currentChapterIdx);
   return runChapterGeneration(thesis.currentChapterIdx,{forceFresh:false});
 }
 
 async function resumeChapterGeneration(idx=thesis.currentChapterIdx,forceFresh=false){
+  if(!requirePlanFeature('chapters')) return;
   thesis.currentChapterIdx=idx;
   renderNextChapterLauncher();
   scheduleChapterFlowAutoScroll(idx);
@@ -4924,9 +5133,10 @@ function approveLastChapter(){
   document.getElementById('nextChapters').classList.remove('visible');
   updateChapterProgressBar(idx,thesis.chapterTitles.length,true);
   setStep(4);
-  document.getElementById('downloadBar').style.display='flex';
+  document.getElementById('downloadBar').style.display=planAllows('fullExport')?'flex':'none';
   updateWordCount();
-  document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
+  if(planAllows('fullExport')) document.getElementById('downloadBar').scrollIntoView({behavior:'smooth'});
+  else openPlanUpgradeBlock('fullExport');
   syncChapterActionButtons(idx);
   setChapterCollapsed(idx,true);
   updateChapterSavedBlockStatus(idx);
@@ -4988,6 +5198,7 @@ function hasSubstantialRevisionChange(beforeText,afterText){
 }
 
 async function reviseChapter(idx){
+  if(!requirePlanFeature('chapters')) return;
   if(!ensureSingleThesisCommit('chapter_revision')) return;
   await saveLastValidState(`prima_revisione_capitolo_${idx+1}`,{silent:true});
   const beforeChapter=(thesis.chapters?.[idx]?.content)||'';
@@ -5074,6 +5285,7 @@ ${notesApparatusEnabled() ? '- Mantieni o inserisci in chiusura una sezione fina
 
 
 async function tutorReviseChapter(idx){
+  if(!requirePlanFeature('chapters')) return;
   if(!ensureSingleThesisCommit('tutor_revision')) return;
   await saveLastValidState(`prima_revisione_relatore_capitolo_${idx+1}`,{silent:true});
   const beforeTutorChapter=(thesis.chapters?.[idx]?.content)||'';
@@ -5331,6 +5543,7 @@ function copyChapter(idx){
 }
 
 function copyFullThesis(){
+  if(!requirePlanFeature('fullExport')) return;
   copyTextValue('Tesi completa', buildFullPlainText());
 }
 
@@ -5469,6 +5682,7 @@ function downloadChapterTxt(idx){
 }
 
 function downloadDocx(){
+  if(!requirePlanFeature('fullExport')) return;
   const html=buildWordHTML();
   const blob=new Blob([html],{type:'application/vnd.ms-word;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -5478,15 +5692,18 @@ function downloadDocx(){
 }
 
 function downloadFullTxt(){
+  if(!requirePlanFeature('fullExport')) return;
   downloadTextFile(safeTxtName('Tesi_completa'), buildFullPlainText());
   showToast('Download testo completo avviato ✓');
 }
 
 function copyWorkInProgress(){
+  if(!requirePlanFeature('progressiveExport')) return;
   copyTextValue('Lavoro completo finora', buildWorkInProgressPlainText());
 }
 
 function downloadWorkInProgressTxt(){
+  if(!requirePlanFeature('progressiveExport')) return;
   downloadTextFile(safeTxtName('Lavoro_completo_finora'), buildWorkInProgressPlainText());
   showToast('Download lavoro completo finora avviato ✓');
 }
@@ -5555,6 +5772,7 @@ function buildFormattedThesisDocHtml(){
 }
 
 function downloadFormattedThesisDoc(){
+  if(!requirePlanFeature('fullExport')) return;
   const hasContent=String(thesis.indice||'').trim() || String(thesis.abstract||'').trim() || (thesis.chapters||[]).some((_,idx)=>String(getCanonicalChapterContentLocal(idx,{persist:true}) || '').trim());
   if(!hasContent){
     showToast('Nessun contenuto disponibile per la bozza formattata', true);
@@ -5901,6 +6119,10 @@ function downloadFormattedThesisDoc(){
       else if(container) container.appendChild(card);
       else document.body.appendChild(card);
     }
+    if(!planAllows('finalWorkflow')){
+      card.innerHTML=`<div class="final-workflow-head"><div><div class="final-workflow-title">Fase finale della tesi</div><div class="final-workflow-subtitle">Conclusioni, bibliografia e riferimenti finali sono inclusi nel piano Completa o Avanzata.</div></div><span class="final-workflow-status">Upgrade richiesto</span></div><div class="final-workflow-body"><div class="final-workflow-note">Il lavoro già salvato resta disponibile: l'upgrade cambia solo il piano attivo.</div><button class="btn-approve" onclick="openPlanUpgradeBlock('finalWorkflow')">Sblocca fase finale</button></div>`;
+      return;
+    }
     const ready=areChaptersReadyForFinal();
     const generated=hasAnyFinalSection();
     const isGenerating=thesis.finalWorkflowState==='generating';
@@ -5945,6 +6167,7 @@ function downloadFormattedThesisDoc(){
 
   window.saveFinalEditorValues=saveFinalEditorValues;
   window.saveFinalSectionsManual=function saveFinalSectionsManual(){
+    if(!requirePlanFeature('finalWorkflow')) return;
     saveFinalEditorValues();
     if(typeof showToast==='function') showToast('Fase finale salvata ✓');
     renderFinalSectionsPanel();
@@ -5960,6 +6183,7 @@ function downloadFormattedThesisDoc(){
 
   window.generateFinalSections=async function generateFinalSections(){
     if(typeof thesis==='undefined' || !thesis) return;
+    if(!requirePlanFeature('finalWorkflow')) return;
     ensureFinalWorkflowState();
     saveFinalEditorValues();
     thesis.finalWorkflowState='generating';

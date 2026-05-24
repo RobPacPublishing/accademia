@@ -187,8 +187,8 @@ export default async function handler(req, res) {
           await recordEvent('access_key_invalid', { hasValue: !!accessKey });
           return sendJson(res, 200, result);
         }
-        await recordEvent('access_key_ok', { source: result.source });
-        return sendJson(res, 200, { valid: true, role: 'user' });
+        await recordEvent('access_key_ok', { source: result.source, plan: result.plan });
+        return sendJson(res, 200, { valid: true, role: 'user', plan: result.plan || 'starter' });
       }
 
       case 'outline_draft':
@@ -591,14 +591,22 @@ function verifyUserAccessKey(rawAccessKey) {
   if (!accessKey) return { valid: false, reason: 'invalid' };
 
   const cfg = parseUserAccessConfig();
-  if (cfg.standard.has(accessKey)) return { valid: true, source: 'standard' };
-  if (cfg.test.has(accessKey)) return { valid: true, source: 'test_user' };
+  if (cfg.starter.has(accessKey)) return { valid: true, source: 'starter', plan: 'starter' };
+  if (cfg.thesis.has(accessKey)) return { valid: true, source: 'thesis', plan: 'thesis' };
+  if (cfg.complete.has(accessKey)) return { valid: true, source: 'complete', plan: 'complete' };
+  if (cfg.advanced.has(accessKey)) return { valid: true, source: 'advanced', plan: 'advanced' };
+  if (cfg.standard.has(accessKey)) return { valid: true, source: 'standard', plan: 'starter' };
+  if (cfg.test.has(accessKey)) return { valid: true, source: 'test_user', plan: 'advanced' };
   return { valid: false, reason: 'invalid' };
 }
 
 function parseUserAccessConfig() {
   const standard = new Set();
   const test = new Set();
+  const starter = new Set();
+  const thesis = new Set();
+  const complete = new Set();
+  const advanced = new Set();
   const standardCsv = String(
     process.env.USER_ACCESS_KEYS
     || process.env.ACC_USER_ACCESS_KEYS
@@ -606,11 +614,19 @@ function parseUserAccessConfig() {
     || LEGACY_PUBLIC_ACCESS_CODE
   );
   const testCsv = String(process.env.TEST_USER_ACCESS_KEYS || '');
+  const starterCsv = String(process.env.STARTER_ACCESS_KEYS || process.env.ACC_STARTER_ACCESS_KEYS || '');
+  const thesisCsv = String(process.env.THESIS_ACCESS_KEYS || process.env.ACC_THESIS_ACCESS_KEYS || process.env.PERCORSO_TESI_ACCESS_KEYS || '');
+  const completeCsv = String(process.env.COMPLETE_ACCESS_KEYS || process.env.COMPLETA_ACCESS_KEYS || process.env.ACC_COMPLETE_ACCESS_KEYS || '');
+  const advancedCsv = String(process.env.ADVANCED_ACCESS_KEYS || process.env.ACC_ADVANCED_ACCESS_KEYS || process.env.PREMIUM_ACCESS_KEYS || '');
 
   standardCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => standard.add(x));
   testCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => test.add(x));
+  starterCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => starter.add(x));
+  thesisCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => thesis.add(x));
+  completeCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => complete.add(x));
+  advancedCsv.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).forEach((x) => advanced.add(x));
 
-  return { standard, test };
+  return { standard, test, starter, thesis, complete, advanced };
 }
 
 
