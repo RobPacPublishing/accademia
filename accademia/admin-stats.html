@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AccademIA â€” Statistiche private</title>
+  <style>
+    :root {
+      --bg:#050505;
+      --card:#111;
+      --line:rgba(201,168,76,.22);
+      --text:#f5f0e8;
+      --muted:#bfb5a3;
+      --gold:#c9a84c;
+      --danger:#d66;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      background:linear-gradient(180deg,#070707,#050505);
+      color:var(--text);
+      line-height:1.55;
+    }
+    main { width:min(1100px,calc(100% - 32px)); margin:0 auto; padding:34px 0 60px; }
+    h1 { margin:0 0 8px; color:var(--gold); font-size:34px; }
+    p { color:var(--muted); }
+    .card {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:20px;
+      margin:18px 0;
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+    }
+    label { display:block; margin:0 0 8px; font-weight:700; }
+    input, select {
+      width:100%;
+      padding:13px 14px;
+      border-radius:12px;
+      border:1px solid #333;
+      background:#080808;
+      color:var(--text);
+      font-size:15px;
+    }
+    button {
+      margin-top:14px;
+      border:0;
+      border-radius:12px;
+      padding:13px 18px;
+      font-weight:800;
+      cursor:pointer;
+      background:linear-gradient(135deg,#f2d46b,#c9a84c);
+      color:#090704;
+    }
+    .grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px;
+    }
+    .metric {
+      border:1px solid rgba(201,168,76,.16);
+      border-radius:16px;
+      padding:16px;
+      background:#0b0b0b;
+    }
+    .metric strong { display:block; font-size:30px; color:var(--gold); line-height:1; }
+    .metric span { display:block; color:var(--muted); margin-top:8px; font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+    th, td { border-bottom:1px solid #262626; padding:10px 8px; text-align:left; vertical-align:top; }
+    th { color:var(--gold); }
+    code { color:#f2d46b; }
+    .error { color:var(--danger); font-weight:700; }
+    .small { font-size:13px; color:#9f9584; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>AccademIA â€” Statistiche private</h1>
+  <p>Pagina non collegata al sito pubblico. Accesso protetto da chiave admin.</p>
+
+  <section class="card">
+    <label for="adminKey">Chiave admin statistiche</label>
+    <input id="adminKey" type="password" placeholder="Inserisci ADMIN_DASH_KEY">
+    <label for="days" style="margin-top:14px;">Periodo</label>
+    <select id="days">
+      <option value="1">Oggi</option>
+      <option value="7" selected>Ultimi 7 giorni</option>
+      <option value="14">Ultimi 14 giorni</option>
+      <option value="30">Ultimi 30 giorni</option>
+    </select>
+    <button id="loadBtn">Carica statistiche</button>
+    <p class="small">Suggerimento: per non conteggiare i tuoi accessi pubblici, apri una volta la home con <code>?owner=1</code>. Per riattivare il conteggio sul tuo browser usa <code>?owner=0</code>.</p>
+  </section>
+
+  <section class="card">
+    <h2>Totali</h2>
+    <div id="totals" class="grid"></div>
+  </section>
+
+  <section class="card">
+    <h2>Giorni</h2>
+    <div id="daily"></div>
+  </section>
+
+  <section class="card">
+    <h2>Eventi recenti</h2>
+    <div id="events"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const keyInput = document.getElementById('adminKey');
+  const daysInput = document.getElementById('days');
+  const loadBtn = document.getElementById('loadBtn');
+  const totalsEl = document.getElementById('totals');
+  const dailyEl = document.getElementById('daily');
+  const eventsEl = document.getElementById('events');
+
+  keyInput.value = localStorage.getItem('accademia_stats_admin_key') || '';
+
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function (ch) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+    });
+  }
+
+  function label(key) {
+    const labels = {
+      home_visit: 'Visite home',
+      app_access: 'Accessi app',
+      app_link_click: 'Clic accesso app',
+      compatibility_click: 'Clic compatibilitÃ ',
+      plan_click: 'Clic piani',
+      checkout_click: 'Clic checkout',
+      access_key_ok: 'Chiavi valide',
+      access_key_invalid: 'Chiavi errate',
+      provider_success: 'Generazioni ok',
+      provider_partial: 'Generazioni parziali',
+      provider_timeout: 'Timeout',
+      account_verify_ok: 'Account verificati',
+    };
+    return labels[key] || key;
+  }
+
+  function renderTotals(totals) {
+    const entries = Object.entries(totals || {}).sort((a,b) => String(a[0]).localeCompare(String(b[0])));
+    if (!entries.length) {
+      totalsEl.innerHTML = '<p>Nessun dato disponibile.</p>';
+      return;
+    }
+    totalsEl.innerHTML = entries.map(([k,v]) => (
+      '<div class="metric"><strong>' + esc(v) + '</strong><span>' + esc(label(k)) + '</span></div>'
+    )).join('');
+  }
+
+  function renderDaily(daily) {
+    if (!Array.isArray(daily) || !daily.length) {
+      dailyEl.innerHTML = '<p>Nessun dato disponibile.</p>';
+      return;
+    }
+    const rows = daily.map(day => {
+      const counts = Object.entries(day.counts || {})
+        .filter(([,v]) => Number(v) > 0)
+        .map(([k,v]) => esc(label(k)) + ': ' + esc(v))
+        .join('<br>');
+      return '<tr><td>' + esc(day.date) + '</td><td>' + (counts || 'â€”') + '</td></tr>';
+    }).join('');
+    dailyEl.innerHTML = '<table><thead><tr><th>Data</th><th>Conteggi</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function renderEvents(events) {
+    if (!Array.isArray(events) || !events.length) {
+      eventsEl.innerHTML = '<p>Nessun evento disponibile.</p>';
+      return;
+    }
+    const rows = events.map(ev => (
+      '<tr><td>' + esc(ev.at) + '</td><td><code>' + esc(label(ev.kind || ev.type)) + '</code></td><td><pre style="white-space:pre-wrap;margin:0;color:#bfb5a3;">' + esc(JSON.stringify(ev.payload || {}, null, 2)) + '</pre></td></tr>'
+    )).join('');
+    eventsEl.innerHTML = '<table><thead><tr><th>Ora</th><th>Evento</th><th>Dettaglio</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  async function loadStats() {
+    const adminKey = keyInput.value.trim();
+    const days = Number(daysInput.value || 7);
+    if (!adminKey) {
+      totalsEl.innerHTML = '<p class="error">Inserisci la chiave admin.</p>';
+      return;
+    }
+    localStorage.setItem('accademia_stats_admin_key', adminKey);
+    totalsEl.innerHTML = '<p>Caricamento...</p>';
+    dailyEl.innerHTML = '';
+    eventsEl.innerHTML = '';
+
+    try {
+      const resp = await fetch('/api/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: '__admin_stats', input: { adminKey, days } }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || data.error) {
+        throw new Error(data.details || data.error || 'Errore caricamento statistiche');
+      }
+      if (!data.configured) {
+        totalsEl.innerHTML = '<p class="error">' + esc(data.message || 'Statistiche non configurate.') + '</p>';
+        return;
+      }
+      renderTotals(data.totals);
+      renderDaily(data.daily);
+      renderEvents(data.events);
+    } catch (err) {
+      totalsEl.innerHTML = '<p class="error">' + esc(err.message || err) + '</p>';
+    }
+  }
+
+  loadBtn.addEventListener('click', loadStats);
+})();
+</script>
+</body>
+</html>

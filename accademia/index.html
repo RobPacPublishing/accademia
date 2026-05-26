@@ -1816,5 +1816,79 @@
   })();
 </script>
 
+
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([body], { type: 'application/json' });
+        navigator.sendBeacon(ENDPOINT, blob);
+        return;
+      }
+    } catch (_) {}
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('home_visit', { title: document.title });
+
+  document.addEventListener('click', function (event) {
+    const el = event.target.closest ? event.target.closest('a,button') : null;
+    if (!el) return;
+
+    const text = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+    const href = el.href || el.getAttribute('href') || '';
+    const plan = el.getAttribute('data-plan') || (el.closest('[data-plan]') ? el.closest('[data-plan]').getAttribute('data-plan') : '');
+    const combined = (text + ' ' + href + ' ' + plan).toLowerCase();
+
+    if (/stripe|checkout|gumroad|pagamento/.test(combined)) {
+      sendStat('checkout_click', { text, href, plan });
+    } else if (plan || /starter|percorso|completa|avanzata|piano|upgrade/.test(combined)) {
+      sendStat('plan_click', { text, href, plan });
+    } else if (/compatibil/.test(combined)) {
+      sendStat('compatibility_click', { text, href });
+    } else if (/accedi|app|inizia/.test(combined)) {
+      sendStat('app_link_click', { text, href });
+    }
+  }, true);
+})();
+</script>
+
 </body>
 </html>

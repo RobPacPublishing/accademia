@@ -1,4 +1,5 @@
 import { randomBytes, createHash } from 'node:crypto';
+import { recordStat, recordEvent, getStatsSnapshot } from './stats-store.js';
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
@@ -168,9 +169,9 @@ export default async function handler(req, res) {
         if (!ADMIN_DASH_KEY || String(input?.adminKey || '') !== ADMIN_DASH_KEY) {
           return sendJson(res, 403, { error: 'forbidden', details: 'Chiave dashboard non valida' });
         }
-        const stats = (await getJson(statsKey(todayKey()))) || defaultStats();
-        const events = ((await getJson(eventsKey())) || []).slice(0, 20);
-        return sendJson(res, 200, { stats, events });
+        const days = Math.max(1, Math.min(30, Number(input?.days || 7) || 7));
+        const snapshot = await getStatsSnapshot({ days, eventsLimit: 80 });
+        return sendJson(res, 200, snapshot);
       }
 
       case '__verify_unlock': {
@@ -184,10 +185,10 @@ export default async function handler(req, res) {
         const accessKey = String(input?.accessKey || '').trim();
         const result = verifyUserAccessKey(accessKey);
         if (!result.valid) {
-          await recordEvent('access_key_invalid', { hasValue: !!accessKey });
+          await recordStat('access_key_invalid', { hasValue: !!accessKey });
           return sendJson(res, 200, result);
         }
-        await recordEvent('access_key_ok', { source: result.source, plan: result.plan });
+        await recordStat('access_key_ok', { source: result.source, plan: result.plan });
         return sendJson(res, 200, { valid: true, role: 'user', plan: result.plan || 'starter' });
       }
 
@@ -472,52 +473,6 @@ async function setIfNotExists(key, value, exSeconds) {
     cmd.push('EX', String(exSeconds));
   }
   return await redisCommand(cmd);
-}
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function statsKey(day) {
-  return `accademia:stats:${day}`;
-}
-
-function eventsKey() {
-  return 'accademia:events';
-}
-
-function defaultStats() {
-  return {
-    date: todayKey(),
-    updatedAt: new Date().toISOString(),
-    counts: {
-      visit_ping: 0,
-      provider_success: 0,
-      provider_timeout: 0,
-      account_verify_ok: 0,
-    },
-  };
-}
-
-async function recordStat(kind, payload = {}) {
-  try {
-    const key = statsKey(todayKey());
-    const stats = (await getJson(key)) || defaultStats();
-    stats.date = todayKey();
-    stats.updatedAt = new Date().toISOString();
-    stats.counts = stats.counts || {};
-    stats.counts[kind] = (Number(stats.counts[kind]) || 0) + 1;
-    await putJson(key, stats, 8 * 24 * 60 * 60);
-    await recordEvent(kind, payload);
-  } catch (_) {}
-}
-
-async function recordEvent(kind, payload = {}) {
-  try {
-    const current = (await getJson(eventsKey())) || [];
-    current.unshift({ kind, at: new Date().toISOString(), payload });
-    await putJson(eventsKey(), current.slice(0, EVENT_LIMIT), 14 * 24 * 60 * 60);
-  } catch (_) {}
 }
 
 async function sendOtpEmail(email, code) {

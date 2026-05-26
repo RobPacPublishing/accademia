@@ -5558,7 +5558,53 @@ function downloadBlob(filename, content, mime='application/msword;charset=utf-8'
 }
 
 function buildSingleDoc(title, bodyHtml){
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{line-height:1.9;text-align:justify}pre{white-space:pre-wrap;line-height:1.9;font-family:Arial;font-size:11pt}@page{margin:3cm 2.5cm}</style></head><body><h1 style="font-size:18pt;margin-bottom:12pt">${escHtml(title)}</h1>${bodyHtml}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{line-height:1.9;text-align:justify}pre{white-space:pre-wrap;line-height:1.9;font-family:Arial;font-size:11pt}@page{margin:3cm 2.5cm}</style></head><body><h1 style="font-size:18pt;margin-bottom:12pt">${escHtml(title)}</h1>${bodyHtml}
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('app_access', { title: document.title });
+})();
+</script>
+
+</body></html>`;
 }
 
 function safeDocName(label){
@@ -5767,6 +5813,52 @@ function buildFormattedThesisDocHtml(){
   ${buildSection('<h1>Abstract</h1>', abstractHtml, true)}
 
   ${chapterBlocks.join('\n')}
+
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('app_access', { title: document.title });
+})();
+</script>
+
 </body>
 </html>`;
 }
@@ -6247,7 +6339,99 @@ function downloadFormattedThesisDoc(){
       const html=originalBuildFormattedThesisDocHtml();
       const finalHtml=finalSectionsAsHtml();
       if(!finalHtml) return html;
-      return String(html||'').replace('</body>',`${finalHtml}\\n</body>`);
+      return String(html||'').replace('
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('app_access', { title: document.title });
+})();
+</script>
+
+</body>',`${finalHtml}\\n
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('app_access', { title: document.title });
+})();
+</script>
+
+</body>`);
     };
   }
 
@@ -6296,7 +6480,53 @@ function buildWordHTML(){
     const chapterHeading=hasChapterHeading ? '' : `<h2 style="font-family:Georgia,serif;font-size:15pt;margin-bottom:10pt">CAPITOLO ${i+1}: ${escHtml(ch.title||thesis.chapterTitles?.[i]||'')}</h2>`;
     b+=`<div style="page-break-before:always">${chapterHeading}<div style="font-family:Arial;font-size:11pt;line-height:1.95;text-align:justify">${formatChapterHtml(chapterContent)}</div></div><br>`;
   });
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}pre{white-space:pre-wrap;line-height:1.9;font-family:Arial;font-size:10.5pt}@page{margin:3cm 2.5cm}</style></head><body>${b}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:3cm 2.5cm;font-family:Arial;font-size:11pt}h1,h2,h3{font-family:Georgia,serif}p{text-align:justify;line-height:1.9}pre{white-space:pre-wrap;line-height:1.9;font-family:Arial;font-size:10.5pt}@page{margin:3cm 2.5cm}</style></head><body>${b}
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('app_access', { title: document.title });
+})();
+</script>
+
+</body></html>`;
 }
 function formatChapterHtml(text){
   return text.split('\n').map(line=>{
@@ -7133,5 +7363,51 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 })();
 
 </script>
+
+<!-- ACC_STATS_TRACKER -->
+<script>
+(function () {
+  const ENDPOINT = '/api/task';
+
+  function isOwnerMode() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('owner') === '1' || qs.get('noStats') === '1') {
+        localStorage.setItem('accademia_owner_mode', '1');
+        return true;
+      }
+      if (qs.get('owner') === '0') {
+        localStorage.removeItem('accademia_owner_mode');
+        return false;
+      }
+      return localStorage.getItem('accademia_owner_mode') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function sendStat(event, payload) {
+    if (isOwnerMode()) return;
+    const body = JSON.stringify({
+      task: '__visit_ping',
+      input: Object.assign({
+        event,
+        path: location.pathname,
+        referrer: document.referrer || '',
+      }, payload || {}),
+    });
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(function () {});
+  }
+
+  sendStat('app_access', { title: document.title });
+})();
+</script>
+
 </body>
 </html>
