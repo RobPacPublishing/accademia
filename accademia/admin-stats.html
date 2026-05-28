@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AccademIA â€” Statistiche private</title>
+  <title>AccademIA - Statistiche private</title>
   <style>
     :root {
       --bg:#050505;
@@ -76,12 +76,12 @@
 </head>
 <body>
 <main>
-  <h1>AccademIA â€” Statistiche private</h1>
+  <h1>AccademIA - Statistiche private</h1>
   <p>Pagina non collegata al sito pubblico. Accesso protetto da chiave admin.</p>
 
   <section class="card">
     <label for="adminKey">Chiave admin statistiche</label>
-    <input id="adminKey" type="password" placeholder="Inserisci ADMIN_DASH_KEY">
+    <input id="adminKey" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="Inserisci ADMIN_DASH_KEY">
     <label for="days" style="margin-top:14px;">Periodo</label>
     <select id="days">
       <option value="1">Oggi</option>
@@ -131,7 +131,7 @@
       home_visit: 'Visite home',
       app_access: 'Accessi app',
       app_link_click: 'Clic accesso app',
-      compatibility_click: 'Clic compatibilitÃ ',
+      compatibility_click: 'Clic test compatibilita',
       plan_click: 'Clic piani',
       checkout_click: 'Clic checkout',
       access_key_ok: 'Chiavi valide',
@@ -188,7 +188,6 @@
       totalsEl.innerHTML = '<p class="error">Inserisci la chiave admin.</p>';
       return;
     }
-    localStorage.setItem('accademia_stats_admin_key', adminKey);
     totalsEl.innerHTML = '<p>Caricamento...</p>';
     dailyEl.innerHTML = '';
     eventsEl.innerHTML = '';
@@ -207,6 +206,7 @@
         totalsEl.innerHTML = '<p class="error">' + esc(data.message || 'Statistiche non configurate.') + '</p>';
         return;
       }
+      localStorage.setItem('accademia_stats_admin_key', adminKey);
       renderTotals(data.totals);
       renderDaily(data.daily);
       renderEvents(data.events);
